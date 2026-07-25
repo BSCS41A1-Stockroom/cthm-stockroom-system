@@ -214,3 +214,19 @@ body {
   }
 
 }
+
+.role-switch{
+    border:none;
+    background:transparent;
+    color:white;
+    cursor:pointer;
+    font-size:15px;
+    font-weight:600;
+    padding:8px 14px;
+    border-radius:8px;
+    transition:.2s;
+}
+
+.role-switch:hover{
+    background:rgba(255,255,255,.12);
+}
