@@ -1,4 +1,4 @@
-import { FaBars } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
 
 export default function Topbar({
   sidebarOpen,
@@ -6,6 +6,8 @@ export default function Topbar({
   sidebarCollapsed,
   setSidebarCollapsed,
 }) {
+  const navigate = useNavigate();
+
   const isMobile = window.innerWidth <= 768;
 
   const isActive = isMobile ? sidebarOpen : sidebarCollapsed;
@@ -21,19 +23,24 @@ export default function Topbar({
   return (
     <header className="topbar">
       <button
-            className={`menu-btn ${isActive ? "active" : ""} ${
-                isMobile ? "mobile" : "desktop"
-            }`}
-            onClick={toggleSidebar}
-            >
-            <span></span>
-            <span></span>
-            <span></span>
-        </button>
+        className={`menu-btn ${isActive ? "active" : ""} ${
+          isMobile ? "mobile" : "desktop"
+        }`}
+        onClick={toggleSidebar}
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
 
       <h2>CTHM Stockroom</h2>
 
-      <div className="user">Student</div>
+      <button
+        className="role-switch"
+        onClick={() => navigate("/admin")}
+      >
+        Student
+      </button>
     </header>
   );
 }
