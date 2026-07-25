@@ -130,20 +130,19 @@ body {
 }
 
 .menu-btn.desktop.active span:nth-child(1){
-    width:14px;
-    transform:translate(-9px,5px) rotate(-45deg);
-    transform-origin:left center;
+    transform:
+        translateY(9px)
+        rotate(45deg);
 }
 
 .menu-btn.desktop.active span:nth-child(2){
-    width:24px;
-    transform:translateX(-2px);
+    opacity:0;
 }
 
 .menu-btn.desktop.active span:nth-child(3){
-    width:14px;
-    transform:translate(-9px,-5px) rotate(45deg);
-    transform-origin:left center;
+    transform:
+        translateY(-9px)
+        rotate(-45deg);
 }
 
 .menu-btn.mobile.active span:nth-child(1){
@@ -163,6 +162,7 @@ body {
 }
 
 .menu-btn span{
+  
     box-shadow:0 0 6px rgba(255,255,255,.15);
 }
 
