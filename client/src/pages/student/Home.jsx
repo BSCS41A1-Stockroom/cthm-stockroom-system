@@ -1,3 +1,23 @@
+import "../../styles/home.css";
+
+import Hero from "../../components/student/home/Hero";
+import FeatureCards from "../../components/student/home/FeatureCards";
+import AnnouncementSection from "../../components/student/home/AnnouncementSection";
+
 export default function Home() {
-  return <h1>Home</h1>;
+
+  return (
+
+    <div className="home-page">
+
+      <Hero />
+
+      <FeatureCards />
+
+      <AnnouncementSection />
+
+    </div>
+
+  );
+
 }
