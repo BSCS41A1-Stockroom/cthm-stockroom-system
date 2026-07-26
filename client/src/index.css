@@ -65,9 +65,14 @@ body {
    MAIN
 =========================== */
 
-.main-content {
-  flex: 1;
-  transition: .35s ease;
+.main-content{
+
+    flex:1;
+
+    min-width:0;
+
+    overflow-x:hidden;
+
 }
 
 .topbar{
@@ -166,8 +171,12 @@ body {
     box-shadow:0 0 6px rgba(255,255,255,.15);
 }
 
-.page-content {
-  padding: 30px;
+.page-content{
+
+    padding:30px;
+
+    overflow-x:hidden;
+
 }
 
 /* ===========================
