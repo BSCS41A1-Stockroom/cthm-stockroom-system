@@ -34,14 +34,17 @@
 
 .requests-header {
   max-width: 1180px;
-  width: 100%;
+  width: 100% !important;
   margin: 0 auto 20px;
   flex-shrink: 0;
-  display: block;
+  display: block !important;
+  float: none !important;
 }
 
 .requests-header * {
-  display: block;
+  display: block !important;
+  width: 100% !important;
+  float: none !important;
 }
 
 .requests-eyebrow {
