@@ -2,18 +2,8 @@ import { useState } from "react";
 import { FaChevronDown } from "react-icons/fa";
 
 const months = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+  "January","February","March","April","May","June",
+  "July","August","September","October","November","December"
 ];
 
 export default function CalendarToolbar({
@@ -23,7 +13,9 @@ export default function CalendarToolbar({
   setCurrentYear,
   calendarView,
   setCalendarView,
+  onAdd,
 }) {
+
   const [showMenu, setShowMenu] = useState(false);
 
   const previousMonth = () => {
@@ -52,7 +44,9 @@ export default function CalendarToolbar({
 
   return (
     <header className="calendar-toolbar">
+
       <div className="toolbar-left">
+
         <button className="toolbar-btn">☰</button>
 
         <button
@@ -79,59 +73,54 @@ export default function CalendarToolbar({
         <h2>
           {months[currentMonth]} {currentYear}
         </h2>
+
       </div>
 
       <div className="toolbar-right">
-        <div
-          className="view-dropdown"
-          style={{ position: "relative" }}
-        >
+
           <button
-            className="view-btn"
-            onClick={() => setShowMenu(!showMenu)}
+            className="add-btn"
+            onClick={onAdd}
           >
-            {calendarView}
-            <FaChevronDown />
+            + Create
           </button>
 
-          {showMenu && (
-            <div
-                style={{
-                    position: "fixed",
-                    top: 120,
-                    left: 400,
-                    width: 180,
-                    background: "red",
-                    color: "white",
-                    zIndex: 999999999,
-                    padding: 20,
+        <div className="view-dropdown">
+
+          <button
+            className="view-btn"
+            onClick={() => setShowMenu(prev => !prev)}
+          >
+            {calendarView}
+            <FaChevronDown
+              className={showMenu ? "rotate" : ""}
+            />
+          </button>
+
+          <div
+            className={`view-menu ${
+              showMenu ? "show" : ""
+            }`}
+          >
+            {["Month", "Week", "Day", "Schedule"].map(view => (
+
+              <button
+                key={view}
+                onClick={() => {
+                  setCalendarView(view);
+                  setShowMenu(false);
                 }}
-            >
-              {["Month", "Week", "Day", "Schedule"].map(
-                (view) => (
-                  <button
-                    key={view}
-                    style={{
-                      width: "100%",
-                      padding: "12px 16px",
-                      border: "none",
-                      background: "#fff",
-                      textAlign: "left",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => {
-                      setCalendarView(view);
-                      setShowMenu(false);
-                    }}
-                  >
-                    {view}
-                  </button>
-                )
-              )}
-            </div>
-          )}
+              >
+                {view}
+              </button>
+
+            ))}
+          </div>
+
         </div>
+
       </div>
+
     </header>
   );
 }

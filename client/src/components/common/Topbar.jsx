@@ -1,4 +1,6 @@
-import { useNavigate } from "react-router-dom";
+
+import { FaBars } from "react-icons/fa";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function Topbar({
   sidebarOpen,
