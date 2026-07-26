@@ -4,7 +4,8 @@
 
 .admin-layout{
     display:flex;
-    min-height:100vh;
+    height:100vh;
+    overflow:hidden;
     background:#f5f7fb;
 }
 
@@ -93,8 +94,11 @@ MAIN
 
 .admin-main{
     flex:1;
+    min-width:0;
     display:flex;
     flex-direction:column;
+    overflow-y:auto;
+    overflow-x:hidden;
 }
 
 .admin-page{
@@ -241,9 +245,10 @@ left:0;
 }
 
 .admin-page{
-
-padding:18px;
-
+    flex:1;
+    padding:28px;
+    overflow-y:auto;
+    overflow-x:hidden;
 }
 
 .admin-search{
@@ -625,5 +630,170 @@ grid-template-columns:repeat(2,1fr);
 grid-template-columns:1fr;
 
 }
+
+}
+
+.inventory-card{
+
+    background:white;
+
+    border-radius:18px;
+
+    overflow:hidden;
+
+    box-shadow:0 4px 15px rgba(0,0,0,.06);
+
+}
+
+.inventory-table-container{
+
+    max-height:520px;
+
+    overflow:auto;
+
+}
+
+
+
+.inventory-footer{
+
+    display:flex;
+    flex-direction:column;
+
+    align-items:center;
+
+    gap:16px;
+
+    margin-top:18px;
+
+}
+
+.inventory-footer p{
+
+    color:#64748b;
+
+    font-size:14px;
+
+}
+
+.pagination{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+}
+
+.page-btn{
+
+    background:transparent;
+
+    border:1px solid #d1d5db;
+
+    color:#111827;
+
+    padding:8px 16px;
+
+    border-radius:8px;
+
+    cursor:pointer;
+
+    font-weight:600;
+
+    transition:.2s;
+}
+
+.page-btn:hover{
+
+    background:#f8fafc;
+
+}
+
+.page-number{
+
+    width:38px;
+    height:38px;
+
+    border:1px solid #d1d5db;
+
+    background:white;
+
+    border-radius:8px;
+
+    cursor:pointer;
+
+    font-weight:700;
+
+    color:#111827;
+
+    transition:.2s;
+}
+
+.page-number:hover{
+
+    background:#f8fafc;
+
+}
+
+.page-number.active{
+
+    background:white;
+
+    color:#111827;
+
+    border:2px solid #111827;
+
+    font-weight:700;
+
+}
+
+.filter-link{
+
+    display:flex;
+    align-items:center;
+    gap:8px;
+
+    color:#111827;
+
+    font-weight:600;
+
+    cursor:pointer;
+
+    user-select:none;
+
+    transition:.2s;
+
+}
+
+.filter-link:hover{
+
+    opacity:.7;
+
+}
+
+.inventory-toolbar select{
+
+    border:none;
+
+    background:transparent;
+
+    cursor:pointer;
+
+    color:#334155;
+
+    font-weight:500;
+
+    padding:0 18px 0 0;
+
+    appearance:none;
+
+    -webkit-appearance:none;
+
+    -moz-appearance:none;
+
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 20 20'%3E%3Cpath fill='%2364748b' d='M5 7l5 5 5-5z'/%3E%3C/svg%3E");
+
+    background-repeat:no-repeat;
+
+    background-position:right center;
 
 }
