@@ -1,0 +1,186 @@
+import { FaEdit, FaTrash } from "react-icons/fa";
+import {
+    isToday,
+    isSunday,
+    isHoliday,
+    getEvents,
+} from "../../../utils/calendarUtils";
+
+const weekDays = [
+    "Sun",
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu",
+    "Fri",
+    "Sat",
+];
+
+export default function MonthView({
+    currentMonth,
+    currentYear,
+    selectedDate,
+    setSelectedDate,
+    events,
+    onEdit,
+    onDelete,
+}) {
+
+    const firstDay = new Date(
+        currentYear,
+        currentMonth,
+        1
+    ).getDay();
+
+    const daysInMonth = new Date(
+        currentYear,
+        currentMonth + 1,
+        0
+    ).getDate();
+
+    const cells = [];
+
+    // Blank cells
+    for (let i = 0; i < firstDay; i++) {
+        cells.push(
+            <div
+                key={`blank-${i}`}
+                className="calendar-cell empty"
+            />
+        );
+    }
+
+    // Calendar Days
+    for (let day = 1; day <= daysInMonth; day++) {
+
+        const date = new Date(
+            currentYear,
+            currentMonth,
+            day
+        );
+
+        const today = isToday(date);
+        const sunday = isSunday(date);
+        const holiday = isHoliday(date);
+
+        const selected =
+            selectedDate.getDate() === day &&
+            selectedDate.getMonth() === currentMonth &&
+            selectedDate.getFullYear() === currentYear;
+
+        const dateString = date
+            .toISOString()
+            .split("T")[0];
+
+        const dayEvents =
+            events?.length > 0
+                ? events.filter(
+                      event => event.date === dateString
+                  )
+                : getEvents(date);
+                        cells.push(
+
+            <div
+                key={day}
+                className="calendar-cell"
+                onClick={() => setSelectedDate(date)}
+            >
+
+                <div
+                    className={`cell-date
+                        ${today ? "today" : ""}
+                        ${selected ? "selected" : ""}
+                        ${!selected && sunday ? "sunday" : ""}
+                        ${!selected && holiday ? "holiday" : ""}
+                    `}
+                >
+                    {day}
+                </div>
+
+                {dayEvents.slice(0, 3).map((event) => (
+
+                    <div
+                        key={event.id}
+                        className={`calendar-event ${event.type}`}
+                    >
+
+                        <span className="event-title">
+                            {event.title}
+                        </span>
+
+                        <div className="calendar-actions">
+
+                            <button
+                                className="event-action"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEdit(event);
+                                }}
+                            >
+                                <FaEdit />
+                            </button>
+
+                            <button
+                                className="event-action delete"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDelete(event);
+                                }}
+                            >
+                                <FaTrash />
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                ))}
+
+                {dayEvents.length > 3 && (
+
+                    <div className="calendar-more">
+                        +{dayEvents.length - 3} more
+                    </div>
+
+                )}
+
+            </div>
+
+        );
+
+    }
+
+        return (
+
+        <div className="calendar-container">
+
+            <div className="calendar-weekdays">
+
+                {weekDays.map((day, index) => (
+
+                    <div
+                        key={day}
+                        className={
+                            index === 0
+                                ? "sunday"
+                                : ""
+                        }
+                    >
+                        {day}
+                    </div>
+
+                ))}
+
+            </div>
+
+            <div className="calendar-grid">
+
+                {cells}
+
+            </div>
+
+        </div>
+
+    );
+
+}

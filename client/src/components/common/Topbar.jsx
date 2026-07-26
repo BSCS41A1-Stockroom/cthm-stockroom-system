@@ -1,4 +1,6 @@
+
 import { FaBars } from "react-icons/fa";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function Topbar({
   sidebarOpen,
@@ -35,7 +37,12 @@ export default function Topbar({
 
       <h2>CTHM Stockroom</h2>
 
-      <div className="user">Student</div>
+      <button
+        className="role-switch"
+        onClick={() => navigate("/admin")}
+      >
+        Student
+      </button>
     </header>
   );
 }
