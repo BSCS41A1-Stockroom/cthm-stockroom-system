@@ -58,25 +58,16 @@ export default function Sidebar({
             >
 
                 <div className="admin-sidebar-header">
+                    <div className="admin-logo">
+                        📦
+                    </div>
 
                     {!sidebarCollapsed && (
-                        <>
-                            <div className="admin-logo">
-                                📦
-                            </div>
-
-                            <div>
-
-                                <h2>CTHM</h2>
-
-                                <span>
-                                    Stockroom
-                                </span>
-
-                            </div>
-                        </>
+                        <div className="admin-logo-text">
+                            <h2>CTHM</h2>
+                            <span>Stockroom</span>
+                        </div>
                     )}
-
                 </div>
 
                 <nav>
@@ -86,6 +77,7 @@ export default function Sidebar({
                         <NavLink
                             key={item.path}
                             to={item.path}
+                            end={item.path === "/admin"}
                         >
                             {item.icon}
 
