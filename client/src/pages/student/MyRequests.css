@@ -37,6 +37,11 @@
   width: 100%;
   margin: 0 auto 20px;
   flex-shrink: 0;
+  display: block;
+}
+
+.requests-header * {
+  display: block;
 }
 
 .requests-eyebrow {
@@ -83,6 +88,64 @@
   margin-bottom: 18px;
   flex-wrap: wrap;
   flex-shrink: 0;
+}
+
+/* ---------- Status summary cards ---------- */
+
+.status-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 18px;
+  flex-shrink: 0;
+}
+
+.summary-card {
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.summary-count {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.summary-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+
+.summary-pending {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.summary-approved {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.summary-rejected {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.summary-returned {
+  background: var(--neutral-soft);
+  color: var(--neutral);
+}
+
+@media (max-width: 640px) {
+  .status-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .search-field {
@@ -198,6 +261,30 @@
   padding: 14px 10px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
+}
+
+.requests-table tbody tr {
+  border-left: 3px solid transparent;
+}
+
+.requests-table tbody tr td:first-child {
+  border-left: 3px solid transparent;
+}
+
+.row-pending td:first-child {
+  border-left: 3px solid var(--warning);
+}
+
+.row-approved td:first-child {
+  border-left: 3px solid var(--accent);
+}
+
+.row-rejected td:first-child {
+  border-left: 3px solid var(--danger);
+}
+
+.row-returned td:first-child {
+  border-left: 3px solid var(--neutral);
 }
 
 .items-preview {
@@ -377,4 +464,4 @@
   grid-template-columns: 1fr 1fr;
   gap: 16px;
   margin-bottom: 18px;
-} 
+}
