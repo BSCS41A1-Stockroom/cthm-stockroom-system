@@ -257,7 +257,7 @@ CARDS
 
 .admin-card{
     background:white;
-    border-radius:18px;
+    border-radius:14px;
     padding:22px;
     box-shadow:0 2px 10px rgba(0,0,0,.05);
 }
@@ -385,7 +385,7 @@ DASHBOARD
 
     background:white;
 
-    border-radius:16px;
+    border-radius:8px;
 
     padding:24px;
 
@@ -461,7 +461,7 @@ gap:15px;
 
     border:2px dashed #d1d5db;
 
-    border-radius:14px;
+    border-radius:8px;
 
     display:flex;
 
@@ -689,7 +689,7 @@ grid-template-columns:1fr;
 
     background:white;
 
-    border-radius:18px;
+    border-radius:8px;
 
     overflow:hidden;
 

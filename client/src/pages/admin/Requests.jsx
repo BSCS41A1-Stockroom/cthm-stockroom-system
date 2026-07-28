@@ -61,6 +61,9 @@ export default function Requests() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [selected, setSelected] = useState(null);
+  const ITEMS_PER_PAGE = 8;
+
+  const [page,setPage] = useState(1);
 
   const filtered = useMemo(() => {
     return requests.filter((r) => {
@@ -75,6 +78,13 @@ export default function Requests() {
       return matchesSearch && matchesStatus;
     });
   }, [requests, search, statusFilter]);
+
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+
+  const paginated = filtered.slice(
+      (page-1)*ITEMS_PER_PAGE,
+      page*ITEMS_PER_PAGE
+  );
 
   const updateStatus = (id, status) => {
     setRequests((prev) =>
@@ -95,47 +105,46 @@ export default function Requests() {
     <div className="requests-page">
 
       <div className="requests-header">
-        <div>
-          <h1>Borrow Requests</h1>
-          <p>Manage student borrowing requests.</p>
-        </div>
 
-        <span className="request-count">
-          {filtered.length} Requests
-        </span>
+          <div className="requests-title">
+              <h2>Borrow Requests</h2>
+              <p>Manage student borrowing requests.</p>
+          </div>
+
+          <button className="inventory-add">
+              {filtered.length} Requests
+          </button>
+
       </div>
 
       <div className="requests-toolbar">
 
-        <div className="search-box">
-          <FaSearch />
-          <input
-            type="text"
-            placeholder="Search request..."
-            value={search}
-            onChange={(e) =>
-              setSearch(e.target.value)
-            }
-          />
-        </div>
+          <div className="search-box">
+              <FaSearch />
+              <input
+                  type="text"
+                  placeholder="Search request..."
+                  value={search}
+                  onChange={(e)=>setSearch(e.target.value)}
+              />
+          </div>
 
-        <select
-          value={statusFilter}
-          onChange={(e) =>
-            setStatusFilter(e.target.value)
-          }
-        >
-          <option>All</option>
-          <option>Pending</option>
-          <option>Approved</option>
-          <option>Rejected</option>
-          <option>Returned</option>
-        </select>
+          <select
+              value={statusFilter}
+              onChange={(e)=>setStatusFilter(e.target.value)}
+          >
+              <option>All</option>
+              <option>Pending</option>
+              <option>Approved</option>
+              <option>Rejected</option>
+              <option>Returned</option>
+          </select>
 
       </div>
         
       <div className="requests-table-wrapper">
-        <div className="requests-table">
+
+      <table className="requests-table">
 
         <table>
 
@@ -156,7 +165,7 @@ export default function Requests() {
 
           <tbody>
 
-            {filtered.map((r) => (
+            {paginated.map((r) => (
 
               <tr key={r.id}>
 
@@ -247,8 +256,43 @@ export default function Requests() {
 
         </table>
 
-      </div>
+      </table>
+
+      
         </div>
+
+            <div className="pagination">
+
+    <button
+        className="page-btn"
+        disabled={page===1}
+        onClick={()=>setPage(page-1)}
+    >
+        Prev
+    </button>
+
+    {Array.from({length:totalPages}).map((_,i)=>(
+
+        <button
+            key={i}
+            className={`page-number ${page===i+1 ? "active":""}`}
+            onClick={()=>setPage(i+1)}
+        >
+            {i+1}
+        </button>
+
+    ))}
+
+    <button
+        className="page-btn"
+        disabled={page===totalPages}
+        onClick={()=>setPage(page+1)}
+    >
+        Next
+    </button>
+
+</div>
+
 
       {selected && (
 

@@ -1,6 +1,5 @@
-
-import { FaBars } from "react-icons/fa";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function Topbar({
   sidebarOpen,
@@ -10,9 +9,18 @@ export default function Topbar({
 }) {
   const navigate = useNavigate();
 
-  const isMobile = window.innerWidth <= 768;
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
-  const isActive = isMobile ? sidebarOpen : sidebarCollapsed;
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const isActive = isMobile ? sidebarOpen : !sidebarCollapsed;
 
   const toggleSidebar = () => {
     if (isMobile) {
