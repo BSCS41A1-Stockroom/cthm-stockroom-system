@@ -1,48 +1,18 @@
 import { FaEdit, FaTrash } from "react-icons/fa";
 
-const inventory = [
-  {
-    no: 1,
-    item: "Chef Knife",
-    purchaseDate: "2025-01-15",
-    qty: 20,
-    additionalQty: 5,
-    replaces: 1,
-    missing: 1,
-    breakage: 0,
-    defective: 0,
-    totalLoss: 0,
-    remarks: "Good Condition",
-  },
-  {
-    no: 2,
-    item: "Mixing Bowl",
-    purchaseDate: "2025-02-10",
-    qty: 15,
-    additionalQty: 2,
-    replaces: 0,
-    missing: 0,
-    breakage: 1,
-    defective: 1,
-    totalLoss: 0,
-    remarks: "Needs Inspection",
-  },
-  {
-    no: 3,
-    item: "Frying Pan",
-    purchaseDate: "2025-03-05",
-    qty: 10,
-    additionalQty: 4,
-    replaces: 2,
-    missing: 1,
-    breakage: 0,
-    defective: 0,
-    totalLoss: 0,
-    remarks: "Available",
-  },
-];
+export default function InventoryTable({
+    inventory,
+    onEdit,
+    onDelete
+}) {
 
-export default function InventoryTable() {
+  if (!inventory || inventory.length === 0) {
+      return (
+          <div style={{ padding: "30px", textAlign: "center" }}>
+              No inventory found.
+          </div>
+      );
+  }
   return (
     <>
       <table className="inventory-table">
@@ -66,10 +36,10 @@ export default function InventoryTable() {
         </thead>
 
         <tbody>
-          {inventory.map((item) => {
+          {inventory.map((item, index) => {
             const totalInventory =
-              item.qty +
-              item.additionalQty -
+              item.quantity +
+              item.additional_qty -
               item.replaces;
 
             const endInventory =
@@ -77,19 +47,19 @@ export default function InventoryTable() {
               item.missing -
               item.breakage -
               item.defective -
-              item.totalLoss;
+              item.total_loss;
 
             return (
-              <tr key={item.no}>
-                <td>{item.no}</td>
+              <tr key={item.id}>
+                <td>{index + 1}</td>
 
-                <td>{item.item}</td>
+                <td>{item.item_name}</td>
 
-                <td>{item.purchaseDate}</td>
+                <td>{item.purchase_date}</td>
 
-                <td>{item.qty}</td>
+                <td>{item.quantity}</td>
 
-                <td>{item.additionalQty}</td>
+                <td>{item.additional_qty}</td>
 
                 <td>{item.replaces}</td>
 
@@ -101,7 +71,7 @@ export default function InventoryTable() {
 
                 <td>{item.defective}</td>
 
-                <td>{item.totalLoss}</td>
+                <td>{item.total_loss}</td>
 
                 <td>
                   <strong>{endInventory}</strong>
@@ -122,12 +92,18 @@ export default function InventoryTable() {
                 </td>
 
                 <td className="actions">
-                  <button className="edit-btn">
-                    <FaEdit />
+                  <button
+                      className="edit-btn"
+                      onClick={() => onEdit(item)}
+                  >
+                      <FaEdit/>
                   </button>
 
-                  <button className="delete-btn">
-                    <FaTrash />
+                  <button
+                      className="delete-btn"
+                      onClick={() => onDelete(item)}
+                  >
+                      <FaTrash />
                   </button>
                 </td>
               </tr>

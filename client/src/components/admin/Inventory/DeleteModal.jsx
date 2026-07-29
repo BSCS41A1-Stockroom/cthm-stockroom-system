@@ -1,6 +1,33 @@
-export default function DeleteModal({ open, onClose }) {
+import { supabase } from "../../../lib/supabase";
 
-    if (!open) return null;
+export default function DeleteModal({
+    open,
+    onClose,
+    item,
+    onDeleted
+}) {
+
+    if (!open || !item) return null;
+
+    async function handleDelete() {
+
+        const { error } = await supabase
+            .from("inventory")
+            .delete()
+            .eq("id", item.id);
+
+        if (error) {
+            alert(error.message);
+            return;
+        }
+
+        if (onDeleted) {
+            onDeleted();
+        }
+
+        onClose();
+
+    }
 
     return (
 
@@ -15,7 +42,9 @@ export default function DeleteModal({ open, onClose }) {
                 <h2>Delete Item?</h2>
 
                 <p>
-                    This inventory item will be permanently removed.
+                    Are you sure you want to delete
+                    <br />
+                    <strong>{item.item_name}</strong>?
                 </p>
 
                 <div className="delete-actions">
@@ -29,6 +58,7 @@ export default function DeleteModal({ open, onClose }) {
 
                     <button
                         className="delete-confirm"
+                        onClick={handleDelete}
                     >
                         Delete
                     </button>
