@@ -111,7 +111,10 @@ export default function MonthView({
                         <div className="calendar-actions">
 
                             <button
+                                type="button"
                                 className="event-action"
+                                aria-label={`Edit ${event.title}`}
+                                title="Edit activity"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onEdit(event);
@@ -121,7 +124,10 @@ export default function MonthView({
                             </button>
 
                             <button
+                                type="button"
                                 className="event-action delete"
+                                aria-label={`Delete ${event.title}`}
+                                title="Delete activity"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onDelete(event);
