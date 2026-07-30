@@ -1,350 +1,582 @@
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../../lib/supabase";
 import "./Borrowing.css";
-
-// Adjust this if your server runs elsewhere.
-const API_BASE = "http://localhost:5000";
-
-/**
- * Assumptions (adjust to match your actual backend):
- * - GET  ${API_BASE}/api/inventory
- *     -> [{ id, name, category, available, unit }]
- * - POST ${API_BASE}/api/borrow
- *     body: { items: [{ itemId, quantity }], borrowDate, returnDate, purpose }
- */
 
 export default function BorrowingInterface() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
 
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("all");
 
-  // selected[id] = quantity (only present when checked)
   const [selected, setSelected] = useState({});
+
   const [borrowDate, setBorrowDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
   const [purpose, setPurpose] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
+
   const [formError, setFormError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
   useEffect(() => {
-    fetchInventory();
+    loadInventory();
   }, []);
 
-  async function fetchInventory() {
+  async function loadInventory() {
     setLoading(true);
-    setLoadError("");
-    try {
-      const res = await fetch(`${API_BASE}/api/inventory`);
-      if (!res.ok) throw new Error(`Server returned ${res.status}`);
-      const data = await res.json();
-      setItems(Array.isArray(data) ? data : data.items || []);
-    } catch (err) {
-      setLoadError(
-        "Couldn't load inventory. Check that the server is running and try again."
-      );
-    } finally {
-      setLoading(false);
+
+    const { data, error } = await supabase
+      .from("inventory")
+      .select("*")
+      .order("id");
+
+    if (error) {
+      console.log(error);
+    } else {
+      setItems(data || []);
     }
+
+    setLoading(false);
   }
 
-  const categories = useMemo(() => {
-    const set = new Set(items.map((i) => i.category).filter(Boolean));
-    return ["all", ...Array.from(set)];
-  }, [items]);
+  async function fetchInventory() {
+
+      setLoading(true);
+
+      const { data, error } = await supabase
+          .from("inventory")
+          .select("*")
+          .order("item_name");
+
+      if (error) {
+
+          console.log(error);
+
+          setLoadError(error.message);
+
+      } else {
+
+          setItems(data);
+
+      }
+
+      setLoading(false);
+
+  }
 
   const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      const matchesSearch = item.name
-        ?.toLowerCase()
-        .includes(search.trim().toLowerCase());
-      const matchesCategory =
-        category === "all" || item.category === category;
-      return matchesSearch && matchesCategory;
-    });
-  }, [items, search, category]);
 
-  const selectedList = useMemo(() => {
-    return Object.entries(selected)
-      .map(([id, qty]) => {
-        const item = items.find((i) => String(i.id) === String(id));
-        return item ? { ...item, quantity: qty } : null;
-      })
-      .filter(Boolean);
-  }, [selected, items]);
+      return items.filter(item =>
 
-  const totalItems = selectedList.length;
-  const totalUnits = selectedList.reduce((sum, i) => sum + (i.quantity || 0), 0);
+          item.item_name
+              .toLowerCase()
+              .includes(search.toLowerCase())
+
+      );
+
+  }, [items, search]);
 
   function toggleItem(item, checked) {
     setSelected((prev) => {
       const next = { ...prev };
+
       if (checked) {
         next[item.id] = 1;
       } else {
         delete next[item.id];
       }
+
       return next;
     });
   }
 
-  function updateQuantity(itemId, rawValue, max) {
-    let value = parseInt(rawValue, 10);
-    if (Number.isNaN(value)) value = 1;
-    if (value < 1) value = 1;
-    if (max != null && value > max) value = max;
-    setSelected((prev) => ({ ...prev, [itemId]: value }));
+  function updateQuantity(id, value, max) {
+    let qty = parseInt(value);
+
+    if (isNaN(qty)) qty = 1;
+
+    if (qty < 1) qty = 1;
+
+    if (qty > max) qty = max;
+
+    setSelected((prev) => ({
+      ...prev,
+      [id]: qty,
+    }));
   }
 
+  const selectedList = useMemo(() => {
+    return Object.entries(selected)
+      .map(([id, qty]) => {
+        const item = items.find(
+          (i) => i.id == id
+        );
+
+        return item
+          ? {
+              ...item,
+              borrowQty: qty,
+            }
+          : null;
+      })
+      .filter(Boolean);
+  }, [selected, items]);
+
+  const totalItems = selectedList.length;
+
+  const totalUnits = selectedList.reduce(
+    (sum, item) => sum + item.borrowQty,
+    0
+  );
+
   function validate() {
-    if (totalItems === 0) return "Select at least one item to borrow.";
-    if (!borrowDate) return "Choose a borrow date.";
-    if (!returnDate) return "Choose a return date.";
-    if (new Date(returnDate) < new Date(borrowDate))
-      return "Return date can't be before the borrow date.";
-    if (!purpose.trim()) return "Tell us the purpose of this request.";
+    if (totalItems === 0)
+      return "Please select at least one item.";
+
+    if (!borrowDate)
+      return "Borrow date is required.";
+
+    if (!returnDate)
+      return "Return date is required.";
+
+    if (
+      new Date(returnDate) <
+      new Date(borrowDate)
+    )
+      return "Return date must be after borrow date.";
+
+    if (!purpose.trim())
+      return "Purpose is required.";
+
     for (const item of selectedList) {
-      if (item.available != null && item.quantity > item.available) {
-        return `${item.name}: only ${item.available} ${item.unit || "pcs"} available.`;
+      const totalInventory =
+        item.quantity +
+        item.additional_qty -
+        item.replaces;
+
+      const available =
+        totalInventory -
+        item.missing -
+        item.breakage -
+        item.defective -
+        item.total_loss;
+
+      if (item.borrowQty > available) {
+        return `${item.item_name} only has ${available} remaining.`;
       }
     }
+
     return "";
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setSuccessMsg("");
-    const error = validate();
-    if (error) {
-      setFormError(error);
-      return;
-    }
-    setFormError("");
-    setSubmitting(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/borrow`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: selectedList.map((i) => ({
-            itemId: i.id,
-            quantity: i.quantity,
-          })),
-          borrowDate,
-          returnDate,
-          purpose: purpose.trim(),
-        }),
-      });
-      if (!res.ok) throw new Error(`Server returned ${res.status}`);
-      setSuccessMsg("Request submitted. You'll be notified once it's reviewed.");
-      setSelected({});
-      setBorrowDate("");
-      setReturnDate("");
-      setPurpose("");
-      fetchInventory();
-    } catch (err) {
-      setFormError("Couldn't submit your request. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
+async function handleSubmit(e) {
 
-  const todayISO = new Date().toISOString().split("T")[0];
+    e.preventDefault();
+
+    setFormError("");
+    setSuccessMsg("");
+
+    const validation = validate();
+
+    if (validation) {
+        setFormError(validation);
+        return;
+    }
+
+    setSubmitting(true);
+
+const { data: requestData, error: requestError } = await supabase
+    .from("borrow_requests")
+    .insert([
+        {
+            borrow_date: borrowDate,
+            return_date: returnDate,
+            purpose: purpose,
+            status: "Pending"
+        }
+    ])
+    .select()
+    .single();
+
+if (requestError) {
+
+    setFormError(requestError.message);
+    setSubmitting(false);
+    return;
+
+}
+
+const borrowItems = selectedList.map(item => ({
+
+    request_id: requestData.id,
+    inventory_id: item.id,
+    quantity: item.borrowQty
+
+}));
+
+const { error: itemError } = await supabase
+    .from("borrow_request_items")
+    .insert(borrowItems);
+
+if (itemError) {
+
+    setFormError(itemError.message);
+    setSubmitting(false);
+    return;
+
+}
+
+setSuccessMsg("Borrow request submitted.");
+
+setSelected({});
+setBorrowDate("");
+setReturnDate("");
+setPurpose("");
+
+loadInventory();
+
+setSubmitting(false);
+
+    setSubmitting(false);
+
+}
+
+  const today =
+    new Date().toISOString().split("T")[0];
+
+  if (loading) {
+    return (
+      <div className="borrow-page">
+        Loading...
+      </div>
+    );
+  }
 
   return (
     <div className="borrow-page">
+
       <header className="borrow-header">
-        <p className="borrow-eyebrow">Stockroom</p>
-        <h1>Borrow items</h1>
-        <p className="borrow-subtitle">
-          Pick what you need, set your dates, and send a request for approval.
+
+        <p className="borrow-eyebrow">
+          Stockroom
         </p>
+
+        <h1>Borrow Items</h1>
+
+        <p className="borrow-subtitle">
+          Select inventory items to borrow.
+        </p>
+
       </header>
 
       <div className="borrow-layout">
-        {/* LEFT: browse + select */}
+
+               {/* LEFT TABLE */}
+
         <section className="borrow-panel browse-panel">
+
           <div className="filter-bar">
+
             <div className="search-field">
-              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" fill="none" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
+
               <input
                 type="text"
-                placeholder="Search items…"
+                placeholder="Search item..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                aria-label="Search inventory"
+                onChange={(e)=>setSearch(e.target.value)}
               />
+
             </div>
 
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              aria-label="Filter by category"
-            >
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c === "all" ? "All categories" : c}
-                </option>
-              ))}
-            </select>
           </div>
 
-          {loading && <p className="state-msg">Loading inventory…</p>}
-          {loadError && (
-            <div className="state-msg error">
-              {loadError}{" "}
-              <button type="button" className="retry-btn" onClick={fetchInventory}>
-                Retry
-              </button>
-            </div>
-          )}
+          <div className="table-wrap">
 
-          {!loading && !loadError && (
-            <div className="table-wrap">
-              <table className="inventory-table">
-                <thead>
+            <table className="inventory-table">
+
+              <thead>
+
+                <tr>
+
+                  <th></th>
+
+                  <th>Item</th>
+
+                  <th>Purchase Date</th>
+
+                  <th>Available</th>
+
+                  <th>Qty</th>
+
+                </tr>
+
+              </thead>
+
+              <tbody>
+
+                {filteredItems.length===0 && (
+
                   <tr>
-                    <th className="col-check" aria-label="Select" />
-                    <th>Item</th>
-                    <th>Category</th>
-                    <th>Available</th>
-                    <th className="col-qty">Qty</th>
+
+                    <td
+                      colSpan={5}
+                      style={{
+                        textAlign:"center",
+                        padding:"30px"
+                      }}
+                    >
+                      No Inventory Found
+                    </td>
+
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredItems.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="empty-cell">
-                        No items match your search.
+
+                )}
+
+                {filteredItems.map(item=>{
+
+                  const totalInventory =
+                    item.quantity +
+                    item.additional_qty -
+                    item.replaces;
+
+                  const available =
+                    totalInventory -
+                    item.missing -
+                    item.breakage -
+                    item.defective -
+                    item.total_loss;
+
+                  const checked =
+                    selected[item.id] !== undefined;
+
+                  return(
+
+                    <tr key={item.id}>
+
+                      <td>
+
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={available<=0}
+                          onChange={(e)=>
+                            toggleItem(
+                              item,
+                              e.target.checked
+                            )
+                          }
+                        />
+
                       </td>
+
+                      <td>
+                        {item.item_name}
+                      </td>
+
+                      <td>
+                        {item.purchase_date}
+                      </td>
+
+                      <td>
+                        {available}
+                      </td>
+
+                      <td>
+
+                        <input
+                          type="number"
+                          min="1"
+                          max={available}
+                          className="qty-input"
+                          disabled={!checked}
+                          value={
+                            selected[item.id] ?? ""
+                          }
+                          onChange={(e)=>
+                            updateQuantity(
+                              item.id,
+                              e.target.value,
+                              available
+                            )
+                          }
+                        />
+
+                      </td>
+
                     </tr>
-                  )}
-                  {filteredItems.map((item) => {
-                    const isChecked = selected[item.id] !== undefined;
-                    const isOut = item.available === 0;
-                    return (
-                      <tr
-                        key={item.id}
-                        className={isChecked ? "row-selected" : ""}
-                      >
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            disabled={isOut}
-                            onChange={(e) => toggleItem(item, e.target.checked)}
-                            aria-label={`Select ${item.name}`}
-                          />
-                        </td>
-                        <td>
-                          <span className="item-name">{item.name}</span>
-                          {isOut && <span className="badge-out">Out of stock</span>}
-                        </td>
-                        <td className="muted">{item.category || "—"}</td>
-                        <td className="muted">
-                          {item.available ?? "—"} {item.unit || ""}
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            min={1}
-                            max={item.available ?? undefined}
-                            value={selected[item.id] ?? ""}
-                            disabled={!isChecked}
-                            onChange={(e) =>
-                              updateQuantity(item.id, e.target.value, item.available)
-                            }
-                            className="qty-input"
-                            aria-label={`Quantity for ${item.name}`}
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+
+                  );
+
+                })}
+
+              </tbody>
+
+            </table>
+
+          </div>
+
         </section>
 
-        {/* RIGHT: sticky request summary, loan-calculator style */}
-        <aside className="borrow-panel summary-panel">
-          <h2>Request summary</h2>
+        {/* RIGHT PANEL */}
 
-          {totalItems === 0 ? (
-            <p className="summary-empty">
-              Nothing selected yet. Check items on the left to add them here.
+        <aside className="borrow-panel summary-panel">
+
+          <h2>
+            Request Summary
+          </h2>
+
+          {selectedList.length===0 ? (
+
+            <p>
+              No item selected.
             </p>
+
           ) : (
+
             <ul className="summary-list">
-              {selectedList.map((item) => (
+
+              {selectedList.map(item=>(
+
                 <li key={item.id}>
-                  <span>{item.name}</span>
-                  <span className="summary-qty">
-                    ×{item.quantity} {item.unit || ""}
+
+                  <span>
+                    {item.item_name}
                   </span>
+
+                  <span>
+                    × {item.borrowQty}
+                  </span>
+
                 </li>
+
               ))}
+
             </ul>
+
           )}
 
           <div className="summary-totals">
+
             <div>
-              <span className="total-label">Items</span>
-              <span className="total-value">{totalItems}</span>
+
+              <span>Items</span>
+
+              <strong>
+                {totalItems}
+              </strong>
+
             </div>
+
             <div>
-              <span className="total-label">Units</span>
-              <span className="total-value">{totalUnits}</span>
+
+              <span>Units</span>
+
+              <strong>
+                {totalUnits}
+              </strong>
+
             </div>
+
           </div>
 
-          <form className="summary-form" onSubmit={handleSubmit}>
+          <form
+            className="summary-form"
+            onSubmit={handleSubmit}
+          >
+
             <label>
-              Borrow date
+
+              Borrow Date
+
               <input
                 type="date"
-                min={todayISO}
+                min={today}
                 value={borrowDate}
-                onChange={(e) => setBorrowDate(e.target.value)}
+                onChange={(e)=>
+                  setBorrowDate(
+                    e.target.value
+                  )
+                }
               />
+
             </label>
 
             <label>
-              Return date
+
+              Return Date
+
               <input
                 type="date"
-                min={borrowDate || todayISO}
+                min={
+                  borrowDate || today
+                }
                 value={returnDate}
-                onChange={(e) => setReturnDate(e.target.value)}
+                onChange={(e)=>
+                  setReturnDate(
+                    e.target.value
+                  )
+                }
               />
+
             </label>
 
             <label>
+
               Purpose
+
               <textarea
-                placeholder="What is this for?"
                 rows={3}
                 value={purpose}
-                onChange={(e) => setPurpose(e.target.value)}
+                onChange={(e)=>
+                  setPurpose(
+                    e.target.value
+                  )
+                }
               />
+
             </label>
 
-            {formError && <p className="form-error">{formError}</p>}
-            {successMsg && <p className="form-success">{successMsg}</p>}
+            {formError && (
 
-            <button type="submit" className="submit-btn" disabled={submitting}>
-              {submitting ? "Submitting…" : "Submit request"}
+              <p className="form-error">
+
+                {formError}
+
+              </p>
+
+            )}
+
+            {successMsg && (
+
+              <p className="form-success">
+
+                {successMsg}
+
+              </p>
+
+            )}
+
+            <button
+              type="submit"
+              className="submit-btn"
+              disabled={submitting}
+            >
+
+              {submitting
+                ? "Submitting..."
+                : "Submit Request"}
+
             </button>
+
           </form>
+
         </aside>
+
       </div>
+
     </div>
+
   );
+
 }
