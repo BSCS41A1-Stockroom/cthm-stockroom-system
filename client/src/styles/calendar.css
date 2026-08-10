@@ -300,6 +300,13 @@ grid-template-columns:1fr;
     color:#fff;
 }
 
+.calendar-event.borrowing,
+.week-event.borrowing,
+.event-chip.borrowing{
+    background:#dbeafe;
+    color:#1d4ed8;
+}
+
 /* Admin event actions */
 
 .calendar-event:has(.calendar-actions){

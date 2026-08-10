@@ -4,6 +4,7 @@ import {
     isSunday,
     isHoliday,
     getEvents,
+    formatDate,
 } from "../../../utils/calendarUtils";
 
 const weekDays = [
@@ -61,23 +62,23 @@ export default function MonthView({
 
         const today = isToday(date);
         const sunday = isSunday(date);
-        const holiday = isHoliday(date);
 
         const selected =
             selectedDate.getDate() === day &&
             selectedDate.getMonth() === currentMonth &&
             selectedDate.getFullYear() === currentYear;
 
-        const dateString = date
-            .toISOString()
-            .split("T")[0];
+        const dateString = formatDate(date);
 
         const dayEvents =
-            events?.length > 0
+            Array.isArray(events)
                 ? events.filter(
                       event => event.date === dateString
                   )
                 : getEvents(date);
+        const holiday = Array.isArray(events)
+            ? dayEvents.some((event) => event.type === "holiday")
+            : isHoliday(date);
                         cells.push(
 
             <div
@@ -108,7 +109,7 @@ export default function MonthView({
                             {event.title}
                         </span>
 
-                        <div className="calendar-actions">
+                        {!event.borrowRequestId && <div className="calendar-actions">
 
                             <button
                                 type="button"
@@ -136,7 +137,7 @@ export default function MonthView({
                                 <FaTrash />
                             </button>
 
-                        </div>
+                        </div>}
 
                     </div>
 

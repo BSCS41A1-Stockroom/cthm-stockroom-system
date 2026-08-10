@@ -3,6 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 
 const borrowRoutes = require("./routes/borrowRoutes");
+const calendarRoutes = require("./routes/calendarRoutes");
 
 const app = express();
 
@@ -14,6 +15,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/borrowings", borrowRoutes);
+app.use("/api/calendar", calendarRoutes);
 
 app.use((error, req, res, next) => {
   console.error(error);

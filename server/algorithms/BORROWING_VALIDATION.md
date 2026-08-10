@@ -52,6 +52,8 @@ Payload:
 {
   "borrowDate": "2026-08-10",
   "returnDate": "2026-08-12",
+  "studentName": "Juan Dela Cruz",
+  "studentId": "2026-0001",
   "purpose": "Culinary laboratory exercise",
   "items": [
     { "inventoryId": 1, "quantity": 3 }

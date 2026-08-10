@@ -27,6 +27,14 @@ export default function Inventory() {
 
     useEffect(() => {
         loadInventory();
+        const channel = supabase
+            .channel("admin-inventory")
+            .on("postgres_changes", { event: "*", schema: "public", table: "inventory" }, loadInventory)
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
     async function loadInventory() {
@@ -37,20 +45,6 @@ export default function Inventory() {
 
         setInventory(data || []);
         setLoading(false);
-    }
-
-    async function addInventory(form) {
-        const { error } = await supabase
-            .from("inventory")
-            .insert([form]);
-
-        if (error) {
-            console.log(error);
-            return;
-        }
-
-        setOpenModal(false);
-        loadInventory();
     }
 
     async function updateInventory(id, form) {

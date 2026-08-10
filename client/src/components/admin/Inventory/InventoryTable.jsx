@@ -29,6 +29,8 @@ export default function InventoryTable({
             <th>Breakage</th>
             <th>Defective</th>
             <th>Total Loss</th>
+            <th>Reserved</th>
+            <th>Borrowed</th>
             <th>End Inventory</th>
             <th>Remarks</th>
             <th>Actions</th>
@@ -47,7 +49,9 @@ export default function InventoryTable({
               item.missing -
               item.breakage -
               item.defective -
-              item.total_loss;
+              item.total_loss -
+              Number(item.reserved_quantity ?? 0) -
+              Number(item.borrowed_quantity ?? 0);
 
             return (
               <tr key={item.id}>
@@ -72,6 +76,10 @@ export default function InventoryTable({
                 <td>{item.defective}</td>
 
                 <td>{item.total_loss}</td>
+
+                <td>{item.reserved_quantity ?? 0}</td>
+
+                <td>{item.borrowed_quantity ?? 0}</td>
 
                 <td>
                   <strong>{endInventory}</strong>

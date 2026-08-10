@@ -7,9 +7,30 @@ const {
 } = require("../algorithms/borrowingValidation");
 
 const ACTIVE_STATUSES = ["Pending", "Validated", "Approved", "Borrowed"];
+const RESERVED_STATUSES = new Set(["Pending", "Validated", "Approved"]);
+const BORROWED_STATUSES = new Set(["Borrowed"]);
+const STATUS_TRANSITIONS = Object.freeze({
+  Pending: new Set(["Approved", "Rejected"]),
+  Validated: new Set(["Approved", "Rejected"]),
+  Approved: new Set(["Borrowed", "Returned", "Rejected"]),
+  Borrowed: new Set(["Returned"]),
+  Rejected: new Set(),
+  Returned: new Set(),
+});
+
+function inventoryDeltas(previousStatus, nextStatus, quantity) {
+  return {
+    reserved: (RESERVED_STATUSES.has(nextStatus) ? quantity : 0)
+      - (RESERVED_STATUSES.has(previousStatus) ? quantity : 0),
+    borrowed: (BORROWED_STATUSES.has(nextStatus) ? quantity : 0)
+      - (BORROWED_STATUSES.has(previousStatus) ? quantity : 0),
+  };
+}
 
 function normalizeRequest(body) {
   return {
+    studentName: body.studentName ?? body.student_name,
+    studentId: body.studentId ?? body.student_id,
     borrowDate: body.borrowDate ?? body.borrow_date,
     returnDate: body.returnDate ?? body.return_date,
     purpose: body.purpose,
@@ -83,10 +104,17 @@ async function withValidation(body, persist) {
     }
 
     const requestResult = await client.query(
-      `INSERT INTO borrow_requests (borrow_date, return_date, purpose, status)
-       VALUES ($1::date, $2::date, $3, $4)
+      `INSERT INTO borrow_requests (student_name, student_id, borrow_date, return_date, purpose, status)
+       VALUES ($1, $2, $3::date, $4::date, $5, $6)
        RETURNING *`,
-      [request.borrowDate, request.returnDate, request.purpose.trim(), "Pending"]
+      [
+        request.studentName.trim(),
+        request.studentId.trim(),
+        request.borrowDate,
+        request.returnDate,
+        request.purpose.trim(),
+        "Pending",
+      ]
     );
     const savedRequest = requestResult.rows[0];
 
@@ -95,6 +123,14 @@ async function withValidation(body, persist) {
         `INSERT INTO borrow_request_items (request_id, inventory_id, quantity)
          VALUES ($1, $2, $3)`,
         [savedRequest.id, item.inventoryId, item.quantity]
+      );
+
+      await client.query(
+        `UPDATE inventory
+            SET reserved_quantity = reserved_quantity + $1,
+                updated_at = now()
+          WHERE id = $2`,
+        [item.quantity, item.inventoryId]
       );
     }
 
@@ -126,9 +162,106 @@ async function createBorrowRequest(req, res, next) {
   }
 }
 
+async function updateBorrowRequestStatus(req, res, next) {
+  const requestId = req.params.id;
+  const nextStatus = req.body?.status;
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+    const requestResult = await client.query(
+      `SELECT * FROM borrow_requests WHERE id = $1 FOR UPDATE`,
+      [requestId]
+    );
+    if (requestResult.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "REQUEST_NOT_FOUND", message: "Borrowing request was not found." });
+    }
+
+    const request = requestResult.rows[0];
+    const allowed = STATUS_TRANSITIONS[request.status];
+    if (!allowed || !allowed.has(nextStatus)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        error: "INVALID_STATUS_TRANSITION",
+        message: `Cannot change a borrowing request from '${request.status}' to '${nextStatus}'.`,
+      });
+    }
+
+    const itemsResult = await client.query(
+      `SELECT inventory_id, quantity
+         FROM borrow_request_items
+        WHERE request_id = $1
+        ORDER BY inventory_id
+        FOR UPDATE`,
+      [requestId]
+    );
+
+    for (const item of itemsResult.rows) {
+      await client.query(`SELECT id FROM inventory WHERE id = $1 FOR UPDATE`, [item.inventory_id]);
+      const delta = inventoryDeltas(request.status, nextStatus, Number(item.quantity));
+      const inventoryResult = await client.query(
+        `UPDATE inventory
+            SET reserved_quantity = reserved_quantity + $1,
+                borrowed_quantity = borrowed_quantity + $2,
+                updated_at = now()
+          WHERE id = $3
+            AND reserved_quantity + $1 >= 0
+            AND borrowed_quantity + $2 >= 0
+        RETURNING id`,
+        [delta.reserved, delta.borrowed, item.inventory_id]
+      );
+      if (inventoryResult.rowCount === 0) {
+        throw new Error(`Inventory counters are inconsistent for item '${item.inventory_id}'.`);
+      }
+    }
+
+    const updatedResult = await client.query(
+      `UPDATE borrow_requests
+          SET status = $1, updated_at = now()
+        WHERE id = $2
+      RETURNING *`,
+      [nextStatus, requestId]
+    );
+
+    if (nextStatus === "Approved") {
+      await client.query(
+        `INSERT INTO calendar_events
+          (title, event_date, event_type, description, borrow_request_id)
+         VALUES ($1, $2, 'borrowing', $3, $4)
+         ON CONFLICT (borrow_request_id) WHERE borrow_request_id IS NOT NULL
+         DO UPDATE SET title = excluded.title,
+                       event_date = excluded.event_date,
+                       description = excluded.description,
+                       updated_at = now()`,
+        [
+          `Borrowing: ${request.student_name}`,
+          request.borrow_date,
+          `${request.purpose || "Equipment borrowing"} (Return: ${request.return_date.toISOString?.().slice(0, 10) || request.return_date})`,
+          requestId,
+        ]
+      );
+    }
+
+    if (nextStatus === "Rejected") {
+      await client.query(`DELETE FROM calendar_events WHERE borrow_request_id = $1`, [requestId]);
+    }
+
+    await client.query("COMMIT");
+    return res.json({ request: updatedResult.rows[0] });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    return next(error);
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   createBorrowRequest,
+  inventoryDeltas,
   loadValidationContext,
   normalizeRequest,
+  updateBorrowRequestStatus,
   validateBorrowRequest,
 };

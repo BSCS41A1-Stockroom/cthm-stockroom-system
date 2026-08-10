@@ -2,7 +2,8 @@ import {
     isToday,
     isSunday,
     isHoliday,
-    getEvents
+    getEvents,
+    formatDate,
 } from "../../../utils/calendarUtils";
 
 const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -12,6 +13,7 @@ export default function CalendarGrid({
     currentYear,
     selectedDate,
     setSelectedDate,
+    events: eventSource,
 }) {
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
 
@@ -38,8 +40,12 @@ export default function CalendarGrid({
 
   const today = isToday(date);
   const sunday = isSunday(date);
-  const holiday = isHoliday(date);
-  const events = getEvents(date);
+  const events = Array.isArray(eventSource)
+    ? eventSource.filter((event) => event.date === formatDate(date))
+    : getEvents(date);
+  const holiday = Array.isArray(eventSource)
+    ? events.some((event) => event.type === "holiday")
+    : isHoliday(date);
 
   const selected =
     selectedDate.getDate() === day &&

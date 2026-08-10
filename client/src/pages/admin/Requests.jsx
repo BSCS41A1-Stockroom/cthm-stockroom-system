@@ -1,69 +1,104 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FaSearch,
   FaEye,
   FaCheck,
   FaTimes,
   FaUndo,
+  FaBoxOpen,
 } from "react-icons/fa";
 
 import "../../styles/requests.css";
+import { supabase } from "../../lib/supabase";
 
-const initialRequests = [
-  {
-    id: "BR-001",
-    student: "Juan Dela Cruz",
-    studentId: "2023-0001",
-    item: "Chef Knife",
-    quantity: 2,
-    borrowDate: "Jul 28, 2026",
-    returnDate: "Jul 30, 2026",
-    purpose: "Cooking Laboratory",
-    status: "Pending",
-  },
-  {
-    id: "BR-002",
-    student: "Maria Santos",
-    studentId: "2023-0002",
-    item: "Mixing Bowl",
-    quantity: 5,
-    borrowDate: "Jul 27, 2026",
-    returnDate: "Jul 29, 2026",
-    purpose: "Baking Activity",
-    status: "Approved",
-  },
-  {
-    id: "BR-003",
-    student: "Jose Cruz",
-    studentId: "2023-0003",
-    item: "Measuring Cup",
-    quantity: 3,
-    borrowDate: "Jul 25, 2026",
-    returnDate: "Jul 26, 2026",
-    purpose: "Assessment",
-    status: "Returned",
-  },
-  {
-    id: "BR-004",
-    student: "Ana Reyes",
-    studentId: "2023-0004",
-    item: "Sauce Pan",
-    quantity: 1,
-    borrowDate: "Jul 26, 2026",
-    returnDate: "Jul 27, 2026",
-    purpose: "Laboratory",
-    status: "Rejected",
-  },
-];
+function formatDate(date) {
+  if (!date) return "-";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(`${date}T00:00:00`));
+}
 
 export default function Requests() {
-  const [requests, setRequests] = useState(initialRequests);
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [selected, setSelected] = useState(null);
   const ITEMS_PER_PAGE = 8;
 
   const [page,setPage] = useState(1);
+
+  const loadRequests = useCallback(async () => {
+    setLoading(true);
+    setLoadError("");
+
+    const [requestsResult, itemsResult, inventoryResult] = await Promise.all([
+      supabase.from("borrow_requests").select("*").order("created_at", { ascending: false }),
+      supabase.from("borrow_request_items").select("request_id, inventory_id, quantity"),
+      supabase.from("inventory").select("id, item_name"),
+    ]);
+
+    const error = requestsResult.error || itemsResult.error || inventoryResult.error;
+    if (error) {
+      setLoadError(error.message);
+      setRequests([]);
+      setLoading(false);
+      return;
+    }
+
+    const inventoryById = new Map(
+      (inventoryResult.data || []).map((item) => [String(item.id), item.item_name])
+    );
+    const itemsByRequest = new Map();
+
+    for (const item of itemsResult.data || []) {
+      const requestId = String(item.request_id);
+      const group = itemsByRequest.get(requestId) || [];
+      group.push({
+        name: inventoryById.get(String(item.inventory_id)) || `Item #${item.inventory_id}`,
+        quantity: Number(item.quantity),
+      });
+      itemsByRequest.set(requestId, group);
+    }
+
+    setRequests((requestsResult.data || []).map((request) => {
+      const requestItems = itemsByRequest.get(String(request.id)) || [];
+      return {
+        databaseId: request.id,
+        id: `BR-${String(request.id).padStart(3, "0")}`,
+        student: request.student_name,
+        studentId: request.student_id,
+        item: requestItems.map((item) => item.name).join(", ") || "No items",
+        quantity: requestItems.reduce((sum, item) => sum + item.quantity, 0),
+        items: requestItems,
+        borrowDate: formatDate(request.borrow_date),
+        returnDate: formatDate(request.return_date),
+        purpose: request.purpose || "-",
+        status: request.status,
+      };
+    }));
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(loadRequests, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadRequests]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-borrow-requests")
+      .on("postgres_changes", { event: "*", schema: "public", table: "borrow_requests" }, loadRequests)
+      .on("postgres_changes", { event: "*", schema: "public", table: "borrow_request_items" }, loadRequests)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadRequests]);
 
   const filtered = useMemo(() => {
     return requests.filter((r) => {
@@ -86,7 +121,24 @@ export default function Requests() {
       page*ITEMS_PER_PAGE
   );
 
-  const updateStatus = (id, status) => {
+  const updateStatus = async (id, status) => {
+    const request = requests.find((item) => item.id === id);
+    if (!request) return;
+
+    setLoadError("");
+    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+    const response = await fetch(`${apiUrl}/api/borrowings/${request.databaseId}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    const result = await response.json();
+
+    if (!response.ok) {
+      setLoadError(result.message || "Unable to update request status.");
+      return;
+    }
+
     setRequests((prev) =>
       prev.map((r) =>
         r.id === id ? { ...r, status } : r
@@ -141,12 +193,12 @@ export default function Requests() {
           </select>
 
       </div>
+
+      {loadError && <p className="form-error">{loadError}</p>}
         
       <div className="requests-table-wrapper">
 
       <table className="requests-table">
-
-        <table>
 
           <thead>
 
@@ -164,6 +216,18 @@ export default function Requests() {
           </thead>
 
           <tbody>
+
+            {loading && (
+              <tr>
+                <td colSpan={8} className="requests-empty">Loading requests...</td>
+              </tr>
+            )}
+
+            {!loading && paginated.length === 0 && (
+              <tr>
+                <td colSpan={8} className="requests-empty">No borrowing requests found.</td>
+              </tr>
+            )}
 
             {paginated.map((r) => (
 
@@ -236,9 +300,20 @@ export default function Requests() {
                         onClick={() =>
                           updateStatus(
                             r.id,
-                            "Returned"
+                            "Borrowed"
                           )
                         }
+                        title="Mark as borrowed"
+                      >
+                        <FaBoxOpen />
+                      </button>
+                    )}
+
+                    {r.status === "Borrowed" && (
+                      <button
+                        className="return-btn"
+                        onClick={() => updateStatus(r.id, "Returned")}
+                        title="Mark as returned"
                       >
                         <FaUndo />
                       </button>
@@ -253,8 +328,6 @@ export default function Requests() {
             ))}
 
           </tbody>
-
-        </table>
 
       </table>
 
@@ -285,7 +358,7 @@ export default function Requests() {
 
     <button
         className="page-btn"
-        disabled={page===totalPages}
+        disabled={totalPages === 0 || page===totalPages}
         onClick={()=>setPage(page+1)}
     >
         Next
@@ -323,6 +396,12 @@ export default function Requests() {
               <p><strong>Item:</strong> {selected.item}</p>
 
               <p><strong>Quantity:</strong> {selected.quantity}</p>
+
+              {selected.items.map((item, index) => (
+                <p key={`${item.name}-${index}`}>
+                  <strong>{item.name}:</strong> {item.quantity}
+                </p>
+              ))}
 
               <p><strong>Borrow:</strong> {selected.borrowDate}</p>
 
