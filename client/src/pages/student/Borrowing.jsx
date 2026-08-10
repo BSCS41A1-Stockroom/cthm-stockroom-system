@@ -186,59 +186,39 @@ async function handleSubmit(e) {
 
     setSubmitting(true);
 
-const { data: requestData, error: requestError } = await supabase
-    .from("borrow_requests")
-    .insert([
-        {
-            borrow_date: borrowDate,
-            return_date: returnDate,
-            purpose: purpose,
-            status: "Pending"
-        }
-    ])
-    .select()
-    .single();
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      const response = await fetch(`${apiUrl}/api/borrowings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          borrowDate,
+          returnDate,
+          purpose,
+          items: selectedList.map((item) => ({
+            inventoryId: item.id,
+            quantity: item.borrowQty,
+          })),
+        }),
+      });
+      const result = await response.json();
 
-if (requestError) {
+      if (!response.ok) {
+        const reason = result.validation?.reasons?.[0]?.message;
+        throw new Error(reason || result.message || "Borrowing request failed validation.");
+      }
 
-    setFormError(requestError.message);
-    setSubmitting(false);
-    return;
-
-}
-
-const borrowItems = selectedList.map(item => ({
-
-    request_id: requestData.id,
-    inventory_id: item.id,
-    quantity: item.borrowQty
-
-}));
-
-const { error: itemError } = await supabase
-    .from("borrow_request_items")
-    .insert(borrowItems);
-
-if (itemError) {
-
-    setFormError(itemError.message);
-    setSubmitting(false);
-    return;
-
-}
-
-setSuccessMsg("Borrow request submitted.");
-
-setSelected({});
-setBorrowDate("");
-setReturnDate("");
-setPurpose("");
-
-loadInventory();
-
-setSubmitting(false);
-
-    setSubmitting(false);
+      setSuccessMsg("Borrow request validated and submitted.");
+      setSelected({});
+      setBorrowDate("");
+      setReturnDate("");
+      setPurpose("");
+      loadInventory();
+    } catch (error) {
+      setFormError(error.message);
+    } finally {
+      setSubmitting(false);
+    }
 
 }
 
