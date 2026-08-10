@@ -1,4 +1,5 @@
 import CalendarTooltip from "./CalendarTooltip";
+import { formatDate } from "../../../utils/calendarUtils";
 
 const weekDays = ["S", "M", "T", "W", "T", "F", "S"];
 
@@ -53,9 +54,7 @@ export default function MiniCalendar({
       day
     );
 
-    const dateString = date
-      .toISOString()
-      .split("T")[0];
+    const dateString = formatDate(date);
 
     const dayEvents = events.filter(
       event => event.date === dateString

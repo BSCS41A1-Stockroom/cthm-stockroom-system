@@ -1,78 +1,43 @@
-import { Fragment } from "react";
+import { formatDate } from "../../../utils/calendarUtils";
 
-const days = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
+const hours = Array.from({ length: 12 }, (_, index) => index + 7);
 
-const hours = [];
+export default function WeekView({ selectedDate = new Date(), events = [] }) {
+  const weekStart = new Date(selectedDate);
+  weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + index);
+    return date;
+  });
 
-for (let i = 7; i <= 18; i++) {
-  const hour = i > 12 ? i - 12 : i;
-  const suffix = i >= 12 ? "PM" : "AM";
-  hours.push(`${hour}:00 ${suffix}`);
-}
-
-export default function WeekView() {
   return (
     <div className="week-container">
-
       <div className="week-header">
         <div className="time-column"></div>
-
         {days.map((day) => (
-          <div key={day} className="week-day">
-            <span>{day.slice(0,3)}</span>
+          <div key={formatDate(day)} className="week-day">
+            {day.toLocaleDateString("en-US", { weekday: "short", day: "numeric" })}
           </div>
         ))}
       </div>
-
       <div className="week-body">
-
-        {hours.map((hour) => (
-          <Fragment key={hour}>
-
-            <div className="week-time">
-              {hour}
+        {hours.map((hour) => {
+          const time = `${String(hour).padStart(2, "0")}:00`;
+          return (
+            <div key={time} style={{ display: "contents" }}>
+              <div className="week-time">{time}</div>
+              {days.map((day) => (
+                <div key={formatDate(day)} className="week-cell">
+                  {events.filter((event) => event.date === formatDate(day) && event.start === time).map((event) => (
+                    <div key={event.id} className={`week-event ${event.type}`}>{event.title}</div>
+                  ))}
+                </div>
+              ))}
             </div>
-
-            {days.map((day, index) => (
-              <div
-                key={`${hour}-${day}`}
-                className="week-cell"
-              >
-
-                {hour === "9:00 AM" && index === 1 && (
-                  <div className="week-event activity">
-                    Culinary Laboratory
-                  </div>
-                )}
-
-                {hour === "10:00 AM" && index === 2 && (
-                  <div className="week-event reminder">
-                    Borrow Equipment
-                  </div>
-                )}
-
-                {hour === "1:00 PM" && index === 4 && (
-                  <div className="week-event holiday">
-                    School Holiday
-                  </div>
-                )}
-
-              </div>
-            ))}
-
-          </Fragment>
-        ))}
-
+          );
+        })}
       </div>
-
     </div>
   );
 }

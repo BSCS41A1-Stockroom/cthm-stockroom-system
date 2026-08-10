@@ -1,75 +1,32 @@
-const events = [
-  {
-    time: "9:00 AM",
-    title: "Culinary Laboratory",
-    type: "activity",
-  },
-  {
-    time: "10:00 AM",
-    title: "Borrow Equipment",
-    type: "reminder",
-  },
-  {
-    time: "1:00 PM",
-    title: "School Holiday",
-    type: "holiday",
-  },
-];
+import { formatDate } from "../../../utils/calendarUtils";
 
-const hours = [];
+const hours = Array.from({ length: 12 }, (_, index) => index + 7);
 
-for (let i = 7; i <= 18; i++) {
-  const hour = i > 12 ? i - 12 : i;
-  const suffix = i >= 12 ? "PM" : "AM";
-  hours.push(`${hour}:00 ${suffix}`);
-}
-
-export default function DayView() {
+export default function DayView({ selectedDate = new Date(), events = [] }) {
+  const date = formatDate(selectedDate);
   return (
     <div className="week-container">
-
       <div className="week-header">
-
         <div className="time-column"></div>
-
-        <div
-          className="week-day"
-          style={{ gridColumn: "span 7" }}
-        >
-          Monday • July 27
+        <div className="week-day" style={{ gridColumn: "span 7" }}>
+          {selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
         </div>
-
       </div>
-
       <div className="week-body">
-
-        {hours.map((hour) => (
-          <>
-            <div key={hour} className="week-time">
-              {hour}
-            </div>
-
-            <div
-              key={`${hour}-cell`}
-              className="week-cell"
-              style={{ gridColumn: "span 7" }}
-            >
-              {events
-                .filter((e) => e.time === hour)
-                .map((event) => (
-                  <div
-                    key={event.title}
-                    className={`week-event ${event.type}`}
-                  >
-                    {event.title}
-                  </div>
+        {hours.map((hour) => {
+          const time = `${String(hour).padStart(2, "0")}:00`;
+          return (
+            <div key={time} style={{ display: "contents" }}>
+              <div className="week-time">{time}</div>
+              <div className="week-cell" style={{ gridColumn: "span 7" }}>
+                {events.filter((event) => event.date === date && event.start === time).map((event) => (
+                  <div key={event.id} className={`week-event ${event.type}`}>{event.title}</div>
                 ))}
+              </div>
             </div>
-          </>
-        ))}
-
+          );
+        })}
       </div>
-
     </div>
   );
 }

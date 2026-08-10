@@ -22,6 +22,13 @@ function validateBorrowingRequestShape(request) {
   const errors = [];
   const requestedItems = Array.isArray(request.items) ? request.items : [];
 
+  if (typeof request.studentName !== "string" || !request.studentName.trim()) {
+    errors.push({ code: "STUDENT_NAME_REQUIRED", message: "Student name is required." });
+  }
+  if (typeof request.studentId !== "string" || !request.studentId.trim()) {
+    errors.push({ code: "STUDENT_ID_REQUIRED", message: "Student ID is required." });
+  }
+
   if (!isValidDate(request.borrowDate)) errors.push({ code: "INVALID_BORROW_DATE", message: "Borrow date must be a valid YYYY-MM-DD date." });
   if (!isValidDate(request.returnDate)) errors.push({ code: "INVALID_RETURN_DATE", message: "Return date must be a valid YYYY-MM-DD date." });
   if (isValidDate(request.borrowDate) && isValidDate(request.returnDate) && request.returnDate < request.borrowDate) {

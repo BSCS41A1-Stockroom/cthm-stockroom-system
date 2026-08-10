@@ -7,6 +7,7 @@ export default function LeftSidebar({
     currentYear,
     selectedDate,
     setSelectedDate,
+    events,
 }) {
   return (
     <aside className="left-sidebar">
@@ -16,9 +17,10 @@ export default function LeftSidebar({
         currentYear={currentYear}
         selectedDate={selectedDate}
         setSelectedDate={setSelectedDate}
+        events={events}
     />
 
-      <UpcomingEvents />
+      <UpcomingEvents events={events} />
 
       <CalendarLegend />
 

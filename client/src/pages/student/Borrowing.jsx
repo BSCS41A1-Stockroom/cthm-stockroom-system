@@ -13,6 +13,8 @@ export default function BorrowingInterface() {
   const [borrowDate, setBorrowDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
   const [purpose, setPurpose] = useState("");
+  const [studentName, setStudentName] = useState("");
+  const [studentId, setStudentId] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -21,6 +23,14 @@ export default function BorrowingInterface() {
 
   useEffect(() => {
     loadInventory();
+    const channel = supabase
+      .channel("student-borrowing-inventory")
+      .on("postgres_changes", { event: "*", schema: "public", table: "inventory" }, loadInventory)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   async function loadInventory() {
@@ -38,31 +48,6 @@ export default function BorrowingInterface() {
     }
 
     setLoading(false);
-  }
-
-  async function fetchInventory() {
-
-      setLoading(true);
-
-      const { data, error } = await supabase
-          .from("inventory")
-          .select("*")
-          .order("item_name");
-
-      if (error) {
-
-          console.log(error);
-
-          setLoadError(error.message);
-
-      } else {
-
-          setItems(data);
-
-      }
-
-      setLoading(false);
-
   }
 
   const filteredItems = useMemo(() => {
@@ -131,6 +116,12 @@ export default function BorrowingInterface() {
   );
 
   function validate() {
+    if (!studentName.trim())
+      return "Student name is required.";
+
+    if (!studentId.trim())
+      return "Student ID is required.";
+
     if (totalItems === 0)
       return "Please select at least one item.";
 
@@ -160,7 +151,9 @@ export default function BorrowingInterface() {
         item.missing -
         item.breakage -
         item.defective -
-        item.total_loss;
+        item.total_loss -
+        Number(item.reserved_quantity ?? 0) -
+        Number(item.borrowed_quantity ?? 0);
 
       if (item.borrowQty > available) {
         return `${item.item_name} only has ${available} remaining.`;
@@ -195,6 +188,8 @@ async function handleSubmit(e) {
           borrowDate,
           returnDate,
           purpose,
+          studentName: studentName.trim(),
+          studentId: studentId.trim(),
           items: selectedList.map((item) => ({
             inventoryId: item.id,
             quantity: item.borrowQty,
@@ -213,6 +208,8 @@ async function handleSubmit(e) {
       setBorrowDate("");
       setReturnDate("");
       setPurpose("");
+      setStudentName("");
+      setStudentId("");
       loadInventory();
     } catch (error) {
       setFormError(error.message);
@@ -325,7 +322,9 @@ async function handleSubmit(e) {
                     item.missing -
                     item.breakage -
                     item.defective -
-                    item.total_loss;
+                    item.total_loss -
+                    Number(item.reserved_quantity ?? 0) -
+                    Number(item.borrowed_quantity ?? 0);
 
                   const checked =
                     selected[item.id] !== undefined;
@@ -464,6 +463,31 @@ async function handleSubmit(e) {
             className="summary-form"
             onSubmit={handleSubmit}
           >
+
+            <label>
+
+              Student Name
+
+              <input
+                type="text"
+                value={studentName}
+                onChange={(e) => setStudentName(e.target.value)}
+                autoComplete="name"
+              />
+
+            </label>
+
+            <label>
+
+              Student ID
+
+              <input
+                type="text"
+                value={studentId}
+                onChange={(e) => setStudentId(e.target.value)}
+              />
+
+            </label>
 
             <label>
 

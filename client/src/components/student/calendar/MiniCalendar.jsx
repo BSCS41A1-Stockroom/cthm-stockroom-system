@@ -2,11 +2,11 @@ import {
   isToday,
   isSunday,
   isHoliday,
+  formatDate,
+  getEvents,
 } from "../../../utils/calendarUtils";
 
 import CalendarTooltip from "./CalendarTooltip";
-
-import { getEvents } from "../../../utils/calendarUtils";
 
 const weekDays = ["S", "M", "T", "W", "T", "F", "S"];
 
@@ -15,6 +15,7 @@ export default function MiniCalendar({
     currentYear,
     selectedDate,
     setSelectedDate,
+    events: eventSource,
 }){
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
 
@@ -52,8 +53,12 @@ export default function MiniCalendar({
 
     const today = isToday(date);
     const sunday = isSunday(date);
-    const holiday = isHoliday(date);
-    const events = getEvents(date);
+    const events = Array.isArray(eventSource)
+      ? eventSource.filter((event) => event.date === formatDate(date))
+      : getEvents(date);
+    const holiday = Array.isArray(eventSource)
+      ? events.some((event) => event.type === "holiday")
+      : isHoliday(date);
     
     const selected =
         selectedDate.getDate() === day &&

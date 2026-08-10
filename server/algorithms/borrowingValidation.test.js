@@ -11,6 +11,8 @@ const {
 function validInput() {
   return {
     request: {
+      studentName: "Juan Dela Cruz",
+      studentId: "2026-0001",
       borrowDate: "2026-08-10",
       returnDate: "2026-08-12",
       purpose: "Culinary laboratory exercise",
@@ -73,11 +75,15 @@ test("rejects malformed requests before processing", () => {
   input.request.borrowDate = "2026-02-30";
   input.request.returnDate = "2026-01-01";
   input.request.purpose = " ";
+  input.request.studentName = "";
+  input.request.studentId = "";
   input.request.items = [];
   const result = validateBorrowingRequest(input);
 
   assert.equal(result.valid, false);
   assert.deepEqual(result.reasons.map((reason) => reason.code), [
+    "STUDENT_NAME_REQUIRED",
+    "STUDENT_ID_REQUIRED",
     "INVALID_BORROW_DATE",
     "PURPOSE_REQUIRED",
     "ITEMS_REQUIRED",
