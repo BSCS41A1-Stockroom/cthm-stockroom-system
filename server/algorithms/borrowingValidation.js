@@ -1,6 +1,7 @@
 "use strict";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const POSTGRES_INTEGER_MAX = 2_147_483_647;
 
 function isValidDate(value) {
   if (typeof value !== "string" || !DATE_PATTERN.test(value)) return false;
@@ -19,28 +20,30 @@ function availableQuantity(item) {
 }
 
 function validateBorrowingRequestShape(request) {
+  const candidate = request && typeof request === "object" ? request : {};
   const errors = [];
-  const requestedItems = Array.isArray(request.items) ? request.items : [];
+  const requestedItems = Array.isArray(candidate.items) ? candidate.items : [];
 
-  if (typeof request.studentName !== "string" || !request.studentName.trim()) {
+  if (typeof candidate.studentName !== "string" || !candidate.studentName.trim()) {
     errors.push({ code: "STUDENT_NAME_REQUIRED", message: "Student name is required." });
   }
-  if (typeof request.studentId !== "string" || !request.studentId.trim()) {
+  if (typeof candidate.studentId !== "string" || !candidate.studentId.trim()) {
     errors.push({ code: "STUDENT_ID_REQUIRED", message: "Student ID is required." });
   }
 
-  if (!isValidDate(request.borrowDate)) errors.push({ code: "INVALID_BORROW_DATE", message: "Borrow date must be a valid YYYY-MM-DD date." });
-  if (!isValidDate(request.returnDate)) errors.push({ code: "INVALID_RETURN_DATE", message: "Return date must be a valid YYYY-MM-DD date." });
-  if (isValidDate(request.borrowDate) && isValidDate(request.returnDate) && request.returnDate < request.borrowDate) {
+  if (!isValidDate(candidate.borrowDate)) errors.push({ code: "INVALID_BORROW_DATE", message: "Borrow date must be a valid YYYY-MM-DD date." });
+  if (!isValidDate(candidate.returnDate)) errors.push({ code: "INVALID_RETURN_DATE", message: "Return date must be a valid YYYY-MM-DD date." });
+  if (isValidDate(candidate.borrowDate) && isValidDate(candidate.returnDate) && candidate.returnDate < candidate.borrowDate) {
     errors.push({ code: "INVALID_DATE_RANGE", message: "Return date cannot be before the borrow date." });
   }
-  if (typeof request.purpose !== "string" || !request.purpose.trim()) {
+  if (typeof candidate.purpose !== "string" || !candidate.purpose.trim()) {
     errors.push({ code: "PURPOSE_REQUIRED", message: "Purpose is required." });
   }
   if (requestedItems.length === 0) errors.push({ code: "ITEMS_REQUIRED", message: "At least one inventory item is required." });
 
   const seen = new Set();
-  for (const requested of requestedItems) {
+  for (const value of requestedItems) {
+    const requested = value && typeof value === "object" ? value : {};
     const inventoryId = String(requested.inventoryId ?? "");
     if (!inventoryId || seen.has(inventoryId)) {
       errors.push({
@@ -52,8 +55,14 @@ function validateBorrowingRequestShape(request) {
     }
     seen.add(inventoryId);
 
-    if (!Number.isInteger(requested.quantity) || requested.quantity <= 0) {
-      errors.push({ code: "INVALID_QUANTITY", inventoryId, message: `Quantity for inventory item '${inventoryId}' must be a positive integer.` });
+    if (!Number.isInteger(requested.quantity)
+      || requested.quantity <= 0
+      || requested.quantity > POSTGRES_INTEGER_MAX) {
+      errors.push({
+        code: "INVALID_QUANTITY",
+        inventoryId,
+        message: `Quantity for inventory item '${inventoryId}' must be a positive database-safe integer.`,
+      });
     }
   }
 
@@ -66,13 +75,20 @@ function normalizeBorrowingInput(input) {
   const inventory = Array.isArray(input?.inventory) ? input.inventory : [];
   const existingBorrowings = Array.isArray(input?.existingBorrowings) ? input.existingBorrowings : [];
   const errors = validateBorrowingRequestShape(request);
-  const inventoryById = new Map(inventory.map((item) => [String(item.id), item]));
+  const inventoryById = new Map(inventory
+    .filter((item) => item && typeof item === "object" && item.id != null)
+    .map((item) => [String(item.id), item]));
   const seen = new Set();
   const items = [];
 
-  for (const requested of requestedItems) {
+  for (const value of requestedItems) {
+    const requested = value && typeof value === "object" ? value : {};
     const inventoryId = String(requested.inventoryId ?? "");
-    if (!inventoryId || seen.has(inventoryId) || !Number.isInteger(requested.quantity) || requested.quantity <= 0) continue;
+    if (!inventoryId
+      || seen.has(inventoryId)
+      || !Number.isInteger(requested.quantity)
+      || requested.quantity <= 0
+      || requested.quantity > POSTGRES_INTEGER_MAX) continue;
     seen.add(inventoryId);
 
     const item = inventoryById.get(inventoryId);
@@ -81,16 +97,44 @@ function normalizeBorrowingInput(input) {
       continue;
     }
 
-    const reserved = existingBorrowings
-      .filter((entry) => String(entry.inventoryId) === inventoryId)
-      .reduce((sum, entry) => sum + Number(entry.quantity ?? 0), 0);
+    const physicalQuantity = availableQuantity(item);
+    if (!Number.isSafeInteger(physicalQuantity) || physicalQuantity < 0) {
+      errors.push({
+        code: "INVALID_INVENTORY_DATA",
+        inventoryId,
+        message: `Inventory item '${inventoryId}' has invalid stock data.`,
+      });
+      continue;
+    }
+
+    const matchingBorrowings = existingBorrowings.filter((entry) =>
+      entry && typeof entry === "object" && String(entry.inventoryId) === inventoryId
+    );
+    const reservationQuantities = matchingBorrowings.map((entry) => Number(entry.quantity));
+    if (reservationQuantities.some((quantity) => !Number.isSafeInteger(quantity) || quantity < 0)) {
+      errors.push({
+        code: "INVALID_RESERVATION_DATA",
+        inventoryId,
+        message: `Inventory item '${inventoryId}' has invalid reservation data.`,
+      });
+      continue;
+    }
+    const reserved = reservationQuantities.reduce((sum, quantity) => sum + quantity, 0);
+    if (!Number.isSafeInteger(reserved)) {
+      errors.push({
+        code: "INVALID_RESERVATION_DATA",
+        inventoryId,
+        message: `Inventory item '${inventoryId}' has reservation totals outside the supported range.`,
+      });
+      continue;
+    }
 
     items.push({
       inventoryId,
       itemName: item.item_name ?? item.itemName ?? inventoryId,
       requestedQuantity: requested.quantity,
-      physicalQuantity: Math.max(0, availableQuantity(item)),
-      reservedQuantity: Math.max(0, reserved),
+      physicalQuantity,
+      reservedQuantity: reserved,
     });
   }
 
@@ -101,9 +145,12 @@ function normalizeBorrowingInput(input) {
  * Builds the borrowing CSP.
  *
  * Variable Q_item represents the number of units allocated to one requested
- * inventory item. Its domain is 0..min(requested, physically available).
- * A complete valid assignment must allocate the exact requested quantity and
- * must not exceed capacity after overlapping reservations are deducted.
+ * inventory item. Exact-demand is a hard unary constraint, so node
+ * consistency reduces each domain to the requested quantity (or an empty
+ * domain when even the physical stock cannot satisfy it). This avoids
+ * allocating an array proportional to an untrusted requested quantity.
+ * A complete valid assignment must also not exceed capacity after overlapping
+ * reservations are deducted.
  */
 function createBorrowingCspModel(input) {
   const normalized = normalizeBorrowingInput(input);
@@ -114,8 +161,10 @@ function createBorrowingCspModel(input) {
   const itemByVariable = new Map(variables.map((variable, index) => [variable.id, normalized.items[index]]));
   const domains = Object.fromEntries(variables.map((variable) => {
     const item = itemByVariable.get(variable.id);
-    const maximum = Math.min(item.requestedQuantity, item.physicalQuantity);
-    return [variable.id, Object.freeze(Array.from({ length: maximum + 1 }, (_, quantity) => quantity))];
+    const values = item.requestedQuantity <= item.physicalQuantity
+      ? [item.requestedQuantity]
+      : [];
+    return [variable.id, Object.freeze(values)];
   }));
 
   const constraints = [

@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const {
   availableQuantity,
   createBorrowingCspModel,
+  validateBorrowingRequestShape,
   validateBorrowingRequest,
 } = require("./borrowingValidation");
 
@@ -41,12 +42,34 @@ test("builds quantity variables, domains, and CSP constraints", () => {
   const model = createBorrowingCspModel(validInput());
 
   assert.deepEqual(model.variables, [{ id: "quantity:1", inventoryId: "1" }]);
-  assert.deepEqual(model.domains["quantity:1"], [0, 1, 2, 3]);
+  assert.deepEqual(model.domains["quantity:1"], [3]);
   assert.deepEqual(model.constraints.map((constraint) => constraint.id), [
     "exact_requested_quantity",
     "inventory_capacity",
     "domain_membership",
   ]);
+});
+
+test("builds a bounded domain for an extreme requested quantity", () => {
+  const input = validInput();
+  input.request.items[0].quantity = 1_000_000_000;
+  input.inventory[0] = { id: 1, item_name: "Mixing Bowl", quantity: 1_000_000_000 };
+
+  const model = createBorrowingCspModel(input);
+
+  assert.deepEqual(model.domains["quantity:1"], [1_000_000_000]);
+  assert.equal(validateBorrowingRequest(input).valid, true);
+});
+
+test("rejects quantities outside the database integer range", () => {
+  const input = validInput();
+  input.request.items[0].quantity = 2_147_483_648;
+
+  const result = validateBorrowingRequest(input);
+
+  assert.equal(result.valid, false);
+  assert.equal(result.reasons[0].code, "INVALID_QUANTITY");
+  assert.equal(result.assignment, null);
 });
 
 test("validates a request when all requested quantities can be allocated", () => {
@@ -106,4 +129,40 @@ test("rejects duplicate, missing, and invalid item quantities", () => {
     "INVALID_QUANTITY",
     "ITEM_NOT_FOUND",
   ].sort());
+});
+
+test("rejects null request items without throwing", () => {
+  const input = validInput();
+  input.request.items = [null];
+
+  const result = validateBorrowingRequest(input);
+
+  assert.equal(result.valid, false);
+  assert.equal(result.reasons[0].code, "INVALID_ITEM");
+});
+
+test("shape validation handles absent input without throwing", () => {
+  const reasons = validateBorrowingRequestShape(undefined);
+  assert.deepEqual(reasons.map((reason) => reason.code), [
+    "STUDENT_NAME_REQUIRED",
+    "STUDENT_ID_REQUIRED",
+    "INVALID_BORROW_DATE",
+    "INVALID_RETURN_DATE",
+    "PURPOSE_REQUIRED",
+    "ITEMS_REQUIRED",
+  ]);
+});
+
+test("fails closed when inventory or reservation context is corrupt", () => {
+  const invalidInventory = validInput();
+  invalidInventory.inventory[0].quantity = "not-a-number";
+  const inventoryResult = validateBorrowingRequest(invalidInventory);
+  assert.equal(inventoryResult.valid, false);
+  assert.equal(inventoryResult.reasons[0].code, "INVALID_INVENTORY_DATA");
+
+  const invalidReservation = validInput();
+  invalidReservation.existingBorrowings = [{ inventoryId: 1, quantity: -2 }];
+  const reservationResult = validateBorrowingRequest(invalidReservation);
+  assert.equal(reservationResult.valid, false);
+  assert.equal(reservationResult.reasons[0].code, "INVALID_RESERVATION_DATA");
 });

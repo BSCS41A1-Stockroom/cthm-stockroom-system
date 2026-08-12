@@ -28,15 +28,22 @@ function inventoryDeltas(previousStatus, nextStatus, quantity) {
 }
 
 function normalizeRequest(body) {
+  const source = body && typeof body === "object" ? body : {};
+  const normalizeQuantity = (value) => {
+    if (typeof value === "number") return value;
+    if (typeof value === "string" && /^\d+$/.test(value.trim())) return Number(value.trim());
+    return Number.NaN;
+  };
+
   return {
-    studentName: body.studentName ?? body.student_name,
-    studentId: body.studentId ?? body.student_id,
-    borrowDate: body.borrowDate ?? body.borrow_date,
-    returnDate: body.returnDate ?? body.return_date,
-    purpose: body.purpose,
-    items: Array.isArray(body.items) ? body.items.map((item) => ({
-      inventoryId: item.inventoryId ?? item.inventory_id,
-      quantity: Number(item.quantity),
+    studentName: source.studentName ?? source.student_name,
+    studentId: source.studentId ?? source.student_id,
+    borrowDate: source.borrowDate ?? source.borrow_date,
+    returnDate: source.returnDate ?? source.return_date,
+    purpose: source.purpose,
+    items: Array.isArray(source.items) ? source.items.map((item) => ({
+      inventoryId: item?.inventoryId ?? item?.inventory_id,
+      quantity: normalizeQuantity(item?.quantity),
     })) : [],
   };
 }
@@ -48,8 +55,9 @@ async function loadValidationContext(client, request) {
   const inventoryResult = await client.query(
     `SELECT id, item_name, quantity, additional_qty, replaces, missing,
             breakage, defective, total_loss
-       FROM inventory
+      FROM inventory
       WHERE id::text = ANY($1::text[])
+      ORDER BY id
       FOR UPDATE`,
     [inventoryIds]
   );
