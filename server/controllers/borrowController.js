@@ -5,8 +5,11 @@ const {
   validateBorrowingRequest,
   validateBorrowingRequestShape,
 } = require("../algorithms/borrowingValidation");
+const {
+  ACTIVE_BORROWING_STATUSES,
+  detectBorrowingConflicts,
+} = require("../algorithms/conflictDetection");
 
-const ACTIVE_STATUSES = ["Pending", "Validated", "Approved", "Borrowed"];
 const RESERVED_STATUSES = new Set(["Pending", "Validated", "Approved"]);
 const BORROWED_STATUSES = new Set(["Borrowed"]);
 const STATUS_TRANSITIONS = Object.freeze({
@@ -50,7 +53,15 @@ function normalizeRequest(body) {
 
 async function loadValidationContext(client, request) {
   const inventoryIds = [...new Set(request.items.map((item) => String(item.inventoryId)).filter(Boolean))];
-  if (inventoryIds.length === 0) return { inventory: [], existingBorrowings: [] };
+  if (inventoryIds.length === 0) return { inventory: [], existingBorrowings: [], existingRequests: [] };
+
+  // Inventory locks serialize capacity checks. The student-scoped advisory
+  // lock additionally serializes disjoint-item requests by the same borrower,
+  // preventing simultaneous duplicate or schedule-conflicting inserts.
+  await client.query(
+    `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
+    [request.studentId.trim().toLowerCase()]
+  );
 
   const inventoryResult = await client.query(
     `SELECT id, item_name, quantity, additional_qty, replaces, missing,
@@ -63,7 +74,9 @@ async function loadValidationContext(client, request) {
   );
 
   const reservationsResult = await client.query(
-    `SELECT bri.inventory_id, COALESCE(SUM(bri.quantity), 0)::integer AS quantity
+    `SELECT bri.inventory_id,
+            COALESCE(SUM(bri.quantity), 0)::bigint AS quantity,
+            count(*) FILTER (WHERE bri.quantity IS NULL OR bri.quantity <= 0) > 0 AS has_invalid_quantity
        FROM borrow_request_items bri
        JOIN borrow_requests br ON br.id = bri.request_id
       WHERE bri.inventory_id::text = ANY($1::text[])
@@ -71,19 +84,53 @@ async function loadValidationContext(client, request) {
         AND br.borrow_date <= $3::date
         AND br.return_date >= $4::date
       GROUP BY bri.inventory_id`,
-    [inventoryIds, ACTIVE_STATUSES, request.returnDate, request.borrowDate]
+    [inventoryIds, ACTIVE_BORROWING_STATUSES, request.returnDate, request.borrowDate]
   );
+
+  const conflictsResult = await client.query(
+    `SELECT br.id, br.student_id, br.borrow_date, br.return_date, br.status,
+            bri.inventory_id, bri.quantity
+       FROM borrow_requests br
+       LEFT JOIN borrow_request_items bri ON bri.request_id = br.id
+      WHERE lower(trim(br.student_id)) = $1
+        AND br.status = ANY($2::text[])
+        AND br.borrow_date <= $3::date
+        AND br.return_date >= $4::date
+      ORDER BY br.id, bri.inventory_id`,
+    [request.studentId.trim().toLowerCase(), ACTIVE_BORROWING_STATUSES, request.returnDate, request.borrowDate]
+  );
+
+  const requestsById = new Map();
+  for (const row of conflictsResult.rows) {
+    if (!requestsById.has(String(row.id))) {
+      requestsById.set(String(row.id), {
+        id: row.id,
+        studentId: row.student_id,
+        borrowDate: row.borrow_date,
+        returnDate: row.return_date,
+        status: row.status,
+        items: [],
+      });
+    }
+    if (row.inventory_id != null) {
+      requestsById.get(String(row.id)).items.push({
+        inventoryId: row.inventory_id,
+        quantity: Number(row.quantity),
+      });
+    }
+  }
 
   return {
     inventory: inventoryResult.rows,
     existingBorrowings: reservationsResult.rows.map((row) => ({
       inventoryId: row.inventory_id,
-      quantity: Number(row.quantity),
+      quantity: row.has_invalid_quantity ? Number.NaN : Number(row.quantity),
     })),
+    existingRequests: [...requestsById.values()],
   };
 }
 
-async function withValidation(body, persist) {
+async function withValidation(body, persist, databasePool = pool) {
   const request = normalizeRequest(body);
   const shapeErrors = validateBorrowingRequestShape(request);
   if (shapeErrors.length > 0) {
@@ -99,12 +146,29 @@ async function withValidation(body, persist) {
     };
   }
 
-  const client = await pool.connect();
+  const client = await databasePool.connect();
 
   try {
     await client.query("BEGIN");
     const context = await loadValidationContext(client, request);
-    const validation = validateBorrowingRequest({ request, ...context });
+    const cspValidation = validateBorrowingRequest({ request, ...context });
+    const conflicts = detectBorrowingConflicts({
+      request,
+      existingRequests: context.existingRequests,
+      validation: cspValidation,
+    });
+    const newConflictReasons = conflicts.filter((conflict) =>
+      !cspValidation.reasons.some((reason) => reason.code === conflict.code
+        && reason.inventoryId === conflict.inventoryId)
+    );
+    const validation = Object.freeze({
+      ...cspValidation,
+      valid: cspValidation.valid && conflicts.length === 0,
+      status: cspValidation.valid && conflicts.length === 0 ? "Validated" : "Rejected",
+      reasons: Object.freeze([...cspValidation.reasons, ...newConflictReasons]),
+      assignment: cspValidation.valid && conflicts.length === 0 ? cspValidation.assignment : null,
+      conflicts,
+    });
 
     if (!validation.valid || !persist) {
       await client.query("ROLLBACK");
@@ -272,4 +336,5 @@ module.exports = {
   normalizeRequest,
   updateBorrowRequestStatus,
   validateBorrowRequest,
+  withValidation,
 };

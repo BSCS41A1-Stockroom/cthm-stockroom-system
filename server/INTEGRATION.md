@@ -54,6 +54,11 @@ It also rebuilds reservation counters from existing active request records.
 - `POST /api/borrowings` — validate, reserve, and create
 - `POST /api/borrowings/validate` — validate without writing
 - `PATCH /api/borrowings/:id/status` — transactional lifecycle transition
+
+Borrowing creation also rejects active duplicate requests, overlapping
+same-student borrowing periods, and insufficient inventory with HTTP `422`.
+Apply `migrations/002_borrowing_conflict_detection.sql` to add the supporting
+student schedule index.
 - `GET /api/calendar/events`
 - `POST /api/calendar/events`
 - `PUT /api/calendar/events/:id`
