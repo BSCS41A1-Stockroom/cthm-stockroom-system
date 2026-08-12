@@ -10,7 +10,8 @@
   },
   "scripts": {
     "dev": "nodemon server.js",
-    "test": "node --test --test-isolation=none algorithms/*.test.js controllers/*.test.js"
+    "test": "node --test --test-isolation=none algorithms/*.test.js controllers/*.test.js",
+    "test:integration": "node --test --test-isolation=none integration/*.test.js"
   }
   
 }

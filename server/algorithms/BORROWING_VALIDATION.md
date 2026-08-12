@@ -4,7 +4,7 @@ Borrowing requests are processed through `POST /api/borrowings`. The endpoint do
 
 ## Processing sequence
 
-1. Validate request dates, purpose, item IDs, duplicates, and quantities before database access.
+1. Validate request dates, purpose, item IDs, duplicates, and database-safe positive integer quantities before database access.
 2. Begin a PostgreSQL transaction.
 3. Lock all requested inventory rows with `SELECT ... FOR UPDATE`.
 4. Sum quantities from overlapping requests whose status is `Pending`, `Validated`, `Approved`, or `Borrowed`.
@@ -19,7 +19,9 @@ The row lock prevents two simultaneous requests from both validating against the
 For every requested inventory item `i`:
 
 - Variable: `Q_i`, the allocated quantity (`quantity:<inventoryId>` in code).
-- Domain: integer values from `0` through `min(requestedQuantity, physicalQuantity)`.
+- Domain: the exact requested quantity when it does not exceed physical stock,
+  otherwise empty. Exact-demand is applied during domain construction so a
+  large user-supplied quantity cannot create an equally large array.
 - Exact-demand constraint: `Q_i = requestedQuantity`.
 - Capacity constraint: `Q_i + overlappingReservedQuantity_i <= physicalQuantity_i`.
 - Domain constraint: `Q_i` must belong to its generated domain.
@@ -29,6 +31,14 @@ Physical quantity uses the stockroom inventory formula:
 `quantity + additional_qty - replaces - missing - breakage - defective - total_loss`
 
 Borrow and return dates are inclusive when finding overlapping reservations.
+
+## Concurrency integration test
+
+Set `TEST_DATABASE_URL` to a disposable PostgreSQL or Supabase test project and
+run `npm run test:integration`. The test uses two real database connections to
+submit competing reservations, verifies that the row lock prevents
+over-allocation, and removes its uniquely named test schema afterward. Do not
+point `TEST_DATABASE_URL` at production.
 
 ## API
 
