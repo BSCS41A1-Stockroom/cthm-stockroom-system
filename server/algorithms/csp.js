@@ -1,361 +1,1515 @@
 "use strict";
 
 /**
- * CSP model for assigning CTHM laboratory requests to a room and time slot.
+ * ============================================================
+ * CTHM STOCKROOM - BORROWING CSP
+ * ============================================================
  *
- * A solver assigns one value from domains[variable.id] to every variable.
- * Each value is an immutable tuple:
- *   { requestId, roomId, date, startSlot, endSlot, startTime, endTime }
- *
- * Constraint predicates accept a partial assignment object keyed by variable id.
- * They return true while a partial assignment is still viable and false only
- * when an assigned value violates the constraint.
+ * Constraints:
+ * 1. Inventory Capacity
+ * 2. Time Overlap
+ * 3. Duplicate Request
+ * 4. Borrowing Limit
+ * 5. Lead Time
+ * 6. Return / Outstanding
+ * 7. Status
+ * 8. Availability Date
+ * ============================================================
  */
 
-const VARIABLE_PREFIX = "assignment:";
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
+
+/* ============================================================
+   DEFAULT POLICY
+============================================================ */
+
 const DEFAULT_POLICY = Object.freeze({
-  slotMinutes: 30,
-  operatingHours: Object.freeze({ start: "07:00", end: "20:00" }),
-  bufferSlots: 0,
-  allowPartial: false,
+  maxItemsPerRequest: 10,
+  maxQuantityPerStudent: 10,
+  leadTimeDays: 2,
+  preventOutstandingBorrowing: true,
 });
 
+
+/* ============================================================
+   HELPERS
+============================================================ */
+
 function invariant(condition, message) {
-  if (!condition) throw new TypeError(message);
+  if (!condition) {
+    throw new TypeError(message);
+  }
 }
 
-function variableId(requestId) {
-  return `${VARIABLE_PREFIX}${requestId}`;
-}
 
+/* ============================================================
+   DATE VALIDATION
+============================================================ */
+
+/**
+ * Strict YYYY-MM-DD validation.
+ *
+ * Uses UTC instead of local Date parsing so the result is
+ * not affected by the machine's timezone.
+ */
 function isValidDate(date) {
-  if (typeof date !== "string" || !DATE_PATTERN.test(date)) return false;
-  const parsed = new Date(`${date}T00:00:00Z`);
-  return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === date;
-}
-
-function parseTime(time, fieldName, slotMinutes) {
-  invariant(typeof time === "string" && TIME_PATTERN.test(time), `${fieldName} must use HH:mm (24-hour) format`);
-  const [hour, minute] = time.split(":").map(Number);
-  const totalMinutes = hour * 60 + minute;
-  invariant(totalMinutes % slotMinutes === 0, `${fieldName} must align to a ${slotMinutes}-minute slot`);
-  return totalMinutes / slotMinutes;
-}
-
-function formatSlot(slot, slotMinutes) {
-  const totalMinutes = slot * slotMinutes;
-  const hour = Math.floor(totalMinutes / 60);
-  const minute = totalMinutes % 60;
-  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-}
-
-function normalizeWindows(windows, fallback, slotMinutes, fieldName) {
-  const source = windows?.length ? windows : [fallback];
-  return source.map((window, index) => {
-    const startSlot = parseTime(window.start, `${fieldName}[${index}].start`, slotMinutes);
-    const endSlot = parseTime(window.end, `${fieldName}[${index}].end`, slotMinutes);
-    invariant(startSlot < endSlot, `${fieldName}[${index}] must end after it starts`);
-    return { startSlot, endSlot };
-  });
-}
-
-function intervalsOverlap(left, right, bufferSlots = 0) {
-  return left.startSlot < right.endSlot + bufferSlots && right.startSlot < left.endSlot + bufferSlots;
-}
-
-function dateListBetween(startDate, endDate) {
-  invariant(isValidDate(startDate), "planningHorizon.startDate must be a valid YYYY-MM-DD date");
-  invariant(isValidDate(endDate), "planningHorizon.endDate must be a valid YYYY-MM-DD date");
-
-  const start = new Date(`${startDate}T00:00:00Z`);
-  const end = new Date(`${endDate}T00:00:00Z`);
-  invariant(!Number.isNaN(start.valueOf()) && !Number.isNaN(end.valueOf()) && start <= end,
-    "planningHorizon must contain valid dates with startDate <= endDate");
-
-  const dates = [];
-  for (let cursor = start; cursor <= end; cursor = new Date(cursor.valueOf() + 86_400_000)) {
-    dates.push(cursor.toISOString().slice(0, 10));
+  if (
+    typeof date !== "string" ||
+    !DATE_PATTERN.test(date)
+  ) {
+    return false;
   }
-  return dates;
-}
 
-function assignedValues(assignment, scope) {
-  return scope.map((id) => assignment[id]).filter((value) => value != null && value !== "UNASSIGNED");
-}
+  const [year, month, day] =
+    date.split("-").map(Number);
 
-function validateUniqueIds(items, label) {
-  const ids = new Set();
-  for (const item of items) {
-    invariant(item && typeof item.id === "string" && item.id.trim(), `${label} entries require a non-empty string id`);
-    invariant(!ids.has(item.id), `${label} contains duplicate id '${item.id}'`);
-    ids.add(item.id);
-  }
-}
+  const parsed =
+    new Date(
+      Date.UTC(
+        year,
+        month - 1,
+        day
+      )
+    );
 
-function validateInput(input) {
-  invariant(input && typeof input === "object", "CSP input is required");
-  invariant(Array.isArray(input.requests) && input.requests.length > 0, "requests must be a non-empty array");
-  invariant(Array.isArray(input.rooms) && input.rooms.length > 0, "rooms must be a non-empty array");
-  invariant(input.planningHorizon, "planningHorizon is required");
-  validateUniqueIds(input.requests, "requests");
-  validateUniqueIds(input.rooms, "rooms");
-
-  for (const room of input.rooms) {
-    invariant(Number.isInteger(room.capacity) && room.capacity >= 0,
-      `room '${room.id}' requires a non-negative integer capacity`);
-  }
-}
-
-function roomSupportsRequest(room, request) {
-  if (request.allowedRoomIds?.length && !request.allowedRoomIds.includes(room.id)) return false;
-  if (request.roomType && room.type !== request.roomType) return false;
-  if ((room.capacity ?? 0) < (request.attendees ?? 0)) return false;
-
-  return Object.entries(request.requiredRoomFeatures ?? {}).every(
-    ([feature, required]) => !required || Boolean(room.features?.[feature])
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
   );
 }
 
-function createDomain(request, rooms, dates, policy) {
-  invariant(Number.isInteger(request.durationSlots) && request.durationSlots > 0,
-    `request '${request.id}' requires a positive integer durationSlots`);
 
-  const allowedDates = request.allowedDates?.length ? request.allowedDates : dates;
-  const invalidDate = allowedDates.find((date) => !isValidDate(date));
-  invariant(!invalidDate, `request '${request.id}' contains invalid allowedDate '${invalidDate}'`);
+/* ============================================================
+   TIME PARSING
+============================================================ */
 
-  const eligibleRooms = rooms.filter((room) => roomSupportsRequest(room, request));
-  const defaultWindow = policy.operatingHours;
-  const windows = normalizeWindows(request.timeWindows, defaultWindow, policy.slotMinutes,
-    `request '${request.id}'.timeWindows`);
-  const values = [];
+function parseTime(
+  time,
+  fieldName = "time"
+) {
+  invariant(
+    typeof time === "string" &&
+      TIME_PATTERN.test(time),
+    `${fieldName} must use HH:mm (24-hour) format`
+  );
 
-  for (const date of allowedDates) {
-    if (!dates.includes(date)) continue;
-    for (const room of eligibleRooms) {
-      for (const window of windows) {
-        for (let startSlot = window.startSlot; startSlot + request.durationSlots <= window.endSlot; startSlot += 1) {
-          const endSlot = startSlot + request.durationSlots;
-          values.push(Object.freeze({
-            requestId: request.id,
-            roomId: room.id,
-            date,
-            startSlot,
-            endSlot,
-            startTime: formatSlot(startSlot, policy.slotMinutes),
-            endTime: formatSlot(endSlot, policy.slotMinutes),
-          }));
+  const [hour, minute] =
+    time.split(":").map(Number);
+
+  return (
+    hour * 60 +
+    minute
+  );
+}
+
+
+/* ============================================================
+   TIME INTERVAL OVERLAP
+============================================================ */
+
+/**
+ * Half-open interval:
+ *
+ * [start, end)
+ *
+ * 08:00 - 10:00
+ * 10:00 - 12:00
+ *
+ * => NOT overlapping
+ *
+ * 08:00 - 10:00
+ * 09:00 - 11:00
+ *
+ * => overlapping
+ */
+
+function intervalsOverlap(
+  leftStart,
+  leftEnd,
+  rightStart,
+  rightEnd
+) {
+  return (
+    leftStart < rightEnd &&
+    rightStart < leftEnd
+  );
+}
+
+
+/* ============================================================
+   DATE DIFFERENCE
+============================================================ */
+
+function dateDifferenceInDays(
+  earlierDate,
+  laterDate
+) {
+  invariant(
+    isValidDate(earlierDate),
+    `Invalid earlier date: ${earlierDate}`
+  );
+
+  invariant(
+    isValidDate(laterDate),
+    `Invalid later date: ${laterDate}`
+  );
+
+  const [ey, em, ed] =
+    earlierDate.split("-").map(Number);
+
+  const [ly, lm, ld] =
+    laterDate.split("-").map(Number);
+
+  const earlier =
+    Date.UTC(
+      ey,
+      em - 1,
+      ed
+    );
+
+  const later =
+    Date.UTC(
+      ly,
+      lm - 1,
+      ld
+    );
+
+  return Math.floor(
+    (later - earlier) /
+      (1000 * 60 * 60 * 24)
+  );
+}
+
+
+/* ============================================================
+   REQUEST NORMALIZATION
+============================================================ */
+
+function normalizeRequest(request) {
+  invariant(
+    request &&
+      typeof request === "object" &&
+      !Array.isArray(request),
+    "request is required"
+  );
+
+
+  /* ----------------------------------------------------------
+     BASIC FIELDS
+  ---------------------------------------------------------- */
+
+  const id =
+    request.id ??
+    request.request_id;
+
+  const studentId =
+    request.studentId ??
+    request.student_id;
+
+  const borrowDate =
+    request.borrowDate ??
+    request.borrow_date ??
+    request.date;
+
+  const returnDate =
+    request.returnDate ??
+    request.return_date ??
+    borrowDate;
+
+  const startTime =
+    request.startTime ??
+    request.start_time ??
+    null;
+
+  const endTime =
+    request.endTime ??
+    request.end_time ??
+    null;
+
+  const submittedAt =
+    request.submittedAt ??
+    request.submitted_at ??
+    null;
+
+  const purpose =
+    request.purpose ??
+    request.activity ??
+    request.description ??
+    "";
+
+  const status =
+    request.status ??
+    "pending";
+
+
+  /* ----------------------------------------------------------
+     ITEMS
+  ---------------------------------------------------------- */
+
+  const items =
+    request.items ??
+    request.request_items ??
+    request.borrowing_items ??
+    [];
+
+
+  /* ----------------------------------------------------------
+     REQUIRED FIELDS
+  ---------------------------------------------------------- */
+
+  invariant(
+    typeof id === "string" &&
+      id.trim().length > 0,
+    "request.id is required"
+  );
+
+  invariant(
+    typeof studentId === "string" &&
+      studentId.trim().length > 0,
+    "request.studentId is required"
+  );
+
+  invariant(
+    isValidDate(borrowDate),
+    "request.borrowDate must be a valid YYYY-MM-DD date"
+  );
+
+  if (returnDate != null) {
+    invariant(
+      isValidDate(returnDate),
+      "request.returnDate must be a valid YYYY-MM-DD date"
+    );
+  }
+
+  invariant(
+    Array.isArray(items) &&
+      items.length > 0,
+    "request.items must be a non-empty array"
+  );
+
+
+  /* ----------------------------------------------------------
+     RETURN DATE
+  ---------------------------------------------------------- */
+
+  const normalizedReturnDate =
+    returnDate ?? borrowDate;
+
+  invariant(
+    dateDifferenceInDays(
+      borrowDate,
+      normalizedReturnDate
+    ) >= 0,
+    "request.returnDate cannot be before request.borrowDate"
+  );
+
+
+  /* ----------------------------------------------------------
+     ITEMS
+  ---------------------------------------------------------- */
+
+  const normalizedItems =
+    items.map(
+      (item, index) => {
+
+        invariant(
+          item &&
+            typeof item === "object" &&
+            !Array.isArray(item),
+          `items[${index}] must be an object`
+        );
+
+        const itemId =
+          item.itemId ??
+          item.item_id ??
+          item.id;
+
+        const quantity =
+          item.quantity ??
+          item.requestedQuantity ??
+          item.requested_quantity;
+
+        invariant(
+          typeof itemId === "string" &&
+            itemId.trim().length > 0,
+          `items[${index}].itemId is required`
+        );
+
+        invariant(
+          Number.isInteger(quantity) &&
+            quantity > 0,
+          `items[${index}].quantity must be a positive integer`
+        );
+
+        return Object.freeze({
+          itemId: itemId.trim(),
+          quantity,
+        });
+      }
+    );
+
+
+  /* ----------------------------------------------------------
+     TIME
+  ---------------------------------------------------------- */
+
+  let startMinutes = null;
+  let endMinutes = null;
+
+  if (startTime != null) {
+    startMinutes =
+      parseTime(
+        startTime,
+        "request.startTime"
+      );
+  }
+
+  if (endTime != null) {
+    endMinutes =
+      parseTime(
+        endTime,
+        "request.endTime"
+      );
+  }
+
+  if (
+    startMinutes != null &&
+    endMinutes != null
+  ) {
+    invariant(
+      startMinutes < endMinutes,
+      "request.endTime must be after request.startTime"
+    );
+  }
+
+
+  /* ----------------------------------------------------------
+     NORMALIZED REQUEST
+  ---------------------------------------------------------- */
+
+  return Object.freeze({
+    ...request,
+
+    id: id.trim(),
+    studentId: studentId.trim(),
+
+    borrowDate,
+    returnDate:
+      normalizedReturnDate,
+
+    startTime,
+    endTime,
+
+    submittedAt,
+
+    purpose:
+      String(purpose ?? ""),
+
+    status:
+      String(status ?? "pending")
+        .trim()
+        .toLowerCase(),
+
+    items:
+      Object.freeze(
+        normalizedItems
+      ),
+
+    startMinutes,
+    endMinutes,
+  });
+}
+
+
+/* ============================================================
+   NORMALIZE EXISTING REQUEST
+============================================================ */
+
+function normalizeExistingRequest(
+  request
+) {
+  return normalizeRequest(request);
+}
+
+
+/* ============================================================
+   ENSURE NORMALIZED REQUEST
+============================================================ */
+
+/**
+ * Important:
+ *
+ * Tests may directly call:
+ *
+ * checkTimeOverlap(baseRequest(), ...)
+ *
+ * while the main validator passes an already-normalized object.
+ *
+ * This helper supports BOTH.
+ */
+
+function ensureNormalizedRequest(
+  request
+) {
+  if (
+    request &&
+    typeof request === "object" &&
+    Array.isArray(request.items) &&
+    typeof request.id === "string" &&
+    typeof request.studentId === "string" &&
+    typeof request.borrowDate === "string" &&
+    Object.prototype.hasOwnProperty.call(
+      request,
+      "startMinutes"
+    ) &&
+    Object.prototype.hasOwnProperty.call(
+      request,
+      "endMinutes"
+    )
+  ) {
+    return request;
+  }
+
+  return normalizeRequest(request);
+}
+
+
+/* ============================================================
+   CONSTRAINT 1
+   INVENTORY CAPACITY
+============================================================ */
+
+function checkInventoryCapacity(
+  request,
+  inventory = {}
+) {
+  const normalized =
+    ensureNormalizedRequest(request);
+
+  for (
+    const item
+    of normalized.items
+  ) {
+
+    const available =
+      Number(
+        inventory?.[item.itemId] ?? 0
+      );
+
+    if (
+      !Number.isFinite(available) ||
+      item.quantity > available
+    ) {
+      return {
+        satisfied: false,
+
+        constraint:
+          "inventory_capacity",
+
+        message:
+          `Insufficient inventory for item '${item.itemId}'. ` +
+          `Requested: ${item.quantity}, ` +
+          `Available: ${Number.isFinite(available) ? available : 0}.`,
+      };
+    }
+  }
+
+  return {
+    satisfied: true,
+
+    constraint:
+      "inventory_capacity",
+  };
+}
+
+
+/* ============================================================
+   CONSTRAINT 2
+   TIME OVERLAP
+============================================================ */
+
+function checkTimeOverlap(
+  request,
+  existingRequests = []
+) {
+  const normalized =
+    ensureNormalizedRequest(request);
+
+  if (
+    normalized.startMinutes == null ||
+    normalized.endMinutes == null
+  ) {
+    return {
+      satisfied: true,
+
+      constraint:
+        "time_overlap",
+    };
+  }
+
+
+  for (
+    const existingRaw
+    of existingRequests
+  ) {
+
+    if (!existingRaw) {
+      continue;
+    }
+
+    let existing;
+
+    try {
+      existing =
+        ensureNormalizedRequest(
+          existingRaw
+        );
+    } catch {
+      continue;
+    }
+
+
+    if (
+      existing.id ===
+      normalized.id
+    ) {
+      continue;
+    }
+
+
+    const existingStatus =
+      String(
+        existing.status ?? ""
+      )
+        .trim()
+        .toLowerCase();
+
+
+    if (
+      existingStatus === "rejected" ||
+      existingStatus === "cancelled" ||
+      existingStatus === "returned"
+    ) {
+      continue;
+    }
+
+
+    if (
+      existing.borrowDate !==
+      normalized.borrowDate
+    ) {
+      continue;
+    }
+
+
+    if (
+      existing.startMinutes == null ||
+      existing.endMinutes == null
+    ) {
+      continue;
+    }
+
+
+    const overlaps =
+      intervalsOverlap(
+        normalized.startMinutes,
+        normalized.endMinutes,
+        existing.startMinutes,
+        existing.endMinutes
+      );
+
+
+    if (!overlaps) {
+      continue;
+    }
+
+
+    const requestItemIds =
+      new Set(
+        normalized.items.map(
+          (item) =>
+            item.itemId
+        )
+      );
+
+
+    const existingItemIds =
+      new Set(
+        existing.items.map(
+          (item) =>
+            item.itemId
+        )
+      );
+
+
+    const sharedItem =
+      [...requestItemIds].some(
+        (itemId) =>
+          existingItemIds.has(
+            itemId
+          )
+      );
+
+
+    if (sharedItem) {
+      return {
+        satisfied: false,
+
+        constraint:
+          "time_overlap",
+
+        message:
+          `Time conflict detected with request '${existing.id}'.`,
+      };
+    }
+  }
+
+
+  return {
+    satisfied: true,
+
+    constraint:
+      "time_overlap",
+  };
+}
+
+
+/* ============================================================
+   CANONICAL ITEM SIGNATURE
+============================================================ */
+
+function canonicalItemSignature(
+  items
+) {
+  return JSON.stringify(
+    [...items]
+      .map((item) => ({
+        itemId:
+          String(item.itemId),
+
+        quantity:
+          Number(item.quantity),
+      }))
+      .sort((a, b) => {
+
+        const idCompare =
+          a.itemId.localeCompare(
+            b.itemId
+          );
+
+        if (
+          idCompare !== 0
+        ) {
+          return idCompare;
         }
+
+        return (
+          a.quantity -
+          b.quantity
+        );
+      })
+  );
+}
+
+
+/* ============================================================
+   CONSTRAINT 3
+   DUPLICATE REQUEST
+============================================================ */
+
+function checkDuplicateRequest(
+  request,
+  existingRequests = []
+) {
+  const normalized =
+    ensureNormalizedRequest(request);
+
+  const currentItemKey =
+    canonicalItemSignature(
+      normalized.items
+    );
+
+  const currentPurpose =
+    String(
+      normalized.purpose ?? ""
+    )
+      .trim()
+      .toLowerCase();
+
+
+  for (
+    const existingRaw
+    of existingRequests
+  ) {
+
+    if (!existingRaw) {
+      continue;
+    }
+
+    let existing;
+
+    try {
+      existing =
+        ensureNormalizedRequest(
+          existingRaw
+        );
+    } catch {
+      continue;
+    }
+
+
+    if (
+      existing.id ===
+      normalized.id
+    ) {
+      continue;
+    }
+
+
+    if (
+      existing.studentId !==
+      normalized.studentId
+    ) {
+      continue;
+    }
+
+
+    if (
+      existing.borrowDate !==
+      normalized.borrowDate
+    ) {
+      continue;
+    }
+
+
+    const existingStatus =
+      String(
+        existing.status ?? ""
+      )
+        .trim()
+        .toLowerCase();
+
+
+    if (
+      existingStatus ===
+        "rejected" ||
+      existingStatus ===
+        "cancelled"
+    ) {
+      continue;
+    }
+
+
+    const existingItemKey =
+      canonicalItemSignature(
+        existing.items
+      );
+
+
+    const existingPurpose =
+      String(
+        existing.purpose ?? ""
+      )
+        .trim()
+        .toLowerCase();
+
+
+    if (
+      currentItemKey ===
+        existingItemKey &&
+      currentPurpose ===
+        existingPurpose
+    ) {
+      return {
+        satisfied: false,
+
+        constraint:
+          "duplicate_request",
+
+        message:
+          `Duplicate borrowing request detected. ` +
+          `Existing request: '${existing.id}'.`,
+      };
+    }
+  }
+
+
+  return {
+    satisfied: true,
+
+    constraint:
+      "duplicate_request",
+  };
+}
+
+
+/* ============================================================
+   CONSTRAINT 4
+   BORROWING LIMIT
+============================================================ */
+
+function checkBorrowingLimit(
+  request,
+  policy = DEFAULT_POLICY
+) {
+  const normalized =
+    ensureNormalizedRequest(request);
+
+  const finalPolicy = {
+    ...DEFAULT_POLICY,
+    ...(policy || {}),
+  };
+
+
+  const totalQuantity =
+    normalized.items.reduce(
+      (total, item) =>
+        total + item.quantity,
+      0
+    );
+
+
+  if (
+    totalQuantity >
+    finalPolicy.maxQuantityPerStudent
+  ) {
+    return {
+      satisfied: false,
+
+      constraint:
+        "borrowing_limit",
+
+      message:
+        `Borrowing limit exceeded. ` +
+        `Maximum: ${finalPolicy.maxQuantityPerStudent}, ` +
+        `Requested: ${totalQuantity}.`,
+    };
+  }
+
+
+  if (
+    normalized.items.length >
+    finalPolicy.maxItemsPerRequest
+  ) {
+    return {
+      satisfied: false,
+
+      constraint:
+        "borrowing_limit",
+
+      message:
+        `Maximum number of different items per request is ` +
+        `${finalPolicy.maxItemsPerRequest}.`,
+    };
+  }
+
+
+  return {
+    satisfied: true,
+
+    constraint:
+      "borrowing_limit",
+  };
+}
+
+
+/* ============================================================
+   CONSTRAINT 5
+   LEAD TIME
+============================================================ */
+
+function checkLeadTime(
+  request,
+  now = new Date(),
+  policy = DEFAULT_POLICY
+) {
+  const normalized =
+    ensureNormalizedRequest(request);
+
+  const finalPolicy = {
+    ...DEFAULT_POLICY,
+    ...(policy || {}),
+  };
+
+
+  invariant(
+    now instanceof Date &&
+      !Number.isNaN(
+        now.valueOf()
+      ),
+    "now must be a valid Date"
+  );
+
+
+  const submittedDateString =
+    now
+      .toISOString()
+      .slice(0, 10);
+
+
+  const days =
+    dateDifferenceInDays(
+      submittedDateString,
+      normalized.borrowDate
+    );
+
+
+  if (
+    days <
+    finalPolicy.leadTimeDays
+  ) {
+    return {
+      satisfied: false,
+
+      constraint:
+        "lead_time",
+
+      message:
+        `Request must be submitted at least ` +
+        `${finalPolicy.leadTimeDays} day(s) before the borrowing date.`,
+    };
+  }
+
+
+  return {
+    satisfied: true,
+
+    constraint:
+      "lead_time",
+  };
+}
+
+
+/* ============================================================
+   CONSTRAINT 6
+   RETURN / OUTSTANDING
+============================================================ */
+
+function checkOutstandingBorrowing(
+  request,
+  existingRequests = [],
+  policy = DEFAULT_POLICY
+) {
+  const normalized =
+    ensureNormalizedRequest(request);
+
+  const finalPolicy = {
+    ...DEFAULT_POLICY,
+    ...(policy || {}),
+  };
+
+
+  if (
+    !finalPolicy.preventOutstandingBorrowing
+  ) {
+    return {
+      satisfied: true,
+
+      constraint:
+        "return_outstanding",
+    };
+  }
+
+
+  const activeStatuses =
+    new Set([
+      "approved",
+      "borrowed",
+      "active",
+    ]);
+
+
+  for (
+    const existingRaw
+    of existingRequests
+  ) {
+
+    if (!existingRaw) {
+      continue;
+    }
+
+    let existing;
+
+    try {
+      existing =
+        ensureNormalizedRequest(
+          existingRaw
+        );
+    } catch {
+      continue;
+    }
+
+
+    if (
+      existing.id ===
+      normalized.id
+    ) {
+      continue;
+    }
+
+
+    if (
+      existing.studentId !==
+      normalized.studentId
+    ) {
+      continue;
+    }
+
+
+    const existingStatus =
+      String(
+        existing.status ?? ""
+      )
+        .trim()
+        .toLowerCase();
+
+
+    if (
+      !activeStatuses.has(
+        existingStatus
+      )
+    ) {
+      continue;
+    }
+
+
+    for (
+      const newItem
+      of normalized.items
+    ) {
+
+      const outstanding =
+        existing.items.some(
+          (oldItem) =>
+            oldItem.itemId ===
+            newItem.itemId
+        );
+
+
+      if (outstanding) {
+        return {
+          satisfied: false,
+
+          constraint:
+            "return_outstanding",
+
+          message:
+            `Student has an outstanding borrowing ` +
+            `for item '${newItem.itemId}'.`,
+        };
       }
     }
   }
 
-  if (policy.allowPartial || request.optional) values.push("UNASSIGNED");
-  return values;
+
+  return {
+    satisfied: true,
+
+    constraint:
+      "return_outstanding",
+  };
 }
 
-function createCspModel(input) {
-  validateInput(input);
 
-  const policy = {
-    ...DEFAULT_POLICY,
-    ...(input.policy ?? {}),
-    operatingHours: {
-      ...DEFAULT_POLICY.operatingHours,
-      ...(input.policy?.operatingHours ?? {}),
-    },
+/* ============================================================
+   CONSTRAINT 7
+   STATUS
+============================================================ */
+
+function checkStatus(
+  request,
+  existingRequests = []
+) {
+  const normalized =
+    ensureNormalizedRequest(request);
+
+  const activeStatuses =
+    new Set([
+      "pending",
+      "approved",
+      "borrowed",
+      "active",
+    ]);
+
+
+  for (
+    const existingRaw
+    of existingRequests
+  ) {
+
+    if (!existingRaw) {
+      continue;
+    }
+
+    let existing;
+
+    try {
+      existing =
+        ensureNormalizedRequest(
+          existingRaw
+        );
+    } catch {
+      continue;
+    }
+
+
+    if (
+      existing.id ===
+      normalized.id
+    ) {
+      continue;
+    }
+
+
+    if (
+      existing.studentId !==
+      normalized.studentId
+    ) {
+      continue;
+    }
+
+
+    const existingStatus =
+      String(
+        existing.status ?? ""
+      )
+        .trim()
+        .toLowerCase();
+
+
+    if (
+      !activeStatuses.has(
+        existingStatus
+      )
+    ) {
+      continue;
+    }
+
+
+    if (
+      existing.borrowDate !==
+      normalized.borrowDate
+    ) {
+      continue;
+    }
+
+
+    const existingItemIds =
+      new Set(
+        existing.items.map(
+          (item) =>
+            item.itemId
+        )
+      );
+
+
+    const conflict =
+      normalized.items.some(
+        (item) =>
+          existingItemIds.has(
+            item.itemId
+          )
+      );
+
+
+    if (conflict) {
+      return {
+        satisfied: false,
+
+        constraint:
+          "status",
+
+        message:
+          `Student already has an active request ` +
+          `for the same item and borrowing date ` +
+          `(request '${existing.id}').`,
+      };
+    }
+  }
+
+
+  return {
+    satisfied: true,
+
+    constraint:
+      "status",
   };
-  invariant(Number.isInteger(policy.slotMinutes) && policy.slotMinutes > 0 && 1440 % policy.slotMinutes === 0,
-    "policy.slotMinutes must be a positive integer divisor of 1440");
-  invariant(Number.isInteger(policy.bufferSlots) && policy.bufferSlots >= 0,
-    "policy.bufferSlots must be a non-negative integer");
-  invariant(typeof policy.allowPartial === "boolean", "policy.allowPartial must be a boolean");
+}
 
-  // Validate the global window even when every request supplies its own window.
-  normalizeWindows(null, policy.operatingHours, policy.slotMinutes, "policy.operatingHours");
 
-  const dates = dateListBetween(input.planningHorizon.startDate, input.planningHorizon.endDate);
-  const roomIds = new Set(input.rooms.map((room) => room.id));
-  const requestById = new Map(input.requests.map((request) => [request.id, request]));
+/* ============================================================
+   CONSTRAINT 8
+   AVAILABILITY DATE
+============================================================ */
 
-  const sharedResources = input.sharedResources ?? {};
-  for (const [resourceId, capacity] of Object.entries(sharedResources)) {
-    invariant(Number.isInteger(capacity) && capacity >= 0,
-      `sharedResources.${resourceId} must be a non-negative integer`);
-  }
-  for (const request of input.requests) {
-    invariant(request.attendees == null || (Number.isInteger(request.attendees) && request.attendees >= 0),
-      `request '${request.id}'.attendees must be a non-negative integer`);
-    invariant(request.optional == null || typeof request.optional === "boolean",
-      `request '${request.id}'.optional must be a boolean`);
-    for (const roomId of request.allowedRoomIds ?? []) {
-      invariant(roomIds.has(roomId), `request '${request.id}' references unknown room '${roomId}'`);
+function checkAvailabilityDate(
+  request,
+  inventoryAvailability = {}
+) {
+  const normalized =
+    ensureNormalizedRequest(request);
+
+
+  for (
+    const item
+    of normalized.items
+  ) {
+
+    const availableDates =
+      inventoryAvailability?.[
+        item.itemId
+      ];
+
+
+    /*
+     * No date restriction means
+     * the item is considered available.
+     */
+
+    if (
+      !Array.isArray(
+        availableDates
+      )
+    ) {
+      continue;
     }
-    for (const [resourceId, quantity] of Object.entries(request.requiredSharedResources ?? {})) {
-      invariant(Object.hasOwn(sharedResources, resourceId),
-        `request '${request.id}' requires undeclared shared resource '${resourceId}'`);
-      invariant(Number.isInteger(quantity) && quantity >= 0,
-        `request '${request.id}'.requiredSharedResources.${resourceId} must be a non-negative integer`);
+
+
+    if (
+      !availableDates.includes(
+        normalized.borrowDate
+      )
+    ) {
+      return {
+        satisfied: false,
+
+        constraint:
+          "availability_date",
+
+        message:
+          `Item '${item.itemId}' is not available ` +
+          `on ${normalized.borrowDate}.`,
+      };
     }
   }
 
-  const variables = input.requests.map((request) => Object.freeze({
-    id: variableId(request.id),
-    requestId: request.id,
-    logicalVariables: Object.freeze(["date", "roomId", "startSlot", "endSlot"]),
-  }));
-  const scope = variables.map((variable) => variable.id);
-  const domains = Object.fromEntries(input.requests.map((request) => [
-    variableId(request.id),
-    Object.freeze(createDomain(request, input.rooms, dates, policy)),
-  ]));
 
-  const normalizedExisting = (input.existingBookings ?? []).map((booking, index) => {
-    invariant(typeof booking.roomId === "string" && roomIds.has(booking.roomId),
-      `existingBookings[${index}].roomId must reference a known room`);
-    invariant(isValidDate(booking.date), `existingBookings[${index}].date must be a valid YYYY-MM-DD date`);
-    const startSlot = parseTime(booking.start, `existingBookings[${index}].start`, policy.slotMinutes);
-    const endSlot = parseTime(booking.end, `existingBookings[${index}].end`, policy.slotMinutes);
-    invariant(startSlot < endSlot, `existingBookings[${index}] must end after it starts`);
-    return { ...booking, startSlot, endSlot };
-  });
+  return {
+    satisfied: true,
 
-  const normalizedClosures = (input.roomClosures ?? []).map((closure, index) => {
-    invariant(typeof closure.roomId === "string" && roomIds.has(closure.roomId),
-      `roomClosures[${index}].roomId must reference a known room`);
-    invariant(isValidDate(closure.date), `roomClosures[${index}].date must be a valid YYYY-MM-DD date`);
-    const startSlot = parseTime(closure.start, `roomClosures[${index}].start`, policy.slotMinutes);
-    const endSlot = parseTime(closure.end, `roomClosures[${index}].end`, policy.slotMinutes);
-    invariant(startSlot < endSlot, `roomClosures[${index}] must end after it starts`);
-    return { ...closure, startSlot, endSlot };
-  });
+    constraint:
+      "availability_date",
+  };
+}
 
-  const constraints = [
-    {
-      id: "domain_membership",
-      type: "unary",
-      scope,
-      description: "Every assigned value belongs to its generated domain.",
-      isSatisfied(assignment) {
-        return scope.every((id) => assignment[id] == null || domains[id].includes(assignment[id]));
-      },
-    },
-    {
-      id: "room_non_overlap",
-      type: "global",
-      scope,
-      description: "A room cannot host overlapping requests; the configured turnover buffer is enforced.",
-      isSatisfied(assignment) {
-        const values = assignedValues(assignment, scope);
-        return values.every((left, index) => values.slice(index + 1).every((right) =>
-          left.date !== right.date || left.roomId !== right.roomId || !intervalsOverlap(left, right, policy.bufferSlots)
-        ));
-      },
-    },
-    {
-      id: "requester_non_overlap",
-      type: "global",
-      scope,
-      description: "Requests owned by the same requester cannot overlap.",
-      isSatisfied(assignment) {
-        const values = assignedValues(assignment, scope);
-        return values.every((left, index) => values.slice(index + 1).every((right) => {
-          const leftOwner = requestById.get(left.requestId).requesterId;
-          const rightOwner = requestById.get(right.requestId).requesterId;
-          return !leftOwner || !rightOwner || leftOwner !== rightOwner || left.date !== right.date || !intervalsOverlap(left, right);
-        }));
-      },
-    },
-    {
-      id: "existing_booking_non_overlap",
-      type: "unary",
-      scope,
-      description: "Assignments cannot collide with persisted room bookings.",
-      isSatisfied(assignment) {
-        return assignedValues(assignment, scope).every((value) => normalizedExisting.every((booking) =>
-          value.date !== booking.date || value.roomId !== booking.roomId || !intervalsOverlap(value, booking, policy.bufferSlots)
-        ));
-      },
-    },
-    {
-      id: "room_closure",
-      type: "unary",
-      scope,
-      description: "Assignments cannot use a room during maintenance or blocked periods.",
-      isSatisfied(assignment) {
-        return assignedValues(assignment, scope).every((value) => normalizedClosures.every((closure) =>
-          value.date !== closure.date || value.roomId !== closure.roomId || !intervalsOverlap(value, closure)
-        ));
-      },
-    },
-    {
-      id: "shared_resource_capacity",
-      type: "global",
-      scope,
-      description: "Concurrent requests cannot consume more shared equipment than inventory capacity.",
-      isSatisfied(assignment) {
-        const capacities = sharedResources;
-        const values = assignedValues(assignment, scope);
-        for (const [resourceId, capacity] of Object.entries(capacities)) {
-          for (const date of dates) {
-            const boundaries = values.filter((value) => value.date === date)
-              .flatMap((value) => [value.startSlot, value.endSlot]);
-            for (const slot of boundaries) {
-              const used = values.reduce((total, value) => {
-                if (value.date !== date || !(value.startSlot <= slot && slot < value.endSlot)) return total;
-                return total + (requestById.get(value.requestId).requiredSharedResources?.[resourceId] ?? 0);
-              }, 0);
-              if (used > capacity) return false;
-            }
-          }
+
+/* ============================================================
+   CSP VALIDATION
+============================================================ */
+
+function validateBorrowingRequest({
+  request,
+  existingRequests = [],
+  inventory = {},
+  inventoryAvailability = {},
+  policy = {},
+  now = new Date(),
+}) {
+
+  /* ----------------------------------------------------------
+     NORMALIZE NEW REQUEST
+  ---------------------------------------------------------- */
+
+  const normalized =
+    normalizeRequest(request);
+
+
+  /* ----------------------------------------------------------
+     NORMALIZE EXISTING REQUESTS
+  ---------------------------------------------------------- */
+
+  const normalizedExistingRequests =
+    existingRequests
+      .map((existing) => {
+
+        if (!existing) {
+          return null;
         }
-        return true;
-      },
-    },
+
+        try {
+          return normalizeExistingRequest(
+            existing
+          );
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean);
+
+
+  /* ----------------------------------------------------------
+     FINAL POLICY
+  ---------------------------------------------------------- */
+
+  const finalPolicy = {
+    ...DEFAULT_POLICY,
+    ...(policy || {}),
+  };
+
+
+  /* ----------------------------------------------------------
+     VIOLATIONS
+  ---------------------------------------------------------- */
+
+  const violations = [];
+
+
+  /* ----------------------------------------------------------
+     RUN ALL EIGHT CONSTRAINTS
+  ---------------------------------------------------------- */
+
+  const checks = [
+
+    /* 1. Inventory Capacity */
+    checkInventoryCapacity(
+      normalized,
+      inventory
+    ),
+
+
+    /* 2. Time Overlap */
+    checkTimeOverlap(
+      normalized,
+      normalizedExistingRequests
+    ),
+
+
+    /* 3. Duplicate Request */
+    checkDuplicateRequest(
+      normalized,
+      normalizedExistingRequests
+    ),
+
+
+    /* 4. Borrowing Limit */
+    checkBorrowingLimit(
+      normalized,
+      finalPolicy
+    ),
+
+
+    /* 5. Lead Time */
+    checkLeadTime(
+      normalized,
+      now,
+      finalPolicy
+    ),
+
+
+    /* 6. Return / Outstanding */
+    checkOutstandingBorrowing(
+      normalized,
+      normalizedExistingRequests,
+      finalPolicy
+    ),
+
+
+    /* 7. Status */
+    checkStatus(
+      normalized,
+      normalizedExistingRequests
+    ),
+
+
+    /* 8. Availability Date */
+    checkAvailabilityDate(
+      normalized,
+      inventoryAvailability
+    ),
   ];
 
-  const emptyDomains = variables.filter((variable) => domains[variable.id].length === 0).map((variable) => variable.requestId);
+
+  /* ----------------------------------------------------------
+     COLLECT VIOLATIONS
+  ---------------------------------------------------------- */
+
+  for (
+    const result
+    of checks
+  ) {
+
+    if (
+      !result.satisfied
+    ) {
+      violations.push(
+        result
+      );
+    }
+  }
+
+
+  /* ----------------------------------------------------------
+     RESULT
+  ---------------------------------------------------------- */
 
   return Object.freeze({
-    variables: Object.freeze(variables),
-    domains: Object.freeze(domains),
-    constraints: Object.freeze(constraints),
-    metadata: Object.freeze({
-      dates: Object.freeze(dates),
-      policy: Object.freeze(policy),
-      emptyDomains: Object.freeze(emptyDomains),
-      isImmediatelyUnsatisfiable: emptyDomains.length > 0,
-    }),
+
+    valid:
+      violations.length === 0,
+
+    requestId:
+      normalized.id,
+
+    violations:
+      Object.freeze(
+        violations
+      ),
+
+    checkedConstraints:
+      Object.freeze([
+        "inventory_capacity",
+        "time_overlap",
+        "duplicate_request",
+        "borrowing_limit",
+        "lead_time",
+        "return_outstanding",
+        "status",
+        "availability_date",
+      ]),
   });
 }
 
-function isConsistent(model, assignment) {
-  invariant(model?.variables && model?.constraints, "A valid CSP model is required");
-  invariant(assignment && typeof assignment === "object", "assignment must be an object");
-  return model.constraints.every((constraint) => constraint.isSatisfied(assignment));
-}
 
-function isComplete(model, assignment) {
-  invariant(model?.variables, "A valid CSP model is required");
-  invariant(assignment && typeof assignment === "object", "assignment must be an object");
-  return model.variables.every((variable) => Object.hasOwn(assignment, variable.id));
-}
-
-function isSolution(model, assignment) {
-  return isComplete(model, assignment) && isConsistent(model, assignment);
-}
+/* ============================================================
+   EXPORTS
+============================================================ */
 
 module.exports = {
+
   DEFAULT_POLICY,
-  createCspModel,
-  formatSlot,
+
+  /* Constraints */
+  checkInventoryCapacity,
+  checkTimeOverlap,
+  checkDuplicateRequest,
+  checkBorrowingLimit,
+  checkLeadTime,
+  checkOutstandingBorrowing,
+  checkStatus,
+  checkAvailabilityDate,
+
+  /* Helpers */
   intervalsOverlap,
-  isComplete,
-  isConsistent,
-  isSolution,
+  isValidDate,
   parseTime,
-  variableId,
+
+  /* Normalization */
+  normalizeRequest,
+  normalizeExistingRequest,
+
+  /* Main CSP */
+  validateBorrowingRequest,
 };

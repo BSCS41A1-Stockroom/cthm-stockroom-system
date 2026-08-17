@@ -2,184 +2,734 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createCspModel, isComplete, isConsistent, isSolution, variableId } = require("./csp");
 
-function baseInput() {
+const {
+  checkInventoryCapacity,
+  checkTimeOverlap,
+  checkDuplicateRequest,
+  checkBorrowingLimit,
+  checkLeadTime,
+  checkOutstandingBorrowing,
+  checkStatus,
+  checkAvailabilityDate,
+  intervalsOverlap,
+  validateBorrowingRequest,
+} = require("./csp");
+
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+function baseRequest(overrides = {}) {
   return {
-    planningHorizon: { startDate: "2026-08-10", endDate: "2026-08-10" },
-    policy: { slotMinutes: 30, operatingHours: { start: "08:00", end: "12:00" } },
-    rooms: [
-      { id: "lab-a", type: "kitchen", capacity: 30, features: { oven: true } },
-      { id: "lab-b", type: "kitchen", capacity: 10, features: { oven: false } },
+    id: "REQ-001",
+    studentId: "STU-001",
+
+    borrowDate: "2026-08-20",
+    returnDate: "2026-08-20",
+
+    startTime: "08:00",
+    endTime: "10:00",
+
+    submittedAt: "2026-08-17",
+
+    purpose: "Cooking Laboratory",
+
+    status: "pending",
+
+    items: [
+      {
+        itemId: "knife",
+        quantity: 2,
+      },
     ],
-    requests: [{
-      id: "r1",
-      requesterId: "student-1",
-      durationSlots: 2,
-      attendees: 20,
-      roomType: "kitchen",
-      requiredRoomFeatures: { oven: true },
-    }],
-    existingBookings: [],
-    roomClosures: [],
-    sharedResources: {},
+
+    ...overrides,
   };
 }
 
-test("builds a filtered domain from date, room, duration, and operating hours", () => {
-  const model = createCspModel(baseInput());
-  const domain = model.domains[variableId("r1")];
 
-  assert.equal(domain.length, 7);
-  assert.ok(domain.every((value) => value.roomId === "lab-a"));
-  assert.deepEqual(
-    { start: domain[0].startTime, end: domain[0].endTime },
-    { start: "08:00", end: "09:00" }
+function existingRequest(overrides = {}) {
+  return {
+    id: "REQ-OLD",
+    studentId: "STU-002",
+
+    borrowDate: "2026-08-20",
+    returnDate: "2026-08-20",
+
+    startTime: "08:00",
+    endTime: "10:00",
+
+    purpose: "Cooking Laboratory",
+
+    status: "approved",
+
+    items: [
+      {
+        itemId: "knife",
+        quantity: 2,
+      },
+    ],
+
+    ...overrides,
+  };
+}
+
+
+/* =========================================================
+   INTERVAL
+========================================================= */
+
+test("detects overlapping time intervals", () => {
+  assert.equal(
+    intervalsOverlap(
+      8 * 60,
+      10 * 60,
+      9 * 60,
+      11 * 60
+    ),
+    true
   );
-  assert.equal(model.metadata.isImmediatelyUnsatisfiable, false);
 });
 
-test("rejects assignments that overlap in the same room", () => {
-  const input = baseInput();
-  input.requests.push({ ...input.requests[0], id: "r2", requesterId: "student-2" });
-  const model = createCspModel(input);
-  const left = model.domains[variableId("r1")][0];
-  const right = model.domains[variableId("r2")][1];
 
-  assert.equal(isConsistent(model, {
-    [variableId("r1")]: left,
-    [variableId("r2")]: right,
-  }), false);
-});
-
-test("rejects existing-booking and closure collisions", () => {
-  const input = baseInput();
-  input.existingBookings.push({ roomId: "lab-a", date: "2026-08-10", start: "08:30", end: "09:30" });
-  const model = createCspModel(input);
-
-  assert.equal(isConsistent(model, { [variableId("r1")]: model.domains[variableId("r1")][0] }), false);
-  assert.equal(isConsistent(model, { [variableId("r1")]: model.domains[variableId("r1")][3] }), true);
-});
-
-test("enforces shared equipment capacity for concurrent requests", () => {
-  const input = baseInput();
-  input.rooms[1] = { id: "lab-b", type: "kitchen", capacity: 30, features: { oven: true } };
-  input.requests[0].requiredSharedResources = { mixer: 2 };
-  input.requests.push({ ...input.requests[0], id: "r2", requesterId: "student-2", requiredSharedResources: { mixer: 2 } });
-  input.sharedResources = { mixer: 3 };
-  const model = createCspModel(input);
-  const first = model.domains[variableId("r1")].find((value) => value.roomId === "lab-a");
-  const second = model.domains[variableId("r2")].find((value) => value.roomId === "lab-b");
-
-  assert.equal(isConsistent(model, {
-    [variableId("r1")]: first,
-    [variableId("r2")]: second,
-  }), false);
-});
-
-test("reports a mandatory request with no domain as immediately unsatisfiable", () => {
-  const input = baseInput();
-  input.requests[0].attendees = 100;
-  const model = createCspModel(input);
-
-  assert.deepEqual(model.metadata.emptyDomains, ["r1"]);
-  assert.equal(model.metadata.isImmediatelyUnsatisfiable, true);
-});
-
-test("enforces requester overlap even when rooms differ", () => {
-  const input = baseInput();
-  input.rooms[1] = { id: "lab-b", type: "kitchen", capacity: 30, features: { oven: true } };
-  input.requests.push({ ...input.requests[0], id: "r2" });
-  const model = createCspModel(input);
-  const first = model.domains[variableId("r1")].find((value) => value.roomId === "lab-a");
-  const second = model.domains[variableId("r2")].find((value) => value.roomId === "lab-b");
-
-  assert.equal(isConsistent(model, {
-    [variableId("r1")]: first,
-    [variableId("r2")]: second,
-  }), false);
-});
-
-test("enforces room closures and turnover buffers", () => {
-  const input = baseInput();
-  input.policy.bufferSlots = 1;
-  input.roomClosures.push({ roomId: "lab-a", date: "2026-08-10", start: "10:00", end: "10:30" });
-  const model = createCspModel(input);
-  const touchesClosure = model.domains[variableId("r1")].find((value) => value.startTime === "09:30");
-  assert.equal(isConsistent(model, { [variableId("r1")]: touchesClosure }), false);
-
-  const inputWithoutClosure = baseInput();
-  inputWithoutClosure.policy.bufferSlots = 1;
-  inputWithoutClosure.requests.push({ ...inputWithoutClosure.requests[0], id: "r2", requesterId: "student-2" });
-  const bufferedModel = createCspModel(inputWithoutClosure);
-  const first = bufferedModel.domains[variableId("r1")].find((value) => value.startTime === "08:00");
-  const adjacent = bufferedModel.domains[variableId("r2")].find((value) => value.startTime === "09:00");
-  assert.equal(isConsistent(bufferedModel, {
-    [variableId("r1")]: first,
-    [variableId("r2")]: adjacent,
-  }), false);
-});
-
-test("supports optional unassigned requests without hiding mandatory empty domains", () => {
-  const input = baseInput();
-  input.requests[0].attendees = 100;
-  input.requests[0].optional = true;
-  const model = createCspModel(input);
-
-  assert.deepEqual(model.domains[variableId("r1")], ["UNASSIGNED"]);
-  assert.equal(model.metadata.isImmediatelyUnsatisfiable, false);
-  assert.equal(isSolution(model, { [variableId("r1")]: "UNASSIGNED" }), true);
-});
-
-test("rejects malformed dates, unknown rooms, and undeclared resources", () => {
-  const badDate = baseInput();
-  badDate.planningHorizon.startDate = "2026-02-30";
-  assert.throws(() => createCspModel(badDate), /valid YYYY-MM-DD/);
-
-  const unknownRoom = baseInput();
-  unknownRoom.requests[0].allowedRoomIds = ["missing-room"];
-  assert.throws(() => createCspModel(unknownRoom), /unknown room/);
-
-  const unknownResource = baseInput();
-  unknownResource.requests[0].requiredSharedResources = { mixer: 1 };
-  assert.throws(() => createCspModel(unknownResource), /undeclared shared resource/);
-});
-
-test("distinguishes partial consistency from a complete solution", () => {
-  const input = baseInput();
-  input.requests.push({ ...input.requests[0], id: "r2", requesterId: "student-2" });
-  const model = createCspModel(input);
-  const partial = { [variableId("r1")]: model.domains[variableId("r1")][0] };
-
-  assert.equal(isConsistent(model, partial), true);
-  assert.equal(isComplete(model, partial), false);
-  assert.equal(isSolution(model, partial), false);
-});
-
-test("produces and validates a complete schedule through backtracking", () => {
-  const input = baseInput();
-  input.requests.push(
-    { ...input.requests[0], id: "r2", requesterId: "student-2" },
-    { ...input.requests[0], id: "r3", requesterId: "student-3" }
+test("allows back-to-back intervals", () => {
+  assert.equal(
+    intervalsOverlap(
+      8 * 60,
+      10 * 60,
+      10 * 60,
+      12 * 60
+    ),
+    false
   );
-  const model = createCspModel(input);
+});
 
-  function solve(index, assignment) {
-    if (index === model.variables.length) return isSolution(model, assignment) ? { ...assignment } : null;
-    const id = model.variables[index].id;
-    for (const value of model.domains[id]) {
-      assignment[id] = value;
-      if (isConsistent(model, assignment)) {
-        const solution = solve(index + 1, assignment);
-        if (solution) return solution;
-      }
-      delete assignment[id];
+
+test("detects when one interval is completely inside another", () => {
+  assert.equal(
+    intervalsOverlap(
+      8 * 60,
+      12 * 60,
+      9 * 60,
+      10 * 60
+    ),
+    true
+  );
+});
+
+
+/* =========================================================
+   1. INVENTORY CAPACITY
+========================================================= */
+
+test("rejects request when inventory quantity is insufficient", () => {
+  const request = baseRequest({
+    items: [
+      {
+        itemId: "knife",
+        quantity: 5,
+      },
+    ],
+  });
+
+  const result = checkInventoryCapacity(
+    request,
+    {
+      knife: 3,
     }
-    return null;
-  }
+  );
 
-  const solution = solve(0, {});
-  assert.ok(solution, "expected the model to have a complete solution");
-  assert.equal(isSolution(model, solution), true);
-  assert.equal(Object.keys(solution).length, 3);
+  assert.equal(result.satisfied, false);
+  assert.equal(
+    result.constraint,
+    "inventory_capacity"
+  );
+});
+
+
+test("allows request when inventory quantity is sufficient", () => {
+  const request = baseRequest({
+    items: [
+      {
+        itemId: "knife",
+        quantity: 3,
+      },
+    ],
+  });
+
+  const result = checkInventoryCapacity(
+    request,
+    {
+      knife: 5,
+    }
+  );
+
+  assert.equal(result.satisfied, true);
+});
+
+
+/* =========================================================
+   2. TIME OVERLAP
+========================================================= */
+
+test("rejects overlapping borrowing of the same item", () => {
+  const request = baseRequest({
+    startTime: "09:00",
+    endTime: "11:00",
+  });
+
+  const existing = existingRequest({
+    startTime: "08:00",
+    endTime: "10:00",
+  });
+
+  const result = checkTimeOverlap(
+    request,
+    [existing]
+  );
+
+  assert.equal(result.satisfied, false);
+  assert.equal(
+    result.constraint,
+    "time_overlap"
+  );
+});
+
+
+test("allows borrowing when times do not overlap", () => {
+  const request = baseRequest({
+    startTime: "10:00",
+    endTime: "12:00",
+  });
+
+  const existing = existingRequest({
+    startTime: "08:00",
+    endTime: "10:00",
+  });
+
+  const result = checkTimeOverlap(
+    request,
+    [existing]
+  );
+
+  assert.equal(result.satisfied, true);
+});
+
+
+test("allows overlapping times when different items are borrowed", () => {
+  const request = baseRequest({
+    startTime: "09:00",
+    endTime: "11:00",
+    items: [
+      {
+        itemId: "mixing-bowl",
+        quantity: 1,
+      },
+    ],
+  });
+
+  const existing = existingRequest({
+    startTime: "08:00",
+    endTime: "10:00",
+    items: [
+      {
+        itemId: "knife",
+        quantity: 2,
+      },
+    ],
+  });
+
+  const result = checkTimeOverlap(
+    request,
+    [existing]
+  );
+
+  assert.equal(result.satisfied, true);
+});
+
+
+/* =========================================================
+   3. DUPLICATE REQUEST
+========================================================= */
+
+test("rejects duplicate borrowing request", () => {
+  const request = baseRequest();
+
+  const existing = existingRequest({
+    studentId: "STU-001",
+    borrowDate: "2026-08-20",
+    purpose: "Cooking Laboratory",
+
+    items: [
+      {
+        itemId: "knife",
+        quantity: 2,
+      },
+    ],
+  });
+
+  const result = checkDuplicateRequest(
+    request,
+    [existing]
+  );
+
+  assert.equal(result.satisfied, false);
+  assert.equal(
+    result.constraint,
+    "duplicate_request"
+  );
+});
+
+
+test("allows request when items differ", () => {
+  const request = baseRequest();
+
+  const existing = existingRequest({
+    studentId: "STU-001",
+
+    items: [
+      {
+        itemId: "mixing-bowl",
+        quantity: 2,
+      },
+    ],
+  });
+
+  const result = checkDuplicateRequest(
+    request,
+    [existing]
+  );
+
+  assert.equal(result.satisfied, true);
+});
+
+
+/* =========================================================
+   4. BORROWING LIMIT
+========================================================= */
+
+test("rejects request exceeding quantity limit", () => {
+  const request = baseRequest({
+    items: [
+      {
+        itemId: "knife",
+        quantity: 11,
+      },
+    ],
+  });
+
+  const result = checkBorrowingLimit(
+    request,
+    {
+      maxQuantityPerStudent: 10,
+      maxItemsPerRequest: 10,
+    }
+  );
+
+  assert.equal(result.satisfied, false);
+  assert.equal(
+    result.constraint,
+    "borrowing_limit"
+  );
+});
+
+
+test("rejects request exceeding different-item limit", () => {
+  const request = baseRequest({
+    items: Array.from(
+      { length: 11 },
+      (_, index) => ({
+        itemId: `item-${index}`,
+        quantity: 1,
+      })
+    ),
+  });
+
+  const result = checkBorrowingLimit(
+    request,
+    {
+      maxQuantityPerStudent: 20,
+      maxItemsPerRequest: 10,
+    }
+  );
+
+  assert.equal(result.satisfied, false);
+});
+
+
+test("allows request within borrowing limit", () => {
+  const request = baseRequest({
+    items: [
+      {
+        itemId: "knife",
+        quantity: 5,
+      },
+    ],
+  });
+
+  const result = checkBorrowingLimit(
+    request,
+    {
+      maxQuantityPerStudent: 10,
+      maxItemsPerRequest: 10,
+    }
+  );
+
+  assert.equal(result.satisfied, true);
+});
+
+
+/* =========================================================
+   5. LEAD TIME
+========================================================= */
+
+test("rejects request submitted too close to borrowing date", () => {
+  const request = baseRequest({
+    borrowDate: "2026-08-18",
+  });
+
+  const result = checkLeadTime(
+    request,
+    new Date("2026-08-17T10:00:00"),
+    {
+      leadTimeDays: 2,
+    }
+  );
+
+  assert.equal(result.satisfied, false);
+  assert.equal(
+    result.constraint,
+    "lead_time"
+  );
+});
+
+
+test("allows request submitted at least two days before borrowing", () => {
+  const request = baseRequest({
+    borrowDate: "2026-08-20",
+  });
+
+  const result = checkLeadTime(
+    request,
+    new Date("2026-08-17T10:00:00"),
+    {
+      leadTimeDays: 2,
+    }
+  );
+
+  assert.equal(result.satisfied, true);
+});
+
+
+/* =========================================================
+   6. RETURN / OUTSTANDING
+========================================================= */
+
+test("rejects borrowing when student has outstanding item", () => {
+  const request = baseRequest({
+    studentId: "STU-001",
+  });
+
+  const existing = existingRequest({
+    studentId: "STU-001",
+    status: "approved",
+
+    items: [
+      {
+        itemId: "knife",
+        quantity: 1,
+      },
+    ],
+  });
+
+  const result = checkOutstandingBorrowing(
+    request,
+    [existing],
+    {
+      preventOutstandingBorrowing: true,
+    }
+  );
+
+  assert.equal(result.satisfied, false);
+  assert.equal(
+    result.constraint,
+    "return_outstanding"
+  );
+});
+
+
+test("allows borrowing after previous item was returned", () => {
+  const request = baseRequest({
+    studentId: "STU-001",
+  });
+
+  const existing = existingRequest({
+    studentId: "STU-001",
+    status: "returned",
+
+    items: [
+      {
+        itemId: "knife",
+        quantity: 1,
+      },
+    ],
+  });
+
+  const result = checkOutstandingBorrowing(
+    request,
+    [existing],
+    {
+      preventOutstandingBorrowing: true,
+    }
+  );
+
+  assert.equal(result.satisfied, true);
+});
+
+
+/* =========================================================
+   7. STATUS
+========================================================= */
+
+test("rejects request when student already has active request for same item and date", () => {
+  const request = baseRequest({
+    studentId: "STU-001",
+    borrowDate: "2026-08-20",
+  });
+
+  const existing = existingRequest({
+    studentId: "STU-001",
+    borrowDate: "2026-08-20",
+    status: "pending",
+
+    items: [
+      {
+        itemId: "knife",
+        quantity: 1,
+      },
+    ],
+  });
+
+  const result = checkStatus(
+    request,
+    [existing]
+  );
+
+  assert.equal(result.satisfied, false);
+  assert.equal(
+    result.constraint,
+    "status"
+  );
+});
+
+
+test("allows request when previous request is rejected", () => {
+  const request = baseRequest({
+    studentId: "STU-001",
+    borrowDate: "2026-08-20",
+  });
+
+  const existing = existingRequest({
+    studentId: "STU-001",
+    borrowDate: "2026-08-20",
+    status: "rejected",
+
+    items: [
+      {
+        itemId: "knife",
+        quantity: 1,
+      },
+    ],
+  });
+
+  const result = checkStatus(
+    request,
+    [existing]
+  );
+
+  assert.equal(result.satisfied, true);
+});
+
+
+/* =========================================================
+   8. AVAILABILITY DATE
+========================================================= */
+
+test("rejects borrowing on unavailable date", () => {
+  const request = baseRequest({
+    borrowDate: "2026-08-20",
+  });
+
+  const result = checkAvailabilityDate(
+    request,
+    {
+      knife: [
+        "2026-08-21",
+        "2026-08-22",
+      ],
+    }
+  );
+
+  assert.equal(result.satisfied, false);
+  assert.equal(
+    result.constraint,
+    "availability_date"
+  );
+});
+
+
+test("allows borrowing on available date", () => {
+  const request = baseRequest({
+    borrowDate: "2026-08-20",
+  });
+
+  const result = checkAvailabilityDate(
+    request,
+    {
+      knife: [
+        "2026-08-20",
+        "2026-08-21",
+      ],
+    }
+  );
+
+  assert.equal(result.satisfied, true);
+});
+
+
+/* =========================================================
+   COMPLETE CSP VALIDATION
+========================================================= */
+
+test("accepts valid borrowing request", () => {
+  const request = baseRequest();
+
+  const result = validateBorrowingRequest({
+    request,
+
+    existingRequests: [],
+
+    inventory: {
+      knife: 10,
+    },
+
+    inventoryAvailability: {
+      knife: [
+        "2026-08-20",
+      ],
+    },
+
+    policy: {
+      maxItemsPerRequest: 10,
+      maxQuantityPerStudent: 10,
+      leadTimeDays: 2,
+      preventOutstandingBorrowing: true,
+    },
+
+    now: new Date(
+      "2026-08-17T10:00:00"
+    ),
+  });
+
+  assert.equal(result.valid, true);
+  assert.equal(
+    result.violations.length,
+    0
+  );
+});
+
+
+test("rejects request with multiple CSP violations", () => {
+  const request = baseRequest({
+    borrowDate: "2026-08-18",
+
+    items: [
+      {
+        itemId: "knife",
+        quantity: 15,
+      },
+    ],
+  });
+
+  const existing = existingRequest({
+    id: "REQ-OLD",
+    studentId: "STU-001",
+
+    borrowDate: "2026-08-18",
+
+    startTime: "09:00",
+    endTime: "11:00",
+
+    purpose: "Cooking Laboratory",
+
+    status: "approved",
+
+    items: [
+      {
+        itemId: "knife",
+        quantity: 2,
+      },
+    ],
+  });
+
+  const result = validateBorrowingRequest({
+    request,
+
+    existingRequests: [
+      existing,
+    ],
+
+    inventory: {
+      knife: 5,
+    },
+
+    inventoryAvailability: {
+      knife: [
+        "2026-08-20",
+      ],
+    },
+
+    policy: {
+      maxItemsPerRequest: 10,
+      maxQuantityPerStudent: 10,
+      leadTimeDays: 2,
+      preventOutstandingBorrowing: true,
+    },
+
+    now: new Date(
+      "2026-08-17T10:00:00"
+    ),
+  });
+
+  assert.equal(result.valid, false);
+
+  assert.ok(
+    result.violations.length >= 3
+  );
+
+  const constraintNames =
+    result.violations.map(
+      (violation) =>
+        violation.constraint
+    );
+
+  assert.ok(
+    constraintNames.includes(
+      "inventory_capacity"
+    )
+  );
+
+  assert.ok(
+    constraintNames.includes(
+      "lead_time"
+    )
+  );
+
+  assert.ok(
+    constraintNames.includes(
+      "availability_date"
+    )
+  );
 });
