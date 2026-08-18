@@ -12,15 +12,15 @@ export default function Hero() {
         </span>
 
         <h1>
-          Equipment and
+          Laboratory Equipment
           <br />
-          resource management
+          Management System
         </h1>
 
         <p>
-          Manage your laboratory equipment requests,
-          check schedules, and keep track of your
-          borrowing activities in one place.
+          Manage laboratory equipment, borrowing requests,
+          schedules, and stockroom activities in one
+          centralized platform.
         </p>
 
         <button
@@ -34,7 +34,8 @@ export default function Hero() {
 
       <div className="hero-visual">
         <div className="hero-visual-header">
-          <span>STOCKROOM</span>
+          <span>STOCKROOM OVERVIEW</span>
+
           <span className="status-indicator">
             <span></span>
             SYSTEM ACTIVE
