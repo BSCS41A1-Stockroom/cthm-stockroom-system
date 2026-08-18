@@ -1,16 +1,44 @@
 "use strict";
 
 const express = require("express");
+
 const {
   createBorrowRequest,
-  updateBorrowRequestStatus,
   validateBorrowRequest,
+  updateBorrowRequestStatus,
 } = require("../controllers/borrowController");
 
 const router = express.Router();
 
-router.post("/validate", validateBorrowRequest);
-router.post("/", createBorrowRequest);
-router.patch("/:id/status", updateBorrowRequestStatus);
+
+// ============================================================
+// VALIDATE BORROWING REQUEST
+// ============================================================
+
+router.post(
+  "/validate",
+  validateBorrowRequest
+);
+
+
+// ============================================================
+// CREATE BORROWING REQUEST
+// ============================================================
+
+router.post(
+  "/",
+  createBorrowRequest
+);
+
+
+// ============================================================
+// UPDATE BORROWING REQUEST STATUS
+// ============================================================
+
+router.patch(
+  "/:id/status",
+  updateBorrowRequestStatus
+);
+
 
 module.exports = router;

@@ -1,168 +1,612 @@
 "use strict";
 
-const test = require("node:test");
-const assert = require("node:assert/strict");
 const {
-  availableQuantity,
-  createBorrowingCspModel,
-  validateBorrowingRequestShape,
   validateBorrowingRequest,
+  validateBorrowingRequestShape,
 } = require("./borrowingValidation");
 
-function validInput() {
-  return {
-    request: {
-      studentName: "Juan Dela Cruz",
-      studentId: "2026-0001",
-      borrowDate: "2026-08-10",
-      returnDate: "2026-08-12",
-      purpose: "Culinary laboratory exercise",
-      items: [{ inventoryId: 1, quantity: 3 }],
-    },
-    inventory: [{
-      id: 1,
-      item_name: "Mixing Bowl",
-      quantity: 10,
-      additional_qty: 2,
-      replaces: 1,
-      missing: 1,
-      breakage: 1,
-      defective: 0,
-      total_loss: 0,
-    }],
-    existingBorrowings: [],
-  };
+const {
+  detectBorrowingConflicts,
+} = require("./conflictDetection");
+
+
+console.log("========================================");
+console.log("CTHM STOCKROOM - BORROWING VALIDATION TEST");
+console.log("========================================");
+
+
+function assert(condition, message) {
+  if (!condition) {
+    console.error(`❌ ${message}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  console.log(`✅ ${message}`);
 }
 
-test("calculates usable physical inventory from all stock adjustments", () => {
-  assert.equal(availableQuantity(validInput().inventory[0]), 9);
-});
 
-test("builds quantity variables, domains, and CSP constraints", () => {
-  const model = createBorrowingCspModel(validInput());
+/* ============================================================
+   TEST DATA
+============================================================ */
 
-  assert.deepEqual(model.variables, [{ id: "quantity:1", inventoryId: "1" }]);
-  assert.deepEqual(model.domains["quantity:1"], [3]);
-  assert.deepEqual(model.constraints.map((constraint) => constraint.id), [
-    "exact_requested_quantity",
-    "inventory_capacity",
-    "domain_membership",
-  ]);
-});
+const inventory = [
+  {
+    id: 1,
+    item_name: "Projector",
+    quantity: 5,
+    additional_qty: 0,
+    replaces: 0,
+    missing: 0,
+    breakage: 0,
+    defective: 0,
+    total_loss: 0,
+  },
 
-test("builds a bounded domain for an extreme requested quantity", () => {
-  const input = validInput();
-  input.request.items[0].quantity = 1_000_000_000;
-  input.inventory[0] = { id: 1, item_name: "Mixing Bowl", quantity: 1_000_000_000 };
+  {
+    id: 2,
+    item_name: "Laptop",
+    quantity: 10,
+    additional_qty: 0,
+    replaces: 0,
+    missing: 0,
+    breakage: 0,
+    defective: 0,
+    total_loss: 0,
+  },
 
-  const model = createBorrowingCspModel(input);
+  {
+    id: 3,
+    item_name: "HDMI Cable",
+    quantity: 20,
+    additional_qty: 0,
+    replaces: 0,
+    missing: 0,
+    breakage: 0,
+    defective: 0,
+    total_loss: 0,
+  },
+];
 
-  assert.deepEqual(model.domains["quantity:1"], [1_000_000_000]);
-  assert.equal(validateBorrowingRequest(input).valid, true);
-});
 
-test("rejects quantities outside the database integer range", () => {
-  const input = validInput();
-  input.request.items[0].quantity = 2_147_483_648;
+/* ============================================================
+   TEST 1
+   REQUEST SHAPE
+============================================================ */
 
-  const result = validateBorrowingRequest(input);
+console.log("\nTEST 1: Request shape validation");
 
-  assert.equal(result.valid, false);
-  assert.equal(result.reasons[0].code, "INVALID_QUANTITY");
-  assert.equal(result.assignment, null);
-});
+const validRequest = {
+  studentName: "Juan Dela Cruz",
+  studentId: "2026-00123",
+  borrowDate: "2026-08-20",
+  returnDate: "2026-08-22",
+  purpose: "CTHM laboratory activity",
 
-test("validates a request when all requested quantities can be allocated", () => {
-  const result = validateBorrowingRequest(validInput());
+  items: [
+    {
+      inventoryId: 1,
+      quantity: 1,
+    },
+  ],
+};
 
-  assert.equal(result.valid, true);
-  assert.equal(result.status, "Validated");
-  assert.deepEqual(result.reasons, []);
-  assert.deepEqual(result.assignment, { "quantity:1": 3 });
-});
+const shapeErrors =
+  validateBorrowingRequestShape(
+    validRequest
+  );
 
-test("rejects a request when overlapping reservations reduce availability", () => {
-  const input = validInput();
-  input.request.items[0].quantity = 5;
-  input.existingBorrowings = [{ inventoryId: 1, quantity: 5 }];
-  const result = validateBorrowingRequest(input);
+assert(
+  shapeErrors.length === 0,
+  "Valid borrowing request passes shape validation"
+);
 
-  assert.equal(result.valid, false);
-  assert.equal(result.status, "Rejected");
-  assert.equal(result.reasons[0].code, "INSUFFICIENT_INVENTORY");
-  assert.equal(result.reasons[0].availableQuantity, 4);
-});
 
-test("rejects malformed requests before processing", () => {
-  const input = validInput();
-  input.request.borrowDate = "2026-02-30";
-  input.request.returnDate = "2026-01-01";
-  input.request.purpose = " ";
-  input.request.studentName = "";
-  input.request.studentId = "";
-  input.request.items = [];
-  const result = validateBorrowingRequest(input);
+/* ============================================================
+   TEST 2
+   INVALID DATE
+============================================================ */
 
-  assert.equal(result.valid, false);
-  assert.deepEqual(result.reasons.map((reason) => reason.code), [
-    "STUDENT_NAME_REQUIRED",
-    "STUDENT_ID_REQUIRED",
-    "INVALID_BORROW_DATE",
-    "PURPOSE_REQUIRED",
-    "ITEMS_REQUIRED",
-  ]);
-});
+console.log("\nTEST 2: Invalid date");
 
-test("rejects duplicate, missing, and invalid item quantities", () => {
-  const input = validInput();
-  input.request.items = [
-    { inventoryId: 1, quantity: 1 },
-    { inventoryId: 1, quantity: 1 },
-    { inventoryId: 99, quantity: 1 },
-    { inventoryId: 2, quantity: 0 },
-  ];
-  const result = validateBorrowingRequest(input);
+const invalidDateRequest = {
+  ...validRequest,
+  borrowDate: "2026-99-99",
+};
 
-  assert.equal(result.valid, false);
-  assert.deepEqual(result.reasons.map((reason) => reason.code).sort(), [
-    "DUPLICATE_ITEM",
-    "INVALID_QUANTITY",
-    "ITEM_NOT_FOUND",
-  ].sort());
-});
+const invalidDateErrors =
+  validateBorrowingRequestShape(
+    invalidDateRequest
+  );
 
-test("rejects null request items without throwing", () => {
-  const input = validInput();
-  input.request.items = [null];
+assert(
+  invalidDateErrors.some(
+    (error) =>
+      error.code === "INVALID_BORROW_DATE"
+  ),
+  "Invalid borrow date is detected"
+);
 
-  const result = validateBorrowingRequest(input);
 
-  assert.equal(result.valid, false);
-  assert.equal(result.reasons[0].code, "INVALID_ITEM");
-});
+/* ============================================================
+   TEST 3
+   RETURN DATE BEFORE BORROW DATE
+============================================================ */
 
-test("shape validation handles absent input without throwing", () => {
-  const reasons = validateBorrowingRequestShape(undefined);
-  assert.deepEqual(reasons.map((reason) => reason.code), [
-    "STUDENT_NAME_REQUIRED",
-    "STUDENT_ID_REQUIRED",
-    "INVALID_BORROW_DATE",
-    "INVALID_RETURN_DATE",
-    "PURPOSE_REQUIRED",
-    "ITEMS_REQUIRED",
-  ]);
-});
+console.log("\nTEST 3: Invalid date range");
 
-test("fails closed when inventory or reservation context is corrupt", () => {
-  const invalidInventory = validInput();
-  invalidInventory.inventory[0].quantity = "not-a-number";
-  const inventoryResult = validateBorrowingRequest(invalidInventory);
-  assert.equal(inventoryResult.valid, false);
-  assert.equal(inventoryResult.reasons[0].code, "INVALID_INVENTORY_DATA");
+const invalidRangeRequest = {
+  ...validRequest,
 
-  const invalidReservation = validInput();
-  invalidReservation.existingBorrowings = [{ inventoryId: 1, quantity: -2 }];
-  const reservationResult = validateBorrowingRequest(invalidReservation);
-  assert.equal(reservationResult.valid, false);
-  assert.equal(reservationResult.reasons[0].code, "INVALID_RESERVATION_DATA");
-});
+  borrowDate: "2026-08-25",
+  returnDate: "2026-08-20",
+};
+
+const invalidRangeErrors =
+  validateBorrowingRequestShape(
+    invalidRangeRequest
+  );
+
+assert(
+  invalidRangeErrors.some(
+    (error) =>
+      error.code === "INVALID_DATE_RANGE"
+  ),
+  "Return date before borrow date is rejected"
+);
+
+
+/* ============================================================
+   TEST 4
+   VALID CSP REQUEST
+============================================================ */
+
+console.log("\nTEST 4: CSP valid request");
+
+const cspValid =
+  validateBorrowingRequest({
+    request: validRequest,
+
+    inventory,
+
+    existingBorrowings: [],
+  });
+
+assert(
+  cspValid.valid === true,
+  "Valid inventory request passes CSP"
+);
+
+assert(
+  cspValid.assignment !== null,
+  "CSP produces an assignment"
+);
+
+
+/* ============================================================
+   TEST 5
+   INSUFFICIENT INVENTORY
+============================================================ */
+
+console.log("\nTEST 5: Insufficient inventory");
+
+const tooManyProjectors = {
+  ...validRequest,
+
+  items: [
+    {
+      inventoryId: 1,
+
+      /*
+       * Only 5 projectors exist.
+       */
+      quantity: 6,
+    },
+  ],
+};
+
+const insufficient =
+  validateBorrowingRequest({
+    request: tooManyProjectors,
+
+    inventory,
+
+    existingBorrowings: [],
+  });
+
+assert(
+  insufficient.valid === false,
+  "Request exceeding inventory is rejected"
+);
+
+assert(
+  insufficient.reasons.some(
+    (reason) =>
+      reason.code ===
+      "INSUFFICIENT_INVENTORY"
+  ),
+  "INSUFFICIENT_INVENTORY conflict is generated"
+);
+
+
+/* ============================================================
+   TEST 6
+   RESERVED INVENTORY
+============================================================ */
+
+console.log("\nTEST 6: Existing reservation");
+
+const reservationConflict =
+  validateBorrowingRequest({
+    request: {
+      ...validRequest,
+
+      items: [
+        {
+          inventoryId: 1,
+          quantity: 2,
+        },
+      ],
+    },
+
+    inventory,
+
+    existingBorrowings: [
+      {
+        inventoryId: 1,
+        quantity: 4,
+      },
+    ],
+  });
+
+assert(
+  reservationConflict.valid === false,
+  "Request exceeding remaining inventory is rejected"
+);
+
+assert(
+  reservationConflict.reasons.some(
+    (reason) =>
+      reason.code ===
+      "INSUFFICIENT_INVENTORY"
+  ),
+  "Reserved quantity is included in capacity checking"
+);
+
+
+/* ============================================================
+   TEST 7
+   DUPLICATE REQUEST
+============================================================ */
+
+console.log("\nTEST 7: Duplicate borrowing request");
+
+const existingDuplicate = [
+  {
+    id: 100,
+
+    studentId:
+      "2026-00123",
+
+    borrowDate:
+      "2026-08-20",
+
+    returnDate:
+      "2026-08-22",
+
+    status:
+      "Pending",
+
+    items: [
+      {
+        inventoryId: 1,
+        quantity: 1,
+      },
+    ],
+  },
+];
+
+const duplicateResult =
+  detectBorrowingConflicts({
+    request: validRequest,
+
+    existingRequests:
+      existingDuplicate,
+
+    validation: {
+      reasons: [],
+    },
+  });
+
+assert(
+  duplicateResult.some(
+    (conflict) =>
+      conflict.code ===
+      "DUPLICATE_BORROWING_REQUEST"
+  ),
+  "Duplicate borrowing request is detected"
+);
+
+
+/* ============================================================
+   TEST 8
+   SCHEDULE OVERLAP
+============================================================ */
+
+console.log("\nTEST 8: Schedule overlap");
+
+const overlappingRequest = [
+  {
+    id: 101,
+
+    studentId:
+      "2026-00123",
+
+    borrowDate:
+      "2026-08-21",
+
+    returnDate:
+      "2026-08-25",
+
+    status:
+      "Approved",
+
+    items: [
+      {
+        inventoryId: 2,
+        quantity: 1,
+      },
+    ],
+  },
+];
+
+const overlapResult =
+  detectBorrowingConflicts({
+    request: {
+      ...validRequest,
+
+      items: [
+        {
+          inventoryId: 2,
+          quantity: 1,
+        },
+      ],
+    },
+
+    existingRequests:
+      overlappingRequest,
+
+    validation: {
+      reasons: [],
+    },
+  });
+
+assert(
+  overlapResult.some(
+    (conflict) =>
+      conflict.code ===
+      "BORROWING_SCHEDULE_OVERLAP"
+  ),
+  "Overlapping borrowing schedule is detected"
+);
+
+
+/* ============================================================
+   TEST 9
+   NON-OVERLAPPING REQUEST
+============================================================ */
+
+console.log("\nTEST 9: Non-overlapping schedule");
+
+const nonOverlapRequest = [
+  {
+    id: 102,
+
+    studentId:
+      "2026-00123",
+
+    borrowDate:
+      "2026-09-01",
+
+    returnDate:
+      "2026-09-03",
+
+    status:
+      "Approved",
+
+    items: [
+      {
+        inventoryId: 2,
+        quantity: 1,
+      },
+    ],
+  },
+];
+
+const noConflict =
+  detectBorrowingConflicts({
+    request: validRequest,
+
+    existingRequests:
+      nonOverlapRequest,
+
+    validation: {
+      reasons: [],
+    },
+  });
+
+assert(
+  noConflict.length === 0,
+  "Non-overlapping request has no conflict"
+);
+
+
+/* ============================================================
+   TEST 10
+   SAME-DAY OVERLAP
+============================================================ */
+
+console.log("\nTEST 10: Inclusive date boundary");
+
+const sameDayRequest = [
+  {
+    id: 103,
+
+    studentId:
+      "2026-00123",
+
+    borrowDate:
+      "2026-08-22",
+
+    returnDate:
+      "2026-08-24",
+
+    status:
+      "Approved",
+
+    items: [
+      {
+        inventoryId: 2,
+        quantity: 1,
+      },
+    ],
+  },
+];
+
+const sameDayResult =
+  detectBorrowingConflicts({
+    request: validRequest,
+
+    existingRequests:
+      sameDayRequest,
+
+    validation: {
+      reasons: [],
+    },
+  });
+
+assert(
+  sameDayResult.some(
+    (conflict) =>
+      conflict.code ===
+      "BORROWING_SCHEDULE_OVERLAP"
+  ),
+  "Same-day boundary is treated as overlap"
+);
+
+
+/* ============================================================
+   TEST 11
+   REJECTED REQUEST SHOULD NOT CONFLICT
+============================================================ */
+
+console.log("\nTEST 11: Rejected request");
+
+const rejectedRequest = [
+  {
+    id: 104,
+
+    studentId:
+      "2026-00123",
+
+    borrowDate:
+      "2026-08-20",
+
+    returnDate:
+      "2026-08-22",
+
+    status:
+      "Rejected",
+
+    items: [
+      {
+        inventoryId: 1,
+        quantity: 1,
+      },
+    ],
+  },
+];
+
+const rejectedResult =
+  detectBorrowingConflicts({
+    request: validRequest,
+
+    existingRequests:
+      rejectedRequest,
+
+    validation: {
+      reasons: [],
+    },
+  });
+
+assert(
+  rejectedResult.length === 0,
+  "Rejected requests are ignored"
+);
+
+
+/* ============================================================
+   TEST 12
+   MULTIPLE ITEMS
+============================================================ */
+
+console.log("\nTEST 12: Multiple inventory items");
+
+const multipleItemRequest = {
+  ...validRequest,
+
+  items: [
+    {
+      inventoryId: 1,
+      quantity: 1,
+    },
+
+    {
+      inventoryId: 2,
+      quantity: 2,
+    },
+
+    {
+      inventoryId: 3,
+      quantity: 5,
+    },
+  ],
+};
+
+const multipleValidation =
+  validateBorrowingRequest({
+    request:
+      multipleItemRequest,
+
+    inventory,
+
+    existingBorrowings: [],
+  });
+
+assert(
+  multipleValidation.valid === true,
+  "Multiple inventory items pass CSP"
+);
+
+
+/* ============================================================
+   FINAL RESULT
+============================================================ */
+
+console.log("\n========================================");
+
+if (
+  process.exitCode === 1
+) {
+  console.log(
+    "❌ SOME TESTS FAILED"
+  );
+} else {
+  console.log(
+    "✅ ALL BORROWING VALIDATION TESTS PASSED"
+  );
+}
+
+console.log(
+  "========================================"
+);

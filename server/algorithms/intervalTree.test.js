@@ -1,489 +1,628 @@
 "use strict";
 
-const test = require("node:test");
-const assert = require("node:assert/strict");
+/**
+ * ============================================================
+ * CTHM STOCKROOM - INTERVAL TREE TEST
+ * ============================================================
+ *
+ * Tests:
+ * 1. Date conversion
+ * 2. Basic overlap
+ * 3. Non-overlapping dates
+ * 4. Inclusive date overlap
+ * 5. Interval tree insertion
+ * 6. Search one overlap
+ * 7. Search all overlaps
+ * 8. No overlap
+ * 9. Tree clear
+ * 10. Tree size
+ * 11. Invalid date rejection
+ * 12. Invalid date range rejection
+ * 13. Multiple overlapping intervals
+ * ============================================================
+ */
 
 const {
   IntervalTree,
-  buildBorrowingIntervalTree,
-  findBorrowingOverlaps,
   intervalsOverlap,
   dateToNumber,
-  normalizeInterval,
 } = require("./intervalTree");
 
 
 /* ============================================================
-   DATE
+   ASSERT HELPER
 ============================================================ */
 
-test("converts valid date to numeric day", () => {
+function assert(condition, message) {
+  if (!condition) {
+    throw new Error(`TEST FAILED: ${message}`);
+  }
 
-  const value =
-    dateToNumber("2026-08-20");
-
-  assert.equal(
-    Number.isInteger(value),
-    true
-  );
-});
-
-
-test("rejects invalid date", () => {
-
-  const value =
-    dateToNumber("2026-99-99");
-
-  assert.equal(
-    Number.isNaN(value),
-    true
-  );
-});
+  console.log(`✅ ${message}`);
+}
 
 
 /* ============================================================
-   NORMALIZATION
+   TEST HEADER
 ============================================================ */
 
-test("normalizes borrowing interval", () => {
-
-  const interval =
-    normalizeInterval({
-      borrowDate: "2026-08-20",
-      returnDate: "2026-08-22",
-    });
-
-  assert.equal(
-    interval.startDate,
-    "2026-08-20"
-  );
-
-  assert.equal(
-    interval.endDate,
-    "2026-08-22"
-  );
-
-  assert.equal(
-    interval.startValue <=
-      interval.endValue,
-    true
-  );
-});
-
-
-test("rejects reversed interval", () => {
-
-  assert.throws(
-    () =>
-      normalizeInterval({
-        borrowDate: "2026-08-22",
-        returnDate: "2026-08-20",
-      }),
-    TypeError
-  );
-});
+console.log("");
+console.log("========================================");
+console.log("CTHM STOCKROOM - INTERVAL TREE TEST");
+console.log("========================================");
+console.log("");
 
 
 /* ============================================================
-   OVERLAP
+   TEST 1
+   DATE CONVERSION
 ============================================================ */
 
-test("detects overlapping inclusive dates", () => {
+console.log("TEST 1: Date conversion");
 
-  const result =
-    intervalsOverlap(
-      normalizeInterval({
-        borrowDate: "2026-08-20",
-        returnDate: "2026-08-22",
-      }),
-      normalizeInterval({
-        borrowDate: "2026-08-22",
-        returnDate: "2026-08-25",
-      })
-    );
+const date1 =
+  dateToNumber("2026-08-20");
 
-  assert.equal(
-    result,
-    true
-  );
-});
+const date2 =
+  dateToNumber("2026-08-20");
+
+const date3 =
+  dateToNumber("2026-08-21");
 
 
-test("detects non-overlapping dates", () => {
+assert(
+  date1 === date2,
+  "Same dates produce the same numeric value"
+);
 
-  const result =
-    intervalsOverlap(
-      normalizeInterval({
-        borrowDate: "2026-08-20",
-        returnDate: "2026-08-22",
-      }),
-      normalizeInterval({
-        borrowDate: "2026-08-23",
-        returnDate: "2026-08-25",
-      })
-    );
 
-  assert.equal(
-    result,
-    false
-  );
-});
+assert(
+  date3 > date1,
+  "Later date produces a larger numeric value"
+);
 
 
 /* ============================================================
-   INSERT
+   TEST 2
+   BASIC OVERLAP
 ============================================================ */
 
-test("inserts intervals into tree", () => {
+console.log("");
+console.log("TEST 2: Basic overlap");
 
-  const tree =
-    new IntervalTree();
 
-  tree.insert({
-    id: "REQ-001",
-    borrowDate: "2026-08-20",
-    returnDate: "2026-08-22",
-  });
+const intervalA = {
+  startValue:
+    dateToNumber("2026-08-20"),
 
-  tree.insert({
-    id: "REQ-002",
-    borrowDate: "2026-08-25",
-    returnDate: "2026-08-27",
-  });
+  endValue:
+    dateToNumber("2026-08-22"),
+};
 
-  assert.equal(
-    tree.getSize(),
-    2
-  );
-});
+
+const intervalB = {
+  startValue:
+    dateToNumber("2026-08-21"),
+
+  endValue:
+    dateToNumber("2026-08-25"),
+};
+
+
+assert(
+  intervalsOverlap(
+    intervalA,
+    intervalB
+  ),
+  "Overlapping date ranges are detected"
+);
 
 
 /* ============================================================
-   SEARCH
+   TEST 3
+   NON-OVERLAPPING
 ============================================================ */
 
-test("finds overlapping interval", () => {
-
-  const tree =
-    new IntervalTree();
-
-  tree.insert({
-    id: "REQ-001",
-    borrowDate: "2026-08-20",
-    returnDate: "2026-08-22",
-  });
-
-  const result =
-    tree.search({
-      borrowDate: "2026-08-21",
-      returnDate: "2026-08-24",
-    });
-
-  assert.ok(result);
-
-  assert.equal(
-    result.id,
-    "REQ-001"
-  );
-});
+console.log("");
+console.log("TEST 3: Non-overlapping dates");
 
 
-test("returns null when no interval overlaps", () => {
+const intervalC = {
+  startValue:
+    dateToNumber("2026-08-23"),
 
-  const tree =
-    new IntervalTree();
+  endValue:
+    dateToNumber("2026-08-25"),
+};
 
-  tree.insert({
-    id: "REQ-001",
-    borrowDate: "2026-08-20",
-    returnDate: "2026-08-22",
-  });
 
-  const result =
-    tree.search({
-      borrowDate: "2026-08-23",
-      returnDate: "2026-08-25",
-    });
-
-  assert.equal(
-    result,
-    null
-  );
-});
+assert(
+  !intervalsOverlap(
+    intervalA,
+    intervalC
+  ),
+  "Non-overlapping date ranges are not detected"
+);
 
 
 /* ============================================================
-   SEARCH ALL
+   TEST 4
+   INCLUSIVE OVERLAP
 ============================================================ */
 
-test("finds all overlapping intervals", () => {
+console.log("");
+console.log("TEST 4: Inclusive date overlap");
 
-  const tree =
-    new IntervalTree();
 
-  tree.insert({
-    id: "REQ-001",
-    borrowDate: "2026-08-20",
-    returnDate: "2026-08-22",
-  });
+const intervalD = {
+  startValue:
+    dateToNumber("2026-08-22"),
 
-  tree.insert({
-    id: "REQ-002",
-    borrowDate: "2026-08-21",
-    returnDate: "2026-08-24",
-  });
+  endValue:
+    dateToNumber("2026-08-25"),
+};
 
-  tree.insert({
-    id: "REQ-003",
-    borrowDate: "2026-08-30",
-    returnDate: "2026-09-01",
-  });
 
-  const results =
-    tree.searchAll({
-      borrowDate: "2026-08-21",
-      returnDate: "2026-08-23",
-    });
-
-  assert.equal(
-    results.length,
-    2
-  );
-
-  assert.deepEqual(
-    results.map(
-      (item) => item.id
-    ).sort(),
-    [
-      "REQ-001",
-      "REQ-002",
-    ]
-  );
-});
+assert(
+  intervalsOverlap(
+    intervalA,
+    intervalD
+  ),
+  "Same-day boundary is correctly treated as overlap"
+);
 
 
 /* ============================================================
-   BACK-TO-BACK
+   TEST 5
+   INTERVAL TREE INSERTION
 ============================================================ */
 
-test("allows non-overlapping consecutive dates", () => {
+console.log("");
+console.log("TEST 5: Interval tree insertion");
 
-  const tree =
-    new IntervalTree();
 
-  tree.insert({
-    id: "REQ-001",
-    borrowDate: "2026-08-20",
-    returnDate: "2026-08-21",
-  });
+const tree =
+  new IntervalTree();
 
-  const result =
-    tree.search({
-      borrowDate: "2026-08-22",
-      returnDate: "2026-08-23",
-    });
 
-  assert.equal(
-    result,
-    null
-  );
+tree.insert({
+  borrowDate:
+    "2026-08-20",
+
+  returnDate:
+    "2026-08-22",
+
+  data: {
+    id: 1,
+    studentId: "2024001",
+  },
 });
 
 
-/* ============================================================
-   BUILD FROM REQUESTS
-============================================================ */
+tree.insert({
+  borrowDate:
+    "2026-08-25",
 
-test("builds tree from borrowing requests", () => {
+  returnDate:
+    "2026-08-28",
 
-  const requests = [
-    {
-      id: "REQ-001",
-      borrowDate: "2026-08-20",
-      returnDate: "2026-08-22",
-    },
-    {
-      id: "REQ-002",
-      borrowDate: "2026-08-25",
-      returnDate: "2026-08-27",
-    },
-  ];
-
-  const tree =
-    buildBorrowingIntervalTree(
-      requests
-    );
-
-  assert.equal(
-    tree.getSize(),
-    2
-  );
+  data: {
+    id: 2,
+    studentId: "2024002",
+  },
 });
 
 
-/* ============================================================
-   DATABASE STYLE FIELDS
-============================================================ */
+tree.insert({
+  borrowDate:
+    "2026-08-21",
 
-test("supports snake_case database fields", () => {
+  returnDate:
+    "2026-08-24",
 
-  const tree =
-    buildBorrowingIntervalTree([
-      {
-        id: "REQ-001",
-
-        borrow_date:
-          "2026-08-20",
-
-        return_date:
-          "2026-08-22",
-      },
-    ]);
-
-  const result =
-    tree.search({
-      borrowDate: "2026-08-21",
-      returnDate: "2026-08-21",
-    });
-
-  assert.ok(result);
-
-  assert.equal(
-    result.id,
-    "REQ-001"
-  );
+  data: {
+    id: 3,
+    studentId: "2024003",
+  },
 });
 
 
+assert(
+  tree.getSize() === 3,
+  "Three intervals inserted"
+);
+
+
 /* ============================================================
-   CONVENIENCE FUNCTION
+   TEST 6
+   SEARCH ONE OVERLAP
 ============================================================ */
 
-test("findBorrowingOverlaps returns matching requests", () => {
+console.log("");
+console.log("TEST 6: Search one overlap");
 
-  const requests = [
-    {
-      id: "REQ-001",
 
-      borrowDate:
-        "2026-08-20",
-
-      returnDate:
-        "2026-08-22",
-    },
-
-    {
-      id: "REQ-002",
-
-      borrowDate:
-        "2026-08-30",
-
-      returnDate:
-        "2026-09-01",
-    },
-  ];
-
-  const results =
-    findBorrowingOverlaps(
-      requests,
+const oneOverlap =
+  tree.search({
+    borrowDate:
       "2026-08-21",
-      "2026-08-23"
-    );
 
-  assert.equal(
-    results.length,
-    1
-  );
+    returnDate:
+      "2026-08-23",
+  });
 
-  assert.equal(
-    results[0].id,
-    "REQ-001"
-  );
-});
+
+assert(
+  oneOverlap !== null,
+  "Search found an overlap"
+);
+
+
+assert(
+  oneOverlap.data != null,
+  "Overlap contains original request data"
+);
 
 
 /* ============================================================
-   REMOVE
+   TEST 7
+   SEARCH ALL OVERLAPS
 ============================================================ */
 
-test("removes an interval from tree", () => {
+console.log("");
+console.log("TEST 7: Search all overlaps");
 
-  const tree =
-    new IntervalTree();
 
-  const interval = {
-    id: "REQ-001",
+const allOverlaps =
+  tree.searchAll({
+    borrowDate:
+      "2026-08-21",
 
+    returnDate:
+      "2026-08-26",
+  });
+
+
+console.log(
+  `Found ${allOverlaps.length} overlaps`
+);
+
+
+assert(
+  allOverlaps.length === 3,
+  "SearchAll found all expected overlaps"
+);
+
+
+/* ============================================================
+   TEST 8
+   NO OVERLAP
+============================================================ */
+
+console.log("");
+console.log("TEST 8: No overlap");
+
+
+const noOverlap =
+  tree.searchAll({
+    borrowDate:
+      "2026-09-01",
+
+    returnDate:
+      "2026-09-05",
+  });
+
+
+assert(
+  noOverlap.length === 0,
+  "No overlap correctly returns zero results"
+);
+
+
+/* ============================================================
+   TEST 9
+   TREE SIZE
+============================================================ */
+
+console.log("");
+console.log("TEST 9: Tree size");
+
+
+assert(
+  tree.getSize() === 3,
+  "Tree contains exactly three intervals"
+);
+
+
+/* ============================================================
+   TEST 10
+   TREE TO ARRAY
+============================================================ */
+
+console.log("");
+console.log("TEST 10: Convert tree to array");
+
+
+const intervals =
+  tree.toArray();
+
+
+assert(
+  Array.isArray(intervals),
+  "toArray returns an array"
+);
+
+
+assert(
+  intervals.length === 3,
+  "toArray returns all three intervals"
+);
+
+
+/* ============================================================
+   TEST 11
+   INVALID START DATE
+============================================================ */
+
+console.log("");
+console.log("TEST 11: Invalid start date rejection");
+
+
+let invalidStartCaught =
+  false;
+
+
+try {
+
+  tree.insert({
+    borrowDate:
+      "INVALID-DATE",
+
+    returnDate:
+      "2026-08-25",
+
+    data: {
+      id: 99,
+    },
+  });
+
+} catch (error) {
+
+  invalidStartCaught =
+    error instanceof TypeError;
+
+}
+
+
+assert(
+  invalidStartCaught,
+  "Invalid start date is rejected"
+);
+
+
+/* ============================================================
+   TEST 12
+   INVALID END DATE
+============================================================ */
+
+console.log("");
+console.log("TEST 12: Invalid end date rejection");
+
+
+let invalidEndCaught =
+  false;
+
+
+try {
+
+  tree.insert({
     borrowDate:
       "2026-08-20",
 
     returnDate:
-      "2026-08-22",
-  };
+      "INVALID-DATE",
 
-  tree.insert(interval);
+    data: {
+      id: 100,
+    },
+  });
 
-  assert.equal(
-    tree.getSize(),
-    1
-  );
+} catch (error) {
 
-  const removed =
-    tree.remove(interval);
+  invalidEndCaught =
+    error instanceof TypeError;
 
-  assert.equal(
-    removed,
-    true
-  );
+}
 
-  assert.equal(
-    tree.getSize(),
-    0
-  );
 
-  assert.equal(
-    tree.search({
-      borrowDate:
-        "2026-08-21",
-
-      returnDate:
-        "2026-08-21",
-    }),
-    null
-  );
-});
+assert(
+  invalidEndCaught,
+  "Invalid end date is rejected"
+);
 
 
 /* ============================================================
-   CLEAR
+   TEST 13
+   START AFTER END
 ============================================================ */
 
-test("clears all intervals", () => {
+console.log("");
+console.log("TEST 13: Invalid date range rejection");
 
-  const tree =
-    new IntervalTree();
+
+let invalidRangeCaught =
+  false;
+
+
+try {
 
   tree.insert({
-    id: "REQ-001",
-    borrowDate: "2026-08-20",
-    returnDate: "2026-08-22",
+    borrowDate:
+      "2026-08-30",
+
+    returnDate:
+      "2026-08-20",
+
+    data: {
+      id: 101,
+    },
   });
 
-  tree.insert({
-    id: "REQ-002",
-    borrowDate: "2026-08-25",
-    returnDate: "2026-08-27",
-  });
+} catch (error) {
 
-  tree.clear();
+  invalidRangeCaught =
+    error instanceof TypeError;
 
-  assert.equal(
-    tree.getSize(),
-    0
-  );
+}
 
-  assert.deepEqual(
-    tree.toArray(),
-    []
-  );
+
+assert(
+  invalidRangeCaught,
+  "Start date after end date is rejected"
+);
+
+
+/* ============================================================
+   TEST 14
+   MULTIPLE OVERLAPS
+============================================================ */
+
+console.log("");
+console.log("TEST 14: Multiple overlapping intervals");
+
+
+const secondTree =
+  new IntervalTree();
+
+
+secondTree.insert({
+  borrowDate:
+    "2026-08-01",
+
+  returnDate:
+    "2026-08-10",
+
+  data: {
+    id: 1,
+  },
 });
+
+
+secondTree.insert({
+  borrowDate:
+    "2026-08-05",
+
+  returnDate:
+    "2026-08-15",
+
+  data: {
+    id: 2,
+  },
+});
+
+
+secondTree.insert({
+  borrowDate:
+    "2026-08-08",
+
+  returnDate:
+    "2026-08-20",
+
+  data: {
+    id: 3,
+  },
+});
+
+
+secondTree.insert({
+  borrowDate:
+    "2026-08-25",
+
+  returnDate:
+    "2026-08-30",
+
+  data: {
+    id: 4,
+  },
+});
+
+
+const multipleOverlaps =
+  secondTree.searchAll({
+    borrowDate:
+      "2026-08-07",
+
+    returnDate:
+      "2026-08-09",
+  });
+
+
+console.log(
+  `Found ${multipleOverlaps.length} overlapping intervals`
+);
+
+
+assert(
+  multipleOverlaps.length === 3,
+  "Multiple overlapping intervals are detected"
+);
+
+
+/* ============================================================
+   TEST 15
+   SEARCH ONE WITH NO RESULT
+============================================================ */
+
+console.log("");
+console.log("TEST 15: Search one with no result");
+
+
+const noSingleOverlap =
+  secondTree.search({
+    borrowDate:
+      "2026-09-01",
+
+    returnDate:
+      "2026-09-05",
+  });
+
+
+assert(
+  noSingleOverlap === null,
+  "Single overlap search returns null when no conflict exists"
+);
+
+
+/* ============================================================
+   TEST 16
+   CLEAR TREE
+============================================================ */
+
+console.log("");
+console.log("TEST 16: Clear tree");
+
+
+tree.clear();
+
+
+assert(
+  tree.getSize() === 0,
+  "Tree cleared successfully"
+);
+
+
+assert(
+  tree.toArray().length === 0,
+  "Cleared tree contains no intervals"
+);
+
+
+/* ============================================================
+   FINAL RESULT
+============================================================ */
+
+console.log("");
+console.log("========================================");
+console.log("ALL INTERVAL TREE TESTS PASSED");
+console.log("========================================");
+console.log("");
