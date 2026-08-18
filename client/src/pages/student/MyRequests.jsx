@@ -68,8 +68,7 @@ export default function MyRequests() {
   return (
     <div className="requests-page">
       <header className="requests-header">
-        <p className="requests-eyebrow">Stockroom</p>
-        <h1>My requests</h1>
+        <h1>My Requests</h1>
         <p className="requests-subtitle">
           Track every item you've borrowed and see where each request stands.
         </p>

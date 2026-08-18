@@ -160,12 +160,12 @@ export default function Requests() {
 
           <div className="requests-title">
               <h2>Borrow Requests</h2>
-              <p>Manage student borrowing requests.</p>
+              <p>Review and manage student equipment borrowing requests.</p>
           </div>
 
-          <button className="inventory-add">
-              {filtered.length} Requests
-          </button>
+          <div className="requests-count">
+              <span>{filtered.length}</span>
+          </div>
 
       </div>
 

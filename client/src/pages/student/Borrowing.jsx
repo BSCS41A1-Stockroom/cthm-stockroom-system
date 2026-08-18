@@ -235,10 +235,6 @@ async function handleSubmit(e) {
 
       <header className="borrow-header">
 
-        <p className="borrow-eyebrow">
-          Stockroom
-        </p>
-
         <h1>Borrow Items</h1>
 
         <p className="borrow-subtitle">

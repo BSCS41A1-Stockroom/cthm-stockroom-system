@@ -1,4 +1,7 @@
-import { FaBullhorn, FaArrowRight } from "react-icons/fa";
+import {
+  FaBullhorn,
+  FaArrowRight,
+} from "react-icons/fa";
 
 const announcements = [
   {
@@ -26,48 +29,46 @@ export default function AnnouncementSection() {
     <section className="announcement-section">
 
       <div className="announcement-header">
-
         <div>
-          <h2>Announcements</h2>
-          <p>Latest updates from the CTHM Stockroom</p>
+          <span>NOTICE BOARD</span>
+          <h2>Latest Announcements</h2>
         </div>
 
         <button className="view-all-btn">
           View All
           <FaArrowRight />
         </button>
-
       </div>
 
       <div className="announcement-list">
-
         {announcements.map((item, index) => (
-
-          <div
-            key={index}
+          <article
             className="announcement-card"
+            key={index}
           >
-
             <div className="announcement-icon">
               <FaBullhorn />
             </div>
 
             <div className="announcement-content">
-
-              <span className="announcement-date">
-                {item.date}
-              </span>
+              <div className="announcement-meta">
+                <span>ANNOUNCEMENT</span>
+                <time>{item.date}</time>
+              </div>
 
               <h3>{item.title}</h3>
 
               <p>{item.description}</p>
-
             </div>
 
-          </div>
-
+            <button
+              className="announcement-arrow"
+              aria-label={`Read ${item.title}`}
+            >
+              <FaArrowRight />
+            </button>
+          </article>
         ))}
-
       </div>
 
     </section>

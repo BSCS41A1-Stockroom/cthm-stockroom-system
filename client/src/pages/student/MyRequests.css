@@ -1,190 +1,267 @@
 /* ======================================================
+   CTHM STOCKROOM
    MY REQUESTS PAGE
+   HEADER / SPACING FIX ONLY
+====================================================== */
+
+/* ======================================================
+   PAGE
 ====================================================== */
 
 .requests-page{
+    width:100%;
+    padding:0;
+    margin:0;
+
     display:flex;
     flex-direction:column;
     gap:24px;
+
+    position:relative;
+    overflow:visible;
 }
+
 
 /* ======================================================
-   HEADER
+   MY REQUESTS HEADER — LEFT ALIGNED
 ====================================================== */
 
-.requests-header{
+.requests-page{
+    width:100%;
+    margin:0;
+    padding:0;
+
     display:flex;
     flex-direction:column;
-    gap:6px;
+    align-items:stretch;
+
+    gap:24px;
 }
+
+
+/* HEADER CONTAINER */
+
+.requests-header{
+    width:100% !important;
+
+    display:block !important;
+
+    margin:0 !important;
+    padding:0 !important;
+
+    text-align:left !important;
+
+    position:relative;
+}
+
+
+/* STOCKROOM */
 
 .requests-eyebrow{
+    display:block !important;
+
+    width:100%;
+
+    margin:0 0 5px 0 !important;
+    padding:0 !important;
+
+    text-align:left !important;
+
     font-size:13px;
     font-weight:600;
+
     color:#2563eb;
+
     text-transform:uppercase;
     letter-spacing:1px;
+
+    line-height:1.4;
 }
+
+
+/* MY REQUESTS */
 
 .requests-header h1{
+    display:block !important;
+
+    width:100%;
+
+    margin:0 !important;
+    padding:0 !important;
+
+    text-align:left !important;
+
+    color:#111827;
+
     font-size:30px;
     font-weight:700;
-    color:#111827;
+
+    line-height:1.2;
+
+    letter-spacing:-0.5px;
 }
 
+
+/* DESCRIPTION */
+
 .requests-subtitle{
+    display:block !important;
+
+    width:100%;
+
+    margin:5px 0 0 0 !important;
+    padding:0 !important;
+
+    text-align:left !important;
+
     color:#6b7280;
+
     font-size:14px;
+    font-weight:400;
+
+    line-height:1.5;
 }
+
+
+/* ======================================================
+   EYEBROW
+====================================================== */
+
+.requests-eyebrow{
+    margin:0 0 5px;
+
+    font-size:13px;
+    font-weight:600;
+
+    color:#2563eb;
+
+    text-transform:uppercase;
+    letter-spacing:1px;
+
+    line-height:1.4;
+}
+
+
+/* ======================================================
+   TITLE
+====================================================== */
+
+.requests-header h1{
+    margin:0;
+
+    color:#111827;
+
+    font-size:30px;
+    font-weight:700;
+
+    line-height:1.2;
+
+    letter-spacing:-0.5px;
+
+    text-align:left;
+}
+
+
+/* ======================================================
+   SUBTITLE
+====================================================== */
+
+.requests-subtitle{
+    margin:5px 0 0;
+
+    color:#6b7280;
+
+    font-size:14px;
+    font-weight:400;
+
+    line-height:1.5;
+
+    text-align:left;
+}
+
 
 /* ======================================================
    PANEL
 ====================================================== */
 
 .requests-panel{
+    width:100%;
+
     background:#fff;
+
     border:1px solid #edf2f7;
+
     border-radius:12px;
+
     padding:20px;
+
     display:flex;
     flex-direction:column;
+
     gap:18px;
 }
 
+
 /* ======================================================
    TOOLBAR
 ====================================================== */
 
 .filter-bar{
     display:flex;
+
     align-items:center;
+
     gap:12px;
-    flex-wrap:wrap;
-}
 
-.search-field{
-    flex:1;
-    min-width:260px;
-    height:40px;
-    display:flex;
-    align-items:center;
-    gap:10px;
-    padding:0 14px;
-    background:#fafafa;
-    border:1px solid #e5e7eb;
-    border-radius:8px;
-}
-
-.search-field svg{
-    color:#6b7280;
-}
-
-.search-field input{
-    flex:1;
-    border:none;
-    outline:none;
-    background:transparent;
-    font-size:14px;
-}
-
-/* ======================================================
-   STATUS FILTER
-====================================================== */
-
-.status-tabs{
-    display:flex;
-    gap:8px;
-    flex-wrap:wrap;
-}
-
-.status-tab{
-    height:40px;
-    padding:0 16px;
-    border:1px solid #e5e7eb;
-    border-radius:8px;
-    background:#fff;
-    color:#374151;
-    cursor:pointer;
-    font-size:14px;
-    font-weight:500;
-    transition:.2s;
-}
-
-.status-tab:hover{
-    background:#f8fafc;
-}
-
-.status-tab.active{
-    background:#2563eb;
-    color:#fff;
-    border-color:#2563eb;
-}
-
-/* ======================================================
-   STATUS MESSAGE
-====================================================== */
-
-.state-msg{
-    text-align:center;
-    padding:30px;
-    color:#6b7280;
-}
-
-.state-msg.error{
-    color:#dc2626;
-}
-
-.retry-btn{
-    background:none;
-    border:none;
-    color:#2563eb;
-    cursor:pointer;
-    font-weight:600;
-}
-
-/* ==========================================
-   TOOLBAR
-========================================== */
-
-.filter-bar{
-    display:flex;
-    align-items:center;
-    gap:12px;
     flex-wrap:wrap;
 
-    margin-bottom:20px;
+    margin:0;
 
     padding:14px 18px;
 
     background:#fff;
 
     border:1px solid #e5e7eb;
+
     border-radius:10px;
 }
 
-.search-field{
 
+/* ======================================================
+   SEARCH
+====================================================== */
+
+.search-field{
     flex:1;
+
     min-width:260px;
 
-    display:flex;
-    align-items:center;
-    gap:10px;
-
     height:42px;
+
+    display:flex;
+
+    align-items:center;
+
+    gap:10px;
 
     padding:0 14px;
 
     background:#fafafa;
 
     border:1px solid #e5e7eb;
+
     border-radius:8px;
 
     color:#64748b;
 }
 
-.search-field input{
+.search-field svg{
+    flex-shrink:0;
 
+    color:#6b7280;
+}
+
+.search-field input{
     flex:1;
 
     border:none;
@@ -195,31 +272,32 @@
     font-size:14px;
 }
 
-.search-field svg{
-
-    flex-shrink:0;
+.search-field:focus-within{
+    border-color:#2563eb;
 }
 
-/* ==========================================
+
+/* ======================================================
    STATUS FILTER
-========================================== */
+====================================================== */
 
 .status-tabs{
-
     display:flex;
+
     align-items:center;
+
     gap:8px;
 
     flex-wrap:wrap;
 }
 
 .status-tab{
-
     height:40px;
 
     padding:0 16px;
 
     border:1px solid #e5e7eb;
+
     border-radius:8px;
 
     background:#fff;
@@ -235,97 +313,27 @@
 }
 
 .status-tab:hover{
-
     background:#f8fafc;
+
     border-color:#2563eb;
+
     color:#2563eb;
 }
 
 .status-tab.active{
-
     background:#2563eb;
+
     border-color:#2563eb;
+
     color:#fff;
 }
 
-/* ==========================================
-   SUMMARY CARDS
-========================================== */
 
-.status-summary{
-
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-
-    gap:16px;
-
-    margin-bottom:20px;
-}
-
-.summary-card{
-
-    background:#fff;
-
-    border:1px solid #edf2f7;
-
-    border-radius:12px;
-
-    padding:18px;
-
-    transition:.2s;
-}
-
-.summary-card:hover{
-
-    transform:translateY(-2px);
-
-    box-shadow:0 4px 12px rgba(0,0,0,.06);
-}
-
-.summary-count{
-
-    font-size:30px;
-
-    font-weight:700;
-
-    margin-bottom:6px;
-}
-
-.summary-label{
-
-    font-size:13px;
-
-    font-weight:600;
-
-    color:#64748b;
-}
-
-.summary-pending{
-
-    border-left:4px solid #f59e0b;
-}
-
-.summary-approved{
-
-    border-left:4px solid #10b981;
-}
-
-.summary-rejected{
-
-    border-left:4px solid #ef4444;
-}
-
-.summary-returned{
-
-    border-left:4px solid #64748b;
-}
-
-/* ==========================================
-   LOADING / EMPTY
-========================================== */
+/* ======================================================
+   LOADING / ERROR
+====================================================== */
 
 .state-msg{
-
     padding:40px;
 
     text-align:center;
@@ -334,12 +342,10 @@
 }
 
 .state-msg.error{
-
     color:#dc2626;
 }
 
 .retry-btn{
-
     background:none;
 
     border:none;
@@ -352,58 +358,128 @@
 }
 
 .retry-btn:hover{
-
     text-decoration:underline;
 }
 
-/* ==========================================
-   RESPONSIVE
-========================================== */
 
-@media(max-width:900px){
+/* ======================================================
+   TABLE
+====================================================== */
 
-    .filter-bar{
+.table-wrap{
+    width:100%;
 
-        flex-direction:column;
-        align-items:stretch;
-    }
-
-    .search-field{
-
-        width:100%;
-    }
-
-    .status-tabs{
-
-        width:100%;
-    }
-
+    overflow-x:auto;
 }
 
-@media(max-width:700px){
+.requests-table{
+    width:100%;
 
-    .status-summary{
+    border-collapse:collapse;
 
-        grid-template-columns:repeat(2,1fr);
-    }
-
+    text-align:left;
 }
 
-@media(max-width:500px){
+.requests-table th{
+    padding:13px 16px;
 
-    .status-summary{
+    background:#f8fafc;
 
-        grid-template-columns:1fr;
-    }
+    border-bottom:1px solid #e5e7eb;
 
+    color:#475569;
+
+    font-size:12px;
+
+    font-weight:700;
+
+    text-transform:uppercase;
+
+    letter-spacing:.04em;
 }
+
+.requests-table td{
+    padding:15px 16px;
+
+    border-bottom:1px solid #e5e7eb;
+
+    color:#334155;
+
+    font-size:14px;
+
+    vertical-align:middle;
+}
+
+.requests-table tbody tr{
+    transition:.15s;
+}
+
+.requests-table tbody tr:hover{
+    background:#fafafa;
+}
+
+.requests-table tbody tr:last-child td{
+    border-bottom:0;
+}
+
+.requests-table .muted{
+    color:#64748b;
+}
+
+.items-preview{
+    color:#111827;
+
+    font-weight:500;
+}
+
+.empty-cell{
+    text-align:center;
+
+    padding:40px !important;
+
+    color:#64748b !important;
+}
+
+
+/* ======================================================
+   VIEW BUTTON
+====================================================== */
+
+.view-btn{
+    padding:7px 14px;
+
+    border:1px solid #dbeafe;
+
+    border-radius:8px;
+
+    background:#fff;
+
+    color:#2563eb;
+
+    font-size:13px;
+
+    font-weight:600;
+
+    cursor:pointer;
+
+    transition:.2s;
+}
+
+.view-btn:hover{
+    background:#2563eb;
+
+    color:#fff;
+}
+
 
 /* ======================================================
    STATUS BADGES
+   KEEPING YOUR ORIGINAL CIRCLES / PILLS
 ====================================================== */
 
 .status-badge{
     display:inline-flex;
+
     align-items:center;
 
     padding:5px 10px;
@@ -411,33 +487,40 @@
     border-radius:999px;
 
     font-size:12px;
+
     font-weight:600;
 }
 
 .badge-pending{
     background:#fef3c7;
+
     color:#b45309;
 }
 
 .badge-approved{
     background:#ecfdf5;
+
     color:#15803d;
 }
 
 .badge-rejected{
     background:#fee2e2;
+
     color:#dc2626;
 }
 
 .badge-returned{
     background:#eff6ff;
+
     color:#2563eb;
 }
 
 .badge-unknown{
     background:#f3f4f6;
+
     color:#6b7280;
 }
+
 
 /* ======================================================
    MODAL
@@ -445,20 +528,23 @@
 
 .modal-overlay{
     position:fixed;
+
     inset:0;
 
     background:rgba(0,0,0,.45);
 
     display:flex;
+
     justify-content:center;
+
     align-items:center;
 
     z-index:999;
 }
 
 .modal-card{
-
     width:650px;
+
     max-width:95%;
 
     background:#fff;
@@ -468,12 +554,15 @@
     overflow:hidden;
 
     box-shadow:0 8px 30px rgba(0,0,0,.12);
+
+    transition:.2s;
 }
 
 .modal-header{
-
     display:flex;
+
     justify-content:space-between;
+
     align-items:center;
 
     padding:18px 22px;
@@ -482,15 +571,18 @@
 }
 
 .modal-header h2{
+    margin:0;
 
     font-size:22px;
+
     font-weight:700;
+
     color:#111827;
 }
 
 .modal-close{
-
     border:none;
+
     background:none;
 
     font-size:26px;
@@ -503,62 +595,78 @@
 }
 
 .modal-close:hover{
-
     color:#111827;
 }
 
-.modal-status-row{
 
+/* ======================================================
+   MODAL STATUS
+====================================================== */
+
+.modal-status-row{
     display:flex;
+
     align-items:center;
+
     gap:12px;
 
-    margin-bottom:20px;
+    margin:20px 22px;
 }
 
 .requested-at{
-
     color:#6b7280;
+
     font-size:13px;
 }
 
-.modal-section{
 
-    margin-bottom:22px;
+/* ======================================================
+   MODAL CONTENT
+====================================================== */
+
+.modal-section{
+    margin:0 22px 22px;
 }
 
 .modal-section h3,
 .modal-grid h3{
+    margin:0 0 8px;
 
     font-size:13px;
+
     font-weight:600;
 
     color:#6b7280;
-
-    margin-bottom:8px;
 }
 
 .modal-section p,
 .modal-grid p{
+    margin:0;
 
     color:#111827;
+
     font-size:14px;
 }
 
 .modal-items{
-
     list-style:none;
 
     display:flex;
+
     flex-direction:column;
 
     gap:10px;
+
+    padding:0;
+
+    margin:0;
 }
 
 .modal-items li{
-
     display:flex;
+
     justify-content:space-between;
+
     align-items:center;
 
     padding:10px 14px;
@@ -571,103 +679,26 @@
 }
 
 .modal-qty{
-
     color:#2563eb;
+
     font-weight:600;
 }
 
-.modal-grid{
 
+/* ======================================================
+   MODAL GRID
+====================================================== */
+
+.modal-grid{
     display:grid;
+
     grid-template-columns:repeat(2,1fr);
 
     gap:18px;
 
-    margin-bottom:20px;
+    margin:0 22px 20px;
 }
 
-@media(max-width:650px){
-
-    .modal-card{
-
-        width:95%;
-    }
-
-    .modal-grid{
-
-        grid-template-columns:1fr;
-    }
-
-}
-
-/* ======================================================
-   RESPONSIVE
-====================================================== */
-
-@media(max-width:900px){
-
-    .requests-header{
-        margin-bottom:18px;
-    }
-
-    .filter-bar{
-        flex-direction:column;
-        align-items:stretch;
-    }
-
-    .search-field{
-        width:100%;
-        min-width:100%;
-    }
-
-    .status-tabs{
-        width:100%;
-        overflow-x:auto;
-        flex-wrap:nowrap;
-        padding-bottom:4px;
-    }
-
-    .status-tab{
-        white-space:nowrap;
-    }
-
-    .status-summary{
-        grid-template-columns:repeat(2,1fr);
-    }
-
-}
-
-@media(max-width:700px){
-
-    .requests-page{
-        padding:20px;
-    }
-
-    .requests-panel{
-        padding:18px;
-    }
-
-    .requests-header h1{
-        font-size:28px;
-    }
-
-    .requests-subtitle{
-        font-size:14px;
-    }
-
-}
-
-@media(max-width:600px){
-
-    .status-summary{
-        grid-template-columns:1fr;
-    }
-
-    .requests-table{
-        min-width:700px;
-    }
-
-}
 
 /* ======================================================
    SCROLLBAR
@@ -675,6 +706,7 @@
 
 .table-wrap::-webkit-scrollbar{
     width:8px;
+
     height:8px;
 }
 
@@ -684,6 +716,7 @@
 
 .table-wrap::-webkit-scrollbar-thumb{
     background:#cbd5e1;
+
     border-radius:20px;
 }
 
@@ -691,48 +724,88 @@
     background:#94a3b8;
 }
 
+
 /* ======================================================
-   TRANSITIONS
+   RESPONSIVE
 ====================================================== */
 
-.requests-panel,
-.summary-card,
-.status-tab,
-.view-btn,
-.search-field,
-.modal-card{
+@media(max-width:900px){
 
-    transition:.2s;
+    .requests-header{
+        margin-bottom:0;
+    }
 
+    .filter-bar{
+        flex-direction:column;
+
+        align-items:stretch;
+    }
+
+    .search-field{
+        width:100%;
+
+        min-width:100%;
+    }
+
+    .status-tabs{
+        width:100%;
+
+        overflow-x:auto;
+
+        flex-wrap:nowrap;
+
+        padding-bottom:4px;
+    }
+
+    .status-tab{
+        white-space:nowrap;
+    }
 }
 
-.requests-table tbody tr{
 
-    transition:.15s;
+@media(max-width:700px){
 
+    .requests-header h1{
+        font-size:28px;
+    }
+
+    .requests-subtitle{
+        font-size:14px;
+    }
+
+    .requests-panel{
+        padding:18px;
+    }
 }
 
-.requests-table tbody tr:hover{
 
-    background:#fafafa;
+@media(max-width:650px){
 
+    .modal-card{
+        width:95%;
+    }
+
+    .modal-grid{
+        grid-template-columns:1fr;
+    }
 }
 
-.search-field:focus-within{
 
-    border-color:#2563eb;
+@media(max-width:600px){
 
+    .requests-table{
+        min-width:700px;
+    }
 }
 
-.view-btn:hover{
 
-    background:#2563eb;
-    color:#fff;
+@media(max-width:500px){
 
-}
+    .requests-panel{
+        padding:14px;
+    }
 
-.status-tab:hover{
-
-    background:#eff6ff;
-
+    .requests-header h1{
+        font-size:26px;
+    }
 }

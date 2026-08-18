@@ -5,19 +5,11 @@ import FeatureCards from "../../components/student/home/FeatureCards";
 import AnnouncementSection from "../../components/student/home/AnnouncementSection";
 
 export default function Home() {
-
   return (
-
-    <div className="home-page">
-
+    <main className="home-page">
       <Hero />
-
       <FeatureCards />
-
       <AnnouncementSection />
-
-    </div>
-
+    </main>
   );
-
 }

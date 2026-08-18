@@ -1,227 +1,586 @@
 /* ======================================================
-   LAYOUT
+   BORROWING PAGE
+====================================================== */
+
+.borrow-page{
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    gap:24px;
+    box-sizing:border-box;
+}
+
+/* ======================================================
+   HEADER
+====================================================== */
+
+.borrow-header{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+}
+
+.borrow-header h1{
+    margin:0;
+    font-size:30px;
+    font-weight:700;
+    line-height:1.2;
+    color:#111827;
+}
+
+.borrow-subtitle{
+    margin:0;
+    color:#6b7280;
+    font-size:14px;
+}
+
+/* ======================================================
+   MAIN LAYOUT
+
+   IMPORTANT:
+   The table is allowed to use ONLY the left
+   grid column.
+
+   Right side remains reserved for summary.
 ====================================================== */
 
 .borrow-layout{
+    width:100%;
     display:grid;
+
+    /*
+       LEFT = remaining space
+       RIGHT = summary
+    */
     grid-template-columns:minmax(0,1fr) 280px;
+
     gap:16px;
+
+    align-items:start;
+
+    box-sizing:border-box;
 }
 
-.borrow-panel{
-    background:#fff;
-    border:1px solid #e5e7eb;
-    border-radius:12px;
-    padding:18px;
-    box-shadow:0 2px 8px rgba(0,0,0,.04);
-}
-
-.borrow-panel{
-    min-width:0;
-}
+/* ======================================================
+   LEFT TABLE PANEL
+====================================================== */
 
 .browse-panel{
+    width:100%;
     min-width:0;
+    max-width:100%;
+
+    box-sizing:border-box;
+
+    overflow:hidden;
 }
+
+/* ======================================================
+   GENERAL PANEL
+====================================================== */
+
+.borrow-panel{
+    width:100%;
+    min-width:0;
+
+    background:#fff;
+
+    border:1px solid #e5e7eb;
+
+    border-radius:12px;
+
+    padding:18px;
+
+    box-shadow:0 2px 8px rgba(0,0,0,.04);
+
+    box-sizing:border-box;
+}
+
+/* ======================================================
+   SEARCH
+====================================================== */
+
+.filter-bar{
+    width:100%;
+
+    display:flex;
+    align-items:center;
+
+    margin-bottom:16px;
+
+    box-sizing:border-box;
+}
+
+.search-field{
+    width:100%;
+    min-width:0;
+
+    height:42px;
+
+    display:flex;
+    align-items:center;
+
+    padding:0 14px;
+
+    background:#fafafa;
+
+    border:1px solid #e5e7eb;
+
+    border-radius:8px;
+
+    color:#64748b;
+
+    box-sizing:border-box;
+}
+
+.search-field input{
+    width:100%;
+    min-width:0;
+
+    border:none;
+    outline:none;
+
+    background:transparent;
+
+    font-size:14px;
+
+    color:#111827;
+
+    box-sizing:border-box;
+}
+
+/* ======================================================
+   TABLE AREA
+
+   THIS is the important part.
+
+   The table gets the exact width of the
+   left panel's content area.
+
+   No min-width.
+   No fixed 700px.
+   No width based on viewport.
+====================================================== */
 
 .table-wrap{
+    display:block;
+
     width:100%;
+    max-width:100%;
+
     min-width:0;
-}
 
-.inventory-table{
-    width:100%;
-}
+    margin:0;
+    padding:0;
 
-/* Desktop */
-@media (min-width:1600px){
+    box-sizing:border-box;
 
-    .borrow-layout{
-        grid-template-columns:minmax(0,1fr) 360px;
-    }
-
-}
-
-/* Laptop */
-@media (max-width:1366px){
-
-    .borrow-layout{
-        grid-template-columns:minmax(0,1fr) 310px;
-    }
-
-}
-
-/* Tablet */
-@media (max-width:992px){
-
-    .borrow-layout{
-        grid-template-columns:1fr;
-    }
-
-    .summary-panel{
-        position:static;
-    }
-
+    overflow:hidden;
 }
 
 /* ======================================================
    TABLE
+
+   EXACTLY FIT THE TABLE CONTAINER
 ====================================================== */
-.borrow-panel{
-    min-width:0;
-}
-
-.browse-panel{
-    min-width:0;
-}
-
-.table-wrap{
-    width:100%;
-    min-width:0;
-}
 
 .inventory-table{
+    display:table;
+
     width:100%;
+    max-width:100%;
+
+    min-width:0;
+
+    margin:0;
+    padding:0;
+
+    border-collapse:collapse;
+
+    table-layout:fixed;
+
+    box-sizing:border-box;
 }
 
-.inventory-table th,
-.inventory-table td{
-    padding:6px 4px;
-    font-size:11px;
-    white-space:normal;     /* pwede mag-wrap */
-    word-break:break-word;
-}
+/* ======================================================
+   COLUMN WIDTHS
 
-/* Checkbox */
+   These percentages belong ONLY to the
+   LEFT TABLE WIDTH.
+
+   6 + 39 + 23 + 17 + 15 = 100%
+====================================================== */
+
 .inventory-table th:nth-child(1),
 .inventory-table td:nth-child(1){
-    width:50px;
+    width:6%;
 }
 
 .inventory-table th:nth-child(2),
 .inventory-table td:nth-child(2){
-    min-width:250px;
+    width:39%;
 }
 
 .inventory-table th:nth-child(3),
 .inventory-table td:nth-child(3){
-    min-width:150px;
+    width:23%;
 }
 
 .inventory-table th:nth-child(4),
 .inventory-table td:nth-child(4){
-    min-width:90px;
+    width:17%;
 }
 
 .inventory-table th:nth-child(5),
 .inventory-table td:nth-child(5){
-    min-width:90px;
+    width:15%;
 }
 
-.qty-input{
-    width:42px;
-    height:26px;
-    padding:0;
-    font-size:11px;
+/* ======================================================
+   CELLS
+
+   IMPORTANT:
+   No min-width here.
+
+   A min-width on a cell is what can force
+   the table to become wider than its parent.
+====================================================== */
+
+.inventory-table th,
+.inventory-table td{
+    width:auto;
+
+    min-width:0;
+    max-width:100%;
+
+    box-sizing:border-box;
+
+    padding:10px 6px;
+
+    font-size:13px;
+
+    overflow:hidden;
+
+    text-overflow:clip;
+
+    word-break:normal;
+
+    overflow-wrap:anywhere;
 }
+
+/* ======================================================
+   HEADER CELLS
+====================================================== */
+
+.inventory-table th{
+    color:#374151;
+
+    font-weight:600;
+
+    text-align:left;
+
+    white-space:normal;
+
+    line-height:1.25;
+
+    background:#f8fafc;
+
+    border-bottom:1px solid #e5e7eb;
+}
+
+/* ======================================================
+   BODY CELLS
+====================================================== */
+
+.inventory-table td{
+    color:#111827;
+
+    vertical-align:middle;
+
+    border-bottom:1px solid #f1f5f9;
+
+    line-height:1.35;
+}
+
+/* ======================================================
+   CHECKBOX COLUMN
+====================================================== */
+
+.inventory-table th:nth-child(1),
+.inventory-table td:nth-child(1){
+    text-align:center;
+}
+
+/* ======================================================
+   AVAILABLE COLUMN
+====================================================== */
+
+.inventory-table th:nth-child(4),
+.inventory-table td:nth-child(4){
+    text-align:center;
+}
+
+/* ======================================================
+   QUANTITY COLUMN
+====================================================== */
+
+.inventory-table th:nth-child(5),
+.inventory-table td:nth-child(5){
+    text-align:center;
+}
+
+/* ======================================================
+   ITEM NAME
+
+   It wraps inside its 39% column.
+   It does NOT push the table wider.
+====================================================== */
+
+.inventory-table td:nth-child(2){
+    white-space:normal;
+
+    overflow-wrap:anywhere;
+
+    word-break:break-word;
+}
+
+/* ======================================================
+   PURCHASE DATE
+
+   Allow wrapping inside its column.
+====================================================== */
+
+.inventory-table td:nth-child(3){
+    white-space:normal;
+
+    overflow-wrap:anywhere;
+}
+
+/* ======================================================
+   CHECKBOX
+====================================================== */
+
+.inventory-table input[type="checkbox"]{
+    width:16px;
+    height:16px;
+
+    margin:0;
+
+    cursor:pointer;
+}
+
+/* ======================================================
+   QUANTITY INPUT
+====================================================== */
+
+.qty-input{
+    width:48px;
+    height:30px;
+
+    max-width:100%;
+
+    padding:0 4px;
+
+    border:1px solid #d1d5db;
+
+    border-radius:6px;
+
+    background:#fff;
+
+    text-align:center;
+
+    font-size:13px;
+
+    box-sizing:border-box;
+}
+
 .qty-input:disabled{
     background:#f3f4f6;
+
+    color:#9ca3af;
+
+    cursor:not-allowed;
 }
+
+.qty-input:focus{
+    outline:none;
+
+    border-color:#2563eb;
+}
+
+/* ======================================================
+   SELECTED ROW
+====================================================== */
 
 .row-selected{
     background:#eff6ff;
 }
 
+/* ======================================================
+   OUT OF STOCK
+====================================================== */
+
 .badge-out{
     display:inline-block;
+
     margin-top:4px;
+
     padding:2px 6px;
+
     border-radius:999px;
+
     background:#fee2e2;
+
     color:#dc2626;
+
     font-size:10px;
 }
 
+/* ======================================================
+   EMPTY
+====================================================== */
+
 .empty-cell{
     text-align:center;
+
     padding:24px;
+
     color:#6b7280;
 }
 
 /* ======================================================
    SUMMARY PANEL
+
+   RIGHT SIDE IS INDEPENDENT.
+   It does NOT overlap the table.
 ====================================================== */
 
 .summary-panel{
-    position:sticky;
-    top:20px;
     width:100%;
+    min-width:0;
+
+    position:sticky;
+
+    top:20px;
+
+    box-sizing:border-box;
 }
 
 .summary-panel h2{
+    margin:0 0 16px;
+
     font-size:20px;
-    margin-bottom:16px;
+
     color:#111827;
 }
 
 .summary-empty{
     font-size:13px;
+
     color:#6b7280;
+
     margin-bottom:18px;
 }
 
+/* ======================================================
+   SUMMARY LIST
+====================================================== */
+
 .summary-list{
     list-style:none;
+
     padding:0;
     margin:0 0 18px;
+
     display:flex;
     flex-direction:column;
+
     gap:8px;
+
     max-height:220px;
+
     overflow-y:auto;
 }
 
 .summary-list li{
     display:flex;
+
     justify-content:space-between;
+
     align-items:center;
+
+    gap:8px;
+
     padding:10px 12px;
+
     border:1px solid #e5e7eb;
+
     border-radius:8px;
+
     background:#fafafa;
+
     font-size:13px;
+
+    box-sizing:border-box;
+}
+
+.summary-list li span:first-child{
+    min-width:0;
+
+    overflow-wrap:anywhere;
 }
 
 .summary-qty{
     color:#2563eb;
+
     font-weight:600;
+
+    flex-shrink:0;
 }
+
+/* ======================================================
+   SUMMARY TOTALS
+====================================================== */
 
 .summary-totals{
     display:grid;
+
     grid-template-columns:repeat(2,1fr);
+
     gap:10px;
+
     margin-bottom:18px;
 }
 
 .summary-totals div{
     background:#2563eb;
+
     color:#fff;
+
     border-radius:8px;
+
     padding:12px;
+
     text-align:center;
+
+    box-sizing:border-box;
 }
 
 .total-label{
     display:block;
+
     font-size:11px;
+
     opacity:.8;
 }
 
 .total-value{
     display:block;
+
     margin-top:4px;
+
     font-size:22px;
+
     font-weight:700;
 }
 
@@ -231,27 +590,41 @@
 
 .summary-form{
     display:flex;
+
     flex-direction:column;
+
     gap:12px;
 }
 
 .summary-form label{
     display:flex;
+
     flex-direction:column;
+
     gap:6px;
+
     font-size:13px;
+
     font-weight:600;
+
     color:#374151;
 }
 
 .summary-form input,
 .summary-form textarea{
     width:100%;
+
     padding:10px 12px;
+
     border:1px solid #d1d5db;
+
     border-radius:8px;
+
     font-size:13px;
+
     outline:none;
+
+    box-sizing:border-box;
 }
 
 .summary-form input{
@@ -260,6 +633,7 @@
 
 .summary-form textarea{
     min-height:80px;
+
     resize:vertical;
 }
 
@@ -268,15 +642,27 @@
     border-color:#2563eb;
 }
 
+/* ======================================================
+   BUTTON
+====================================================== */
+
 .submit-btn{
     width:100%;
+
     height:42px;
+
     border:none;
+
     border-radius:8px;
+
     background:#2563eb;
+
     color:#fff;
+
     font-size:14px;
+
     font-weight:600;
+
     cursor:pointer;
 }
 
@@ -284,25 +670,83 @@
     background:#1d4ed8;
 }
 
+.submit-btn:disabled{
+    opacity:.6;
+
+    cursor:not-allowed;
+}
+
+/* ======================================================
+   FORM MESSAGES
+====================================================== */
+
 .form-error,
 .form-success{
     padding:10px;
+
     border-radius:8px;
+
     font-size:13px;
+
+    margin:0;
 }
 
 .form-error{
     background:#fee2e2;
+
     color:#dc2626;
 }
 
 .form-success{
     background:#ecfdf5;
+
     color:#15803d;
 }
 
 /* ======================================================
-   RESPONSIVE
+   ROW HOVER
+====================================================== */
+
+.inventory-table tbody tr{
+    transition:.15s;
+}
+
+.inventory-table tbody tr:hover{
+    background:#fafafa;
+}
+
+.inventory-table tbody tr.row-selected:hover{
+    background:#eff6ff;
+}
+
+/* ======================================================
+   DESKTOP
+====================================================== */
+
+@media (min-width:1600px){
+
+    .borrow-layout{
+        grid-template-columns:minmax(0,1fr) 300px;
+    }
+
+}
+
+/* ======================================================
+   LAPTOP
+====================================================== */
+
+@media (max-width:1366px){
+
+    .borrow-layout{
+        grid-template-columns:minmax(0,1fr) 270px;
+
+        gap:14px;
+    }
+
+}
+
+/* ======================================================
+   TABLET
 ====================================================== */
 
 @media (max-width:992px){
@@ -315,43 +759,115 @@
         position:static;
     }
 
+    .table-wrap{
+        overflow:hidden;
+    }
+
 }
+
+/* ======================================================
+   SMALL TABLET
+====================================================== */
 
 @media (max-width:768px){
 
     .borrow-page{
-        gap:16px;
+        gap:18px;
     }
 
     .borrow-panel{
         padding:14px;
     }
 
-    .inventory-table{
-        table-layout:auto;
+    .inventory-table th,
+    .inventory-table td{
+        padding:9px 5px;
+
+        font-size:13px;
+    }
+
+    .qty-input{
+        width:46px;
+    }
+
+}
+
+/* ======================================================
+   MOBILE
+====================================================== */
+
+@media (max-width:600px){
+
+    .borrow-header h1{
+        font-size:28px;
     }
 
     .inventory-table th,
     .inventory-table td{
+        padding:8px 4px;
+
         font-size:12px;
-        padding:10px 6px;
+    }
+
+    /*
+       Still 100% of the LEFT panel.
+       Nothing is allowed to overflow.
+    */
+
+    .inventory-table th:nth-child(1),
+    .inventory-table td:nth-child(1){
+        width:8%;
+    }
+
+    .inventory-table th:nth-child(2),
+    .inventory-table td:nth-child(2){
+        width:35%;
+    }
+
+    .inventory-table th:nth-child(3),
+    .inventory-table td:nth-child(3){
+        width:23%;
+    }
+
+    .inventory-table th:nth-child(4),
+    .inventory-table td:nth-child(4){
+        width:18%;
+    }
+
+    .inventory-table th:nth-child(5),
+    .inventory-table td:nth-child(5){
+        width:16%;
     }
 
     .qty-input{
-        width:55px;
-    }
-
-    .summary-totals{
-        grid-template-columns:1fr 1fr;
+        width:42px;
     }
 
 }
 
-@media (max-width:480px){
+/* ======================================================
+   VERY SMALL
+====================================================== */
 
-    .summary-totals{
-        grid-template-columns:1fr;
+@media (max-width:420px){
+
+    .borrow-panel{
+        padding:12px;
+    }
+
+    .inventory-table th,
+    .inventory-table td{
+        padding:7px 3px;
+
+        font-size:11px;
+    }
+
+    .qty-input{
+        width:40px;
+
+        height:28px;
+
+        font-size:12px;
     }
 
 }
-
