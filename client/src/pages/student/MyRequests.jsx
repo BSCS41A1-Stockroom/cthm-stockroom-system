@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import "./MyRequests.css";
-
-const API_BASE = "http://localhost:5000";
+import { API_URL } from "../../lib/api";
 
 const STATUS_META = {
   pending: { label: "Pending", className: "badge-pending" },
   approved: { label: "Approved", className: "badge-approved" },
+  borrowed: { label: "Borrowed", className: "badge-approved" },
   rejected: { label: "Rejected", className: "badge-rejected" },
   returned: { label: "Returned", className: "badge-returned" },
 };
@@ -39,11 +39,11 @@ export default function MyRequests() {
     setLoading(true);
     setLoadError("");
     try {
-      const res = await fetch(`${API_BASE}/api/requests`);
+      const res = await fetch(`${API_URL}/api/borrowings`);
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const data = await res.json();
       setRequests(Array.isArray(data) ? data : data.requests || []);
-    } catch (err) {
+    } catch {
       setLoadError(
         "Couldn't load your requests. Check that the server is running and try again."
       );
@@ -91,7 +91,7 @@ export default function MyRequests() {
           </div>
 
           <div className="status-tabs">
-            {["all", "pending", "approved", "rejected", "returned"].map((s) => (
+            {["all", "pending", "approved", "borrowed", "rejected", "returned"].map((s) => (
               <button
                 key={s}
                 type="button"

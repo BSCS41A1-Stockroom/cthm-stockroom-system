@@ -1,7 +1,8 @@
 "use strict";
 
 const pool = require("../config/db");
-const { createCspModel, isSolution, parseTime } = require("../algorithms/csp");
+const { intervalsOverlap, parseTime } = require("../algorithms/csp");
+const { isValidDate } = require("../algorithms/borrowingValidation");
 
 const EVENT_TYPES = new Set(["activity", "holiday", "reminder", "borrowing"]);
 
@@ -20,7 +21,7 @@ function normalizeEvent(body) {
 function basicEventErrors(event) {
   const errors = [];
   if (!event.title) errors.push("Event title is required.");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(event.date ?? "")) errors.push("A valid event date is required.");
+  if (!isValidDate(event.date)) errors.push("A valid event date is required.");
   if (!EVENT_TYPES.has(event.type)) errors.push("Event type is invalid.");
   if (Boolean(event.start) !== Boolean(event.end)) errors.push("Start and end time must both be provided.");
   if (event.roomId && (!event.start || !event.end)) errors.push("Room events require a start and end time.");
@@ -39,6 +40,13 @@ function basicEventErrors(event) {
 async function validateRoomSchedule(client, event, excludedEventId = null) {
   const errors = basicEventErrors(event);
   if (errors.length || !event.roomId) return errors;
+
+  // Row locks cannot protect an empty time range. Serializing checks for the
+  // same room and date prevents concurrent inserts from both seeing no clash.
+  await client.query(
+    `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
+    [`calendar-room:${String(event.roomId)}:${event.date}`]
+  );
 
   const roomResult = await client.query(
     `SELECT id, room_type, capacity, features
@@ -60,38 +68,16 @@ async function validateRoomSchedule(client, event, excludedEventId = null) {
     [event.roomId, event.date, excludedEventId]
   );
 
-  const startSlot = parseTime(event.start.slice(0, 5), "start", 30);
-  const endSlot = parseTime(event.end.slice(0, 5), "end", 30);
-  const room = roomResult.rows[0];
-  const model = createCspModel({
-    planningHorizon: { startDate: event.date, endDate: event.date },
-    policy: { slotMinutes: 30, operatingHours: { start: "07:00", end: "20:00" } },
-    rooms: [{
-      id: String(room.id),
-      type: room.room_type,
-      capacity: room.capacity,
-      features: room.features,
-    }],
-    requests: [{
-      id: "calendar-event",
-      durationSlots: endSlot - startSlot,
-      allowedRoomIds: [String(room.id)],
-      allowedDates: [event.date],
-      timeWindows: [{ start: event.start.slice(0, 5), end: event.end.slice(0, 5) }],
-    }],
-    existingBookings: existingResult.rows.map((booking) => ({
-      roomId: String(booking.room_id),
-      date: booking.event_date.toISOString?.().slice(0, 10) ?? String(booking.event_date),
-      start: String(booking.start_time).slice(0, 5),
-      end: String(booking.end_time).slice(0, 5),
-    })),
-    roomClosures: [],
-    sharedResources: {},
-  });
+  const startMinutes = parseTime(event.start.slice(0, 5), "start");
+  const endMinutes = parseTime(event.end.slice(0, 5), "end");
+  const hasOverlap = existingResult.rows.some((booking) => intervalsOverlap(
+    startMinutes,
+    endMinutes,
+    parseTime(String(booking.start_time).slice(0, 5), "existing start"),
+    parseTime(String(booking.end_time).slice(0, 5), "existing end")
+  ));
 
-  const variable = model.variables[0];
-  const value = model.domains[variable.id][0];
-  if (!value || !isSolution(model, { [variable.id]: value })) {
+  if (hasOverlap) {
     return [...errors, "The selected room is already booked during this time."];
   }
   return errors;

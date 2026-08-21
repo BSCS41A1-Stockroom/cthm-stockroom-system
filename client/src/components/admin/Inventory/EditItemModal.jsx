@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { supabase } from "../../../lib/supabase";
 
 export default function EditItemModal({
@@ -8,37 +8,18 @@ export default function EditItemModal({
     onUpdated
 }) {
 
-    const [form, setForm] = useState({
-        item_name: "",
-        purchase_date: "",
-        quantity: 0,
-        additional_qty: 0,
-        replaces: 0,
-        missing: 0,
-        breakage: 0,
-        defective: 0,
-        total_loss: 0,
-        remarks: ""
-    });
-
-    useEffect(() => {
-
-        if (item) {
-            setForm({
-                item_name: item.item_name,
-                purchase_date: item.purchase_date,
-                quantity: item.quantity,
-                additional_qty: item.additional_qty,
-                replaces: item.replaces,
-                missing: item.missing,
-                breakage: item.breakage,
-                defective: item.defective,
-                total_loss: item.total_loss,
-                remarks: item.remarks ?? ""
-            });
-        }
-
-    }, [item]);
+    const [form, setForm] = useState(() => ({
+        item_name: item.item_name,
+        purchase_date: item.purchase_date,
+        quantity: item.quantity,
+        additional_qty: item.additional_qty,
+        replaces: item.replaces,
+        missing: item.missing,
+        breakage: item.breakage,
+        defective: item.defective,
+        total_loss: item.total_loss,
+        remarks: item.remarks ?? ""
+    }));
 
     if (!open) return null;
 

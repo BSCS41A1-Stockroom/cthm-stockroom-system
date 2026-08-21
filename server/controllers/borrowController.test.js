@@ -6,6 +6,7 @@ const {
   inventoryDeltas,
   loadValidationContext,
   normalizeRequest,
+  serializeBorrowRequest,
   withValidation,
 } = require("./borrowController");
 
@@ -71,6 +72,30 @@ test("normalizes an absent body and null item without throwing", () => {
   const request = normalizeRequest({ items: [null] });
   assert.equal(request.items[0].inventoryId, undefined);
   assert.equal(Number.isNaN(request.items[0].quantity), true);
+});
+
+test("serializes database borrowing rows for the student request page", () => {
+  assert.deepEqual(serializeBorrowRequest({
+    id: 12,
+    student_name: "Student One",
+    student_id: "2026-001",
+    borrow_date: "2026-08-20",
+    return_date: "2026-08-21",
+    purpose: "Lab",
+    status: "Borrowed",
+    created_at: "2026-08-19T00:00:00Z",
+    items: [{ name: "Pan", quantity: 2 }],
+  }), {
+    id: 12,
+    studentName: "Student One",
+    studentId: "2026-001",
+    borrowDate: "2026-08-20",
+    returnDate: "2026-08-21",
+    purpose: "Lab",
+    status: "borrowed",
+    requestedAt: "2026-08-19T00:00:00Z",
+    items: [{ name: "Pan", quantity: 2 }],
+  });
 });
 
 test("loads conflict context under a normalized student advisory lock", async () => {

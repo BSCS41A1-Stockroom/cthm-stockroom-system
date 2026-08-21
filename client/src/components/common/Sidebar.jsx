@@ -4,7 +4,6 @@ import {
   FaBoxOpen,
   FaCalendarAlt,
   FaClipboardList,
-  FaTimes,
 } from "react-icons/fa";
 
 export default function Sidebar({
