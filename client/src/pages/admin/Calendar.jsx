@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import "../../styles/calendar.css";
 import { supabase } from "../../lib/supabase";
+import { API_URL } from "../../lib/api";
 
 import CalendarToolbar from "../../components/admin/Calendar/CalendarToolbar";
 import LeftSidebar from "../../components/admin/Calendar/LeftSidebar";
@@ -185,16 +186,11 @@ export default function Calendar() {
 
     const saveEvent = async (form) => {
 
-        const apiUrl =
-            import.meta.env.VITE_API_URL ||
-            "http://localhost:5000";
-
-
         const response = await fetch(
 
             editingEvent
-                ? `${apiUrl}/api/calendar/events/${editingEvent.id}`
-                : `${apiUrl}/api/calendar/events`,
+                ? `${API_URL}/api/calendar/events/${editingEvent.id}`
+                : `${API_URL}/api/calendar/events`,
 
             {
                 method:
@@ -239,14 +235,9 @@ export default function Calendar() {
 
     const deleteEvent = async (event) => {
 
-        const apiUrl =
-            import.meta.env.VITE_API_URL ||
-            "http://localhost:5000";
-
-
         const response =
             await fetch(
-                `${apiUrl}/api/calendar/events/${event.id}`,
+                `${API_URL}/api/calendar/events/${event.id}`,
                 {
                     method: "DELETE"
                 }

@@ -47,21 +47,6 @@ export default function Inventory() {
         setLoading(false);
     }
 
-    async function updateInventory(id, form) {
-        const { error } = await supabase
-            .from("inventory")
-            .update(form)
-            .eq("id", id);
-
-        if (error) {
-            alert(error.message);
-            return;
-        }
-
-        setEditOpen(false);
-        loadInventory();
-    }
-
     if (loading) return <p>Loading...</p>;
 
     return (
@@ -91,12 +76,15 @@ export default function Inventory() {
                 />
             </div>
 
-            <EditItemModal
-                open={editOpen}
-                item={selectedItem}
-                onClose={() => setEditOpen(false)}
-                onUpdate={updateInventory}
-            />
+            {editOpen && selectedItem && (
+                <EditItemModal
+                    key={selectedItem.id}
+                    open={editOpen}
+                    item={selectedItem}
+                    onClose={() => setEditOpen(false)}
+                    onUpdated={loadInventory}
+                />
+            )}
 
             <Pagination />
 

@@ -4,11 +4,17 @@ const express = require("express");
 
 const {
   createBorrowRequest,
+  listBorrowRequests,
   validateBorrowRequest,
   updateBorrowRequestStatus,
 } = require("../controllers/borrowController");
 
 const router = express.Router();
+
+router.get(
+  "/",
+  listBorrowRequests
+);
 
 
 // ============================================================

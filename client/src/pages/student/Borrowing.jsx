@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import "./Borrowing.css";
+import { API_URL } from "../../lib/api";
 
 export default function BorrowingInterface() {
   const [items, setItems] = useState([]);
@@ -180,8 +181,7 @@ async function handleSubmit(e) {
     setSubmitting(true);
 
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
-      const response = await fetch(`${apiUrl}/api/borrowings`, {
+      const response = await fetch(`${API_URL}/api/borrowings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

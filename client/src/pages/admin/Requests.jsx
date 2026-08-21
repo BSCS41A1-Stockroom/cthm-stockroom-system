@@ -10,6 +10,7 @@ import {
 
 import "../../styles/requests.css";
 import { supabase } from "../../lib/supabase";
+import { API_URL } from "../../lib/api";
 
 function formatDate(date) {
   if (!date) return "-";
@@ -126,8 +127,7 @@ export default function Requests() {
     if (!request) return;
 
     setLoadError("");
-    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
-    const response = await fetch(`${apiUrl}/api/borrowings/${request.databaseId}/status`, {
+    const response = await fetch(`${API_URL}/api/borrowings/${request.databaseId}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),

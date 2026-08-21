@@ -51,6 +51,20 @@ function normalizeRequest(body) {
   };
 }
 
+function serializeBorrowRequest(request) {
+  return {
+    id: request.id,
+    studentName: request.student_name,
+    studentId: request.student_id,
+    borrowDate: request.borrow_date,
+    returnDate: request.return_date,
+    purpose: request.purpose,
+    status: String(request.status ?? "").toLowerCase(),
+    requestedAt: request.created_at,
+    items: Array.isArray(request.items) ? request.items : [],
+  };
+}
+
 async function loadValidationContext(client, request) {
   const inventoryIds = [...new Set(request.items.map((item) => String(item.inventoryId)).filter(Boolean))];
   if (inventoryIds.length === 0) return { inventory: [], existingBorrowings: [], existingRequests: [] };
@@ -225,6 +239,31 @@ async function validateBorrowRequest(req, res, next) {
   }
 }
 
+async function listBorrowRequests(req, res, next) {
+  try {
+    const result = await pool.query(
+      `SELECT br.id, br.student_name, br.student_id, br.borrow_date,
+              br.return_date, br.purpose, br.status, br.created_at,
+              COALESCE(
+                json_agg(json_build_object(
+                  'name', inventory.item_name,
+                  'quantity', bri.quantity
+                ) ORDER BY bri.inventory_id) FILTER (WHERE bri.inventory_id IS NOT NULL),
+                '[]'::json
+              ) AS items
+         FROM borrow_requests br
+         LEFT JOIN borrow_request_items bri ON bri.request_id = br.id
+         LEFT JOIN inventory ON inventory.id = bri.inventory_id
+        GROUP BY br.id
+        ORDER BY br.created_at DESC, br.id DESC`
+    );
+
+    return res.json({ requests: result.rows.map(serializeBorrowRequest) });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function createBorrowRequest(req, res, next) {
   try {
     const result = await withValidation(req.body, true);
@@ -332,8 +371,10 @@ async function updateBorrowRequestStatus(req, res, next) {
 module.exports = {
   createBorrowRequest,
   inventoryDeltas,
+  listBorrowRequests,
   loadValidationContext,
   normalizeRequest,
+  serializeBorrowRequest,
   updateBorrowRequestStatus,
   validateBorrowRequest,
   withValidation,

@@ -2,14 +2,10 @@ import { useNavigate } from "react-router-dom";
 import { FiMenu, FiBell } from "react-icons/fi";
 
 export default function Topbar({
-  sidebarOpen,
   setSidebarOpen,
-  sidebarCollapsed,
   setSidebarCollapsed,
 }) {
   const navigate = useNavigate();
-
-  const isMobile = window.innerWidth <= 768;
 
 const toggleSidebar = () => {
     if (window.innerWidth <= 1000) {
