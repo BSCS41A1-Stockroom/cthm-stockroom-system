@@ -30,6 +30,7 @@ const DEFAULT_POLICY = Object.freeze({
   maxQuantityPerStudent: 10,
   leadTimeDays: 2,
   preventOutstandingBorrowing: true,
+  timeZone: "Asia/Manila",
 });
 
 
@@ -181,6 +182,17 @@ function dateDifferenceInDays(
     (later - earlier) /
       (1000 * 60 * 60 * 24)
   );
+}
+
+function dateInTimeZone(date, timeZone) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 
@@ -537,18 +549,9 @@ function checkTimeOverlap(
 ) {
   const normalized =
     ensureNormalizedRequest(request);
-
-  if (
-    normalized.startMinutes == null ||
-    normalized.endMinutes == null
-  ) {
-    return {
-      satisfied: true,
-
-      constraint:
-        "time_overlap",
-    };
-  }
+  const usesTimeIntervals =
+    normalized.startMinutes != null &&
+    normalized.endMinutes != null;
 
 
   for (
@@ -597,29 +600,18 @@ function checkTimeOverlap(
     }
 
 
-    if (
-      existing.borrowDate !==
-      normalized.borrowDate
-    ) {
-      continue;
-    }
-
-
-    if (
-      existing.startMinutes == null ||
-      existing.endMinutes == null
-    ) {
-      continue;
-    }
-
-
-    const overlaps =
-      intervalsOverlap(
-        normalized.startMinutes,
-        normalized.endMinutes,
-        existing.startMinutes,
-        existing.endMinutes
-      );
+    const overlaps = usesTimeIntervals
+      ? existing.borrowDate === normalized.borrowDate
+        && existing.startMinutes != null
+        && existing.endMinutes != null
+        && intervalsOverlap(
+          normalized.startMinutes,
+          normalized.endMinutes,
+          existing.startMinutes,
+          existing.endMinutes
+        )
+      : normalized.borrowDate <= existing.returnDate
+        && existing.borrowDate <= normalized.returnDate;
 
 
     if (!overlaps) {
@@ -784,6 +776,13 @@ function checkDuplicateRequest(
       continue;
     }
 
+    if (
+      existing.returnDate !==
+      normalized.returnDate
+    ) {
+      continue;
+    }
+
 
     const existingStatus =
       String(
@@ -944,10 +943,13 @@ function checkLeadTime(
   );
 
 
-  const submittedDateString =
-    now
-      .toISOString()
-      .slice(0, 10);
+  let submittedDateString;
+
+  try {
+    submittedDateString = dateInTimeZone(now, finalPolicy.timeZone);
+  } catch {
+    throw new TypeError(`Invalid policy timeZone: ${finalPolicy.timeZone}`);
+  }
 
 
   const days =
@@ -1129,6 +1131,7 @@ function checkStatus(
   const activeStatuses =
     new Set([
       "pending",
+      "validated",
       "approved",
       "borrowed",
       "active",
