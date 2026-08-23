@@ -3,6 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
+  authenticatedStudentRequest,
   inventoryDeltas,
   loadValidationContext,
   normalizeRequest,
@@ -10,6 +11,17 @@ const {
   validatePolicyConstraints,
   withValidation,
 } = require("./borrowController");
+
+test("uses the authenticated profile instead of client-supplied student identity", () => {
+  const request = authenticatedStudentRequest(
+    { studentName: "Impostor", studentId: "FAKE-ID", purpose: "Lab" },
+    { full_name: "Actual Student", student_id: "2026-001" }
+  );
+
+  assert.equal(request.studentName, "Actual Student");
+  assert.equal(request.studentId, "2026-001");
+  assert.equal(request.purpose, "Lab");
+});
 
 const ALL_POLICY_CONSTRAINTS = [
   "inventory_capacity",

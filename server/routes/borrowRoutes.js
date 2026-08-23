@@ -1,6 +1,7 @@
 "use strict";
 
 const express = require("express");
+const { authenticate, requireRoles } = require("../middleware/auth");
 
 const {
   createBorrowRequest,
@@ -10,6 +11,8 @@ const {
 } = require("../controllers/borrowController");
 
 const router = express.Router();
+
+router.use(authenticate);
 
 router.get(
   "/",
@@ -23,6 +26,7 @@ router.get(
 
 router.post(
   "/validate",
+  requireRoles("student"),
   validateBorrowRequest
 );
 
@@ -33,6 +37,7 @@ router.post(
 
 router.post(
   "/",
+  requireRoles("student"),
   createBorrowRequest
 );
 
@@ -43,6 +48,7 @@ router.post(
 
 router.patch(
   "/:id/status",
+  requireRoles("professor", "admin"),
   updateBorrowRequestStatus
 );
 

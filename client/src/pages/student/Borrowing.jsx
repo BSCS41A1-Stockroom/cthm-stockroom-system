@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import "./Borrowing.css";
-import { API_URL } from "../../lib/api";
+import { authenticatedFetch } from "../../lib/api";
+import { useAuth } from "../../auth/useAuth";
 
 export default function BorrowingInterface() {
+  const { profile } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -14,8 +16,8 @@ export default function BorrowingInterface() {
   const [borrowDate, setBorrowDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
   const [purpose, setPurpose] = useState("");
-  const [studentName, setStudentName] = useState("");
-  const [studentId, setStudentId] = useState("");
+  const studentName = profile?.full_name || "";
+  const studentId = profile?.student_id || "";
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -181,7 +183,7 @@ async function handleSubmit(e) {
     setSubmitting(true);
 
     try {
-      const response = await fetch(`${API_URL}/api/borrowings`, {
+      const response = await authenticatedFetch("/api/borrowings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -208,8 +210,6 @@ async function handleSubmit(e) {
       setBorrowDate("");
       setReturnDate("");
       setPurpose("");
-      setStudentName("");
-      setStudentId("");
       loadInventory();
     } catch (error) {
       setFormError(error.message);
@@ -467,8 +467,8 @@ async function handleSubmit(e) {
               <input
                 type="text"
                 value={studentName}
-                onChange={(e) => setStudentName(e.target.value)}
                 autoComplete="name"
+                readOnly
               />
 
             </label>
@@ -480,7 +480,7 @@ async function handleSubmit(e) {
               <input
                 type="text"
                 value={studentId}
-                onChange={(e) => setStudentId(e.target.value)}
+                readOnly
               />
 
             </label>

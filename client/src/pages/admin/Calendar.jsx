@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import "../../styles/calendar.css";
 import { supabase } from "../../lib/supabase";
-import { API_URL } from "../../lib/api";
+import { authenticatedFetch } from "../../lib/api";
 
 import CalendarToolbar from "../../components/admin/Calendar/CalendarToolbar";
 import LeftSidebar from "../../components/admin/Calendar/LeftSidebar";
@@ -186,11 +186,11 @@ export default function Calendar() {
 
     const saveEvent = async (form) => {
 
-        const response = await fetch(
+        const response = await authenticatedFetch(
 
             editingEvent
-                ? `${API_URL}/api/calendar/events/${editingEvent.id}`
-                : `${API_URL}/api/calendar/events`,
+                ? `/api/calendar/events/${editingEvent.id}`
+                : `/api/calendar/events`,
 
             {
                 method:
@@ -236,8 +236,8 @@ export default function Calendar() {
     const deleteEvent = async (event) => {
 
         const response =
-            await fetch(
-                `${API_URL}/api/calendar/events/${event.id}`,
+            await authenticatedFetch(
+                `/api/calendar/events/${event.id}`,
                 {
                     method: "DELETE"
                 }

@@ -1,11 +1,11 @@
-import { useNavigate } from "react-router-dom";
 import { FiMenu, FiBell } from "react-icons/fi";
+import { useAuth } from "../../auth/useAuth";
 
 export default function Topbar({
   setSidebarOpen,
   setSidebarCollapsed,
 }) {
-  const navigate = useNavigate();
+  const { profile, signOut } = useAuth();
 
 const toggleSidebar = () => {
     if (window.innerWidth <= 1000) {
@@ -40,17 +40,17 @@ const toggleSidebar = () => {
 
         <div
           className="admin-profile"
-          onClick={() => navigate("/")}
-          title="Switch to Student"
+          onClick={signOut}
+          title="Sign out"
         >
           <img
-            src="https://ui-avatars.com/api/?name=Administrator&background=2563eb&color=fff"
-            alt="Admin"
+            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.full_name || "User")}&background=2563eb&color=fff`}
+            alt="Account"
           />
 
           <div>
-            <h4>Administrator</h4>
-            <span>Switch to Student</span>
+            <h4>{profile?.full_name || "Account"}</h4>
+            <span>{profile?.role} · Sign out</span>
           </div>
 
         </div>
