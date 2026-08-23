@@ -1,4 +1,5 @@
 import { FaEdit, FaTrash } from "react-icons/fa";
+import { inventoryStockStatus, inventoryTotals } from "../../../utils/inventoryAvailability";
 
 export default function InventoryTable({
     inventory,
@@ -31,7 +32,9 @@ export default function InventoryTable({
             <th>Total Loss</th>
             <th>Reserved</th>
             <th>Borrowed</th>
-            <th>End Inventory</th>
+            <th>Available</th>
+            <th>Low Stock At</th>
+            <th>Stock Level</th>
             <th>Remarks</th>
             <th>Actions</th>
           </tr>
@@ -39,19 +42,8 @@ export default function InventoryTable({
 
         <tbody>
           {inventory.map((item, index) => {
-            const totalInventory =
-              item.quantity +
-              item.additional_qty -
-              item.replaces;
-
-            const endInventory =
-              totalInventory -
-              item.missing -
-              item.breakage -
-              item.defective -
-              item.total_loss -
-              Number(item.reserved_quantity ?? 0) -
-              Number(item.borrowed_quantity ?? 0);
+            const { total: totalInventory, available, threshold } = inventoryTotals(item);
+            const stockStatus = inventoryStockStatus(item);
 
             return (
               <tr key={item.id}>
@@ -82,8 +74,14 @@ export default function InventoryTable({
                 <td>{item.borrowed_quantity ?? 0}</td>
 
                 <td>
-                  <strong>{endInventory}</strong>
+                  <strong>{available}</strong>
                 </td>
+
+                <td>{threshold}</td>
+
+                <td><span className={`remark ${stockStatus === "in-stock" ? "available" : stockStatus === "out-of-stock" ? "danger" : "warning"}`}>
+                  {stockStatus === "out-of-stock" ? "Out of Stock" : stockStatus === "low-stock" ? "Low Stock" : "In Stock"}
+                </span></td>
 
                 <td>
                   <span

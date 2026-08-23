@@ -1,14 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 import "../../styles/inventory.css";
 
 import InventoryToolbar from "../../components/admin/Inventory/InventoryToolbar";
 import InventoryTable from "../../components/admin/Inventory/InventoryTable";
-import Pagination from "../../components/admin/Inventory/Pagination";
 import AddItemModal from "../../components/admin/Inventory/AddItemModal";
 import EditItemModal from "../../components/admin/Inventory/EditItemModal";
 import DeleteModal from "../../components/admin/Inventory/DeleteModal";
+import { inventoryStockStatus } from "../../utils/inventoryAvailability";
 
 export default function Inventory() {
     const [inventory, setInventory] = useState([]);
@@ -17,8 +17,7 @@ export default function Inventory() {
     const [openModal, setOpenModal] = useState(false);
 
     const [search, setSearch] = useState("");
-    const [category, setCategory] = useState("All Categories");
-    const [status, setStatus] = useState("All Remarks");
+    const [status, setStatus] = useState("all");
 
     const [editOpen, setEditOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState(null);
@@ -47,6 +46,12 @@ export default function Inventory() {
         setLoading(false);
     }
 
+    const filteredInventory = useMemo(() => inventory.filter((item) => {
+        const matchesSearch = item.item_name?.toLowerCase().includes(search.trim().toLowerCase());
+        const matchesStatus = status === "all" || inventoryStockStatus(item) === status;
+        return matchesSearch && matchesStatus;
+    }), [inventory, search, status]);
+
     if (loading) return <p>Loading...</p>;
 
     return (
@@ -56,15 +61,13 @@ export default function Inventory() {
                 onAdd={() => setOpenModal(true)}
                 search={search}
                 setSearch={setSearch}
-                category={category}
-                setCategory={setCategory}
                 status={status}
                 setStatus={setStatus}
             />
 
             <div className="inventory-table-wrapper">
                 <InventoryTable
-                    inventory={inventory}
+                    inventory={filteredInventory}
                     onEdit={(item)=>{
                         setSelectedItem(item);
                         setEditOpen(true);
@@ -85,8 +88,6 @@ export default function Inventory() {
                     onUpdated={loadInventory}
                 />
             )}
-
-            <Pagination />
 
             <AddItemModal
                 open={openModal}

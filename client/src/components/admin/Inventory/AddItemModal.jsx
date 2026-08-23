@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../../../lib/supabase";
+import { DEFAULT_LOW_STOCK_THRESHOLD, inventoryTotals } from "../../../utils/inventoryAvailability";
 
 export default function AddItemModal({ open, onClose }) {
     const [form, setForm] = useState({
@@ -12,6 +13,7 @@ export default function AddItemModal({ open, onClose }) {
         breakage: 0,
         defective: 0,
         total_loss: 0,
+        low_stock_threshold: DEFAULT_LOW_STOCK_THRESHOLD,
         remarks: "",
     });
 
@@ -49,23 +51,14 @@ export default function AddItemModal({ open, onClose }) {
             breakage: 0,
             defective: 0,
             total_loss: 0,
+            low_stock_threshold: DEFAULT_LOW_STOCK_THRESHOLD,
             remarks: "",
         });
 
         onClose();
     }
 
-    const totalInventory =
-        form.quantity +
-        form.additional_qty -
-        form.replaces;
-
-    const endInventory =
-        totalInventory -
-        form.missing -
-        form.breakage -
-        form.defective -
-        form.total_loss;
+    const { total: totalInventory, usable: endInventory } = inventoryTotals(form);
 
     return (
         <div className="modal-overlay">
@@ -165,6 +158,17 @@ export default function AddItemModal({ open, onClose }) {
                                 type="number"
                                 name="total_loss"
                                 value={form.total_loss}
+                                onChange={handleChange}
+                            />
+                        </div>
+
+                        <div className="form-group">
+                            <label>Low Stock Alert At</label>
+                            <input
+                                type="number"
+                                min="0"
+                                name="low_stock_threshold"
+                                value={form.low_stock_threshold}
                                 onChange={handleChange}
                             />
                         </div>

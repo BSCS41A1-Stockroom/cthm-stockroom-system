@@ -3,6 +3,7 @@ import { supabase } from "../../lib/supabase";
 import "./Borrowing.css";
 import { authenticatedFetch } from "../../lib/api";
 import { useAuth } from "../../auth/useAuth";
+import { inventoryTotals } from "../../utils/inventoryAvailability";
 
 export default function BorrowingInterface() {
   const { profile } = useAuth();
@@ -144,19 +145,7 @@ export default function BorrowingInterface() {
       return "Purpose is required.";
 
     for (const item of selectedList) {
-      const totalInventory =
-        item.quantity +
-        item.additional_qty -
-        item.replaces;
-
-      const available =
-        totalInventory -
-        item.missing -
-        item.breakage -
-        item.defective -
-        item.total_loss -
-        Number(item.reserved_quantity ?? 0) -
-        Number(item.borrowed_quantity ?? 0);
+      const { available } = inventoryTotals(item);
 
       if (item.borrowQty > available) {
         return `${item.item_name} only has ${available} remaining.`;
@@ -308,19 +297,7 @@ async function handleSubmit(e) {
 
                 {filteredItems.map(item=>{
 
-                  const totalInventory =
-                    item.quantity +
-                    item.additional_qty -
-                    item.replaces;
-
-                  const available =
-                    totalInventory -
-                    item.missing -
-                    item.breakage -
-                    item.defective -
-                    item.total_loss -
-                    Number(item.reserved_quantity ?? 0) -
-                    Number(item.borrowed_quantity ?? 0);
+                  const { available } = inventoryTotals(item);
 
                   const checked =
                     selected[item.id] !== undefined;
