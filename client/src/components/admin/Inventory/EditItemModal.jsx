@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../../../lib/supabase";
+import { DEFAULT_LOW_STOCK_THRESHOLD, inventoryTotals } from "../../../utils/inventoryAvailability";
 
 export default function EditItemModal({
     open,
@@ -18,6 +19,7 @@ export default function EditItemModal({
         breakage: item.breakage,
         defective: item.defective,
         total_loss: item.total_loss,
+        low_stock_threshold: item.low_stock_threshold ?? DEFAULT_LOW_STOCK_THRESHOLD,
         remarks: item.remarks ?? ""
     }));
 
@@ -36,17 +38,7 @@ export default function EditItemModal({
 
     }
 
-    const totalInventory =
-        form.quantity +
-        form.additional_qty -
-        form.replaces;
-
-    const endInventory =
-        totalInventory -
-        form.missing -
-        form.breakage -
-        form.defective -
-        form.total_loss;
+    const { total: totalInventory, usable: endInventory } = inventoryTotals(form);
 
     async function handleUpdate() {
 
@@ -182,6 +174,17 @@ export default function EditItemModal({
                                 type="number"
                                 name="total_loss"
                                 value={form.total_loss}
+                                onChange={handleChange}
+                            />
+                        </div>
+
+                        <div className="form-group">
+                            <label>Low Stock Alert At</label>
+                            <input
+                                type="number"
+                                min="0"
+                                name="low_stock_threshold"
+                                value={form.low_stock_threshold}
                                 onChange={handleChange}
                             />
                         </div>

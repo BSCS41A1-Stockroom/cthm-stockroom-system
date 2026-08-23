@@ -917,3 +917,12 @@ grid-template-columns:1fr;
     width:0;
     overflow:hidden;
 }
+
+.dashboard-state {
+    color:#64748b;
+    padding:10px 0;
+}
+
+.dashboard-state.error {
+    color:#b91c1c;
+}

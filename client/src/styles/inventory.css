@@ -563,3 +563,8 @@
 .inventory-table-wrapper::-webkit-scrollbar-thumb:hover{
     background:#94a3b8;
 }
+
+.remark.danger{
+    background:#fef2f2;
+    color:#b91c1c;
+}
