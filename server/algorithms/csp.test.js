@@ -733,3 +733,26 @@ test("rejects request with multiple CSP violations", () => {
     )
   );
 });
+
+test("calculates lead time using the configured business timezone", () => {
+  const request = baseRequest({ borrowDate: "2026-08-20" });
+  const result = checkLeadTime(
+    request,
+    new Date("2026-08-18T16:30:00Z"),
+    { leadTimeDays: 2, timeZone: "Asia/Manila" }
+  );
+
+  assert.equal(result.satisfied, false);
+});
+
+test("detects overlapping borrowing date ranges when times are not provided", () => {
+  const request = baseRequest({ startTime: undefined, endTime: undefined });
+  const existing = existingRequest({
+    borrowDate: "2026-08-19",
+    returnDate: "2026-08-21",
+    startTime: undefined,
+    endTime: undefined,
+  });
+
+  assert.equal(checkTimeOverlap(request, [existing]).satisfied, false);
+});

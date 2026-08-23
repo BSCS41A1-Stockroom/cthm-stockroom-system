@@ -7,8 +7,49 @@ const {
   loadValidationContext,
   normalizeRequest,
   serializeBorrowRequest,
+  validatePolicyConstraints,
   withValidation,
 } = require("./borrowController");
+
+const ALL_POLICY_CONSTRAINTS = [
+  "inventory_capacity",
+  "time_overlap",
+  "duplicate_request",
+  "borrowing_limit",
+  "lead_time",
+  "return_outstanding",
+  "status",
+  "availability_date",
+];
+
+function policyFixture(overrides = {}) {
+  return {
+    request: {
+      studentName: "Student One",
+      studentId: "STUDENT-1",
+      borrowDate: "2026-09-10",
+      returnDate: "2026-09-11",
+      purpose: "Laboratory",
+      items: [{ inventoryId: 7, quantity: 2 }],
+    },
+    inventory: [{
+      id: 7,
+      item_name: "Pan",
+      quantity: 20,
+      additional_qty: 0,
+      replaces: 0,
+      missing: 0,
+      breakage: 0,
+      defective: 0,
+      total_loss: 0,
+    }],
+    existingBorrowings: [],
+    existingRequests: [],
+    inventoryAvailability: { 7: ["2026-09-10"] },
+    now: new Date("2026-09-01T00:00:00Z"),
+    ...overrides,
+  };
+}
 
 test("normalizes camelCase API payloads", () => {
   assert.deepEqual(normalizeRequest({
@@ -170,6 +211,165 @@ test("rolls back a duplicate before any borrowing or inventory write", async () 
 
   assert.equal(result.validation.valid, false);
   assert.equal(result.validation.conflicts[0].code, "DUPLICATE_BORROWING_REQUEST");
+  assert.equal(statements.at(-1), "ROLLBACK");
+  assert.equal(statements.some((sql) => /^\s*(INSERT|UPDATE)/.test(sql)), false);
+});
+
+test("runs all eight borrowing-policy constraints for a valid request", () => {
+  const validation = validatePolicyConstraints(policyFixture());
+
+  assert.equal(validation.valid, true);
+  assert.deepEqual(validation.checkedConstraints, ALL_POLICY_CONSTRAINTS);
+  assert.deepEqual(validation.reasons, []);
+});
+
+test("maps every borrowing-policy violation to a stable API reason code", () => {
+  const cases = [
+    {
+      code: "INSUFFICIENT_INVENTORY",
+      overrides: { inventory: [{ ...policyFixture().inventory[0], quantity: 1 }] },
+    },
+    {
+      code: "TIME_OVERLAP",
+      overrides: {
+        existingRequests: [{
+          id: 10,
+          studentId: "STUDENT-1",
+          borrowDate: "2026-09-11",
+          returnDate: "2026-09-12",
+          purpose: "Other class",
+          status: "Approved",
+          items: [{ inventoryId: 7, quantity: 1 }],
+        }],
+      },
+    },
+    {
+      code: "DUPLICATE_BORROWING_REQUEST",
+      overrides: {
+        existingRequests: [{
+          id: 11,
+          studentId: " student-1 ",
+          borrowDate: "2026-09-10",
+          returnDate: "2026-09-11",
+          purpose: "Laboratory",
+          status: "Pending",
+          items: [{ inventoryId: 7, quantity: 2 }],
+        }],
+      },
+    },
+    {
+      code: "BORROWING_LIMIT_EXCEEDED",
+      overrides: {
+        request: { ...policyFixture().request, items: [{ inventoryId: 7, quantity: 11 }] },
+      },
+    },
+    {
+      code: "LEAD_TIME_NOT_MET",
+      overrides: { now: new Date("2026-09-09T00:00:00Z") },
+    },
+    {
+      code: "OUTSTANDING_BORROWING",
+      overrides: {
+        existingRequests: [{
+          id: 12,
+          studentId: "STUDENT-1",
+          borrowDate: "2026-08-01",
+          returnDate: "2026-08-02",
+          purpose: "Earlier class",
+          status: "Borrowed",
+          items: [{ inventoryId: 7, quantity: 1 }],
+        }],
+      },
+    },
+    {
+      code: "ACTIVE_REQUEST_CONFLICT",
+      overrides: {
+        existingRequests: [{
+          id: 13,
+          studentId: "STUDENT-1",
+          borrowDate: "2026-09-10",
+          returnDate: "2026-09-12",
+          purpose: "Another class",
+          status: "Validated",
+          items: [{ inventoryId: 7, quantity: 1 }],
+        }],
+      },
+    },
+    {
+      code: "INVENTORY_DATE_UNAVAILABLE",
+      overrides: { inventoryAvailability: { 7: ["2026-09-12"] } },
+    },
+  ];
+
+  for (const { code, overrides } of cases) {
+    const validation = validatePolicyConstraints(policyFixture(overrides));
+    assert.equal(
+      validation.reasons.some((reason) => reason.code === code),
+      true,
+      `Expected ${code}`
+    );
+  }
+});
+
+test("commits a valid request only after all policy constraints pass", async () => {
+  const statements = [];
+  const client = {
+    async query(sql) {
+      statements.push(sql);
+      if (sql.includes("FROM inventory")) return { rows: policyFixture().inventory };
+      if (sql.includes("COALESCE(SUM")) return { rows: [] };
+      if (sql.includes("FROM borrow_requests br")) return { rows: [] };
+      if (sql.includes("INSERT INTO borrow_requests")) return { rows: [{ id: 101 }] };
+      return { rows: [] };
+    },
+    release() {},
+  };
+
+  const result = await withValidation(
+    policyFixture().request,
+    true,
+    { async connect() { return client; } },
+    {
+      now: policyFixture().now,
+      inventoryAvailability: policyFixture().inventoryAvailability,
+    }
+  );
+
+  assert.equal(result.validation.valid, true);
+  assert.equal(result.validation.status, "Validated");
+  assert.deepEqual(
+    ALL_POLICY_CONSTRAINTS.every((constraint) =>
+      result.validation.checkedConstraints.includes(constraint)),
+    true
+  );
+  assert.equal(statements.at(-1), "COMMIT");
+});
+
+test("rolls back a lead-time violation before any data write", async () => {
+  const statements = [];
+  const client = {
+    async query(sql) {
+      statements.push(sql);
+      if (sql.includes("FROM inventory")) return { rows: policyFixture().inventory };
+      if (sql.includes("COALESCE(SUM")) return { rows: [] };
+      if (sql.includes("FROM borrow_requests br")) return { rows: [] };
+      return { rows: [] };
+    },
+    release() {},
+  };
+
+  const result = await withValidation(
+    policyFixture().request,
+    true,
+    { async connect() { return client; } },
+    { now: new Date("2026-09-09T00:00:00Z") }
+  );
+
+  assert.equal(result.validation.valid, false);
+  assert.equal(
+    result.validation.reasons.some((reason) => reason.code === "LEAD_TIME_NOT_MET"),
+    true
+  );
   assert.equal(statements.at(-1), "ROLLBACK");
   assert.equal(statements.some((sql) => /^\s*(INSERT|UPDATE)/.test(sql)), false);
 });

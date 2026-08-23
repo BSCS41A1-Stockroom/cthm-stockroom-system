@@ -2,9 +2,11 @@
 
 const pool = require("../config/db");
 const {
+  availableQuantity,
   validateBorrowingRequest,
   validateBorrowingRequestShape,
 } = require("../algorithms/borrowingValidation");
+const { validateBorrowingRequest: validateBorrowingPolicy } = require("../algorithms/csp");
 const {
   ACTIVE_BORROWING_STATUSES,
   detectBorrowingConflicts,
@@ -65,6 +67,79 @@ function serializeBorrowRequest(request) {
   };
 }
 
+const POLICY_REASON_CODES = Object.freeze({
+  inventory_capacity: "INSUFFICIENT_INVENTORY",
+  time_overlap: "TIME_OVERLAP",
+  duplicate_request: "DUPLICATE_BORROWING_REQUEST",
+  borrowing_limit: "BORROWING_LIMIT_EXCEEDED",
+  lead_time: "LEAD_TIME_NOT_MET",
+  return_outstanding: "OUTSTANDING_BORROWING",
+  status: "ACTIVE_REQUEST_CONFLICT",
+  availability_date: "INVENTORY_DATE_UNAVAILABLE",
+});
+
+function validatePolicyConstraints({
+  request,
+  inventory = [],
+  existingBorrowings = [],
+  existingRequests = [],
+  inventoryAvailability = {},
+  policy = {},
+  now = new Date(),
+}) {
+  const reservedByInventoryId = new Map(existingBorrowings.map((entry) => [
+    String(entry.inventoryId),
+    Number(entry.quantity),
+  ]));
+  const inventoryCapacity = Object.fromEntries(inventory.map((item) => {
+    const inventoryId = String(item.id);
+    const remaining = availableQuantity(item) - (reservedByInventoryId.get(inventoryId) ?? 0);
+    return [inventoryId, remaining];
+  }));
+  const policyRequest = {
+    id: "new-borrowing-request",
+    studentId: request.studentId.trim().toLowerCase(),
+    borrowDate: request.borrowDate,
+    returnDate: request.returnDate,
+    purpose: request.purpose,
+    status: "pending",
+    items: request.items.map((item) => ({
+      itemId: String(item.inventoryId),
+      quantity: item.quantity,
+    })),
+  };
+  const policyExistingRequests = existingRequests.map((existing) => ({
+    id: String(existing.id),
+    studentId: String(existing.studentId).trim().toLowerCase(),
+    borrowDate: existing.borrowDate,
+    returnDate: existing.returnDate,
+    purpose: existing.purpose,
+    status: existing.status,
+    items: existing.items.map((item) => ({
+      itemId: String(item.inventoryId),
+      quantity: Number(item.quantity),
+    })),
+  }));
+  const result = validateBorrowingPolicy({
+    request: policyRequest,
+    existingRequests: policyExistingRequests,
+    inventory: inventoryCapacity,
+    inventoryAvailability,
+    policy,
+    now,
+  });
+
+  return Object.freeze({
+    valid: result.valid,
+    checkedConstraints: result.checkedConstraints,
+    reasons: Object.freeze(result.violations.map((violation) => ({
+      code: POLICY_REASON_CODES[violation.constraint] ?? "BORROWING_POLICY_VIOLATION",
+      constraint: violation.constraint,
+      message: violation.message,
+    }))),
+  });
+}
+
 async function loadValidationContext(client, request) {
   const inventoryIds = [...new Set(request.items.map((item) => String(item.inventoryId)).filter(Boolean))];
   if (inventoryIds.length === 0) return { inventory: [], existingBorrowings: [], existingRequests: [] };
@@ -102,16 +177,14 @@ async function loadValidationContext(client, request) {
   );
 
   const conflictsResult = await client.query(
-    `SELECT br.id, br.student_id, br.borrow_date, br.return_date, br.status,
+    `SELECT br.id, br.student_id, br.borrow_date, br.return_date, br.purpose, br.status,
             bri.inventory_id, bri.quantity
        FROM borrow_requests br
        LEFT JOIN borrow_request_items bri ON bri.request_id = br.id
       WHERE lower(trim(br.student_id)) = $1
         AND br.status = ANY($2::text[])
-        AND br.borrow_date <= $3::date
-        AND br.return_date >= $4::date
       ORDER BY br.id, bri.inventory_id`,
-    [request.studentId.trim().toLowerCase(), ACTIVE_BORROWING_STATUSES, request.returnDate, request.borrowDate]
+    [request.studentId.trim().toLowerCase(), ACTIVE_BORROWING_STATUSES]
   );
 
   const requestsById = new Map();
@@ -122,6 +195,7 @@ async function loadValidationContext(client, request) {
         studentId: row.student_id,
         borrowDate: row.borrow_date,
         returnDate: row.return_date,
+        purpose: row.purpose,
         status: row.status,
         items: [],
       });
@@ -144,7 +218,7 @@ async function loadValidationContext(client, request) {
   };
 }
 
-async function withValidation(body, persist, databasePool = pool) {
+async function withValidation(body, persist, databasePool = pool, validationOptions = {}) {
   const request = normalizeRequest(body);
   const shapeErrors = validateBorrowingRequestShape(request);
   if (shapeErrors.length > 0) {
@@ -166,6 +240,13 @@ async function withValidation(body, persist, databasePool = pool) {
     await client.query("BEGIN");
     const context = await loadValidationContext(client, request);
     const cspValidation = validateBorrowingRequest({ request, ...context });
+    const policyValidation = validatePolicyConstraints({
+      request,
+      ...context,
+      inventoryAvailability: validationOptions.inventoryAvailability,
+      policy: validationOptions.policy,
+      now: validationOptions.now,
+    });
     const conflicts = detectBorrowingConflicts({
       request,
       existingRequests: context.existingRequests,
@@ -175,12 +256,24 @@ async function withValidation(body, persist, databasePool = pool) {
       !cspValidation.reasons.some((reason) => reason.code === conflict.code
         && reason.inventoryId === conflict.inventoryId)
     );
+    const newPolicyReasons = policyValidation.reasons.filter((policyReason) =>
+      !cspValidation.reasons.some((reason) => reason.code === policyReason.code)
+      && !newConflictReasons.some((reason) => reason.code === policyReason.code)
+    );
+    const valid = cspValidation.valid && policyValidation.valid && conflicts.length === 0;
     const validation = Object.freeze({
       ...cspValidation,
-      valid: cspValidation.valid && conflicts.length === 0,
-      status: cspValidation.valid && conflicts.length === 0 ? "Validated" : "Rejected",
-      reasons: Object.freeze([...cspValidation.reasons, ...newConflictReasons]),
-      assignment: cspValidation.valid && conflicts.length === 0 ? cspValidation.assignment : null,
+      valid,
+      status: valid ? "Validated" : "Rejected",
+      reasons: Object.freeze([
+        ...cspValidation.reasons,
+        ...newConflictReasons,
+        ...newPolicyReasons,
+      ]),
+      assignment: valid ? cspValidation.assignment : null,
+      checkedConstraints: Object.freeze([
+        ...new Set([...cspValidation.checkedConstraints, ...policyValidation.checkedConstraints]),
+      ]),
       conflicts,
     });
 
@@ -375,6 +468,7 @@ module.exports = {
   loadValidationContext,
   normalizeRequest,
   serializeBorrowRequest,
+  validatePolicyConstraints,
   updateBorrowRequestStatus,
   validateBorrowRequest,
   withValidation,
