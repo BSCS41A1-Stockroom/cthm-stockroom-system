@@ -4,6 +4,7 @@ require("dotenv").config();
 
 const borrowRoutes = require("./routes/borrowRoutes");
 const calendarRoutes = require("./routes/calendarRoutes");
+const inventoryRoutes = require("./routes/inventoryRoutes");
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/borrowings", borrowRoutes);
 app.use("/api/calendar", calendarRoutes);
+app.use("/api/inventory", inventoryRoutes);
 
 app.use((error, req, res, next) => {
   console.error(error);

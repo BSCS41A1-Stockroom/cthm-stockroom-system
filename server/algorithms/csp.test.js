@@ -734,6 +734,33 @@ test("rejects request with multiple CSP violations", () => {
   );
 });
 
+test("rejects a multi-day request that intersects an unavailable period", () => {
+  const request = baseRequest({
+    borrowDate: "2026-08-20",
+    returnDate: "2026-08-23",
+  });
+
+  const result = checkAvailabilityDate(request, {
+    knife: [{ startDate: "2026-08-22", endDate: "2026-08-25", reason: "Maintenance" }],
+  });
+
+  assert.equal(result.satisfied, false);
+  assert.match(result.message, /Maintenance/);
+});
+
+test("allows a request outside all unavailable periods", () => {
+  const request = baseRequest({
+    borrowDate: "2026-08-20",
+    returnDate: "2026-08-21",
+  });
+
+  const result = checkAvailabilityDate(request, {
+    knife: [{ startDate: "2026-08-22", endDate: "2026-08-25", reason: "Maintenance" }],
+  });
+
+  assert.equal(result.satisfied, true);
+});
+
 test("calculates lead time using the configured business timezone", () => {
   const request = baseRequest({ borrowDate: "2026-08-20" });
   const result = checkLeadTime(

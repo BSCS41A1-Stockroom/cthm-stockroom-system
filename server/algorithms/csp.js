@@ -1261,7 +1261,7 @@ function checkAvailabilityDate(
     of normalized.items
   ) {
 
-    const availableDates =
+    const availabilityRules =
       inventoryAvailability?.[
         item.itemId
       ];
@@ -1274,14 +1274,38 @@ function checkAvailabilityDate(
 
     if (
       !Array.isArray(
-        availableDates
+        availabilityRules
       )
     ) {
       continue;
     }
 
+    const blockedPeriods = availabilityRules.filter(
+      (rule) => rule && typeof rule === "object" && !Array.isArray(rule)
+    );
+
+    const blockedPeriod = blockedPeriods.find((rule) => {
+      const startDate = rule.startDate ?? rule.start_date;
+      const endDate = rule.endDate ?? rule.end_date;
+      return isValidDate(startDate)
+        && isValidDate(endDate)
+        && normalized.borrowDate <= endDate
+        && startDate <= normalized.returnDate;
+    });
+
+    if (blockedPeriod) {
+      const reason = String(blockedPeriod.reason ?? "").trim();
+      return {
+        satisfied: false,
+        constraint: "availability_date",
+        message: `Item '${item.itemId}' is unavailable during the requested dates${reason ? `: ${reason}` : "."}`,
+      };
+    }
+
+    const availableDates = availabilityRules.filter((rule) => typeof rule === "string");
 
     if (
+      blockedPeriods.length === 0 &&
       !availableDates.includes(
         normalized.borrowDate
       )

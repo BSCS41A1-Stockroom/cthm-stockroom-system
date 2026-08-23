@@ -1,10 +1,11 @@
-import { FaEdit, FaTrash } from "react-icons/fa";
+import { FaCalendarTimes, FaEdit, FaTrash } from "react-icons/fa";
 import { inventoryStockStatus, inventoryTotals } from "../../../utils/inventoryAvailability";
 
 export default function InventoryTable({
     inventory,
     onEdit,
-    onDelete
+    onDelete,
+    onAvailability,
 }) {
 
   if (!inventory || inventory.length === 0) {
@@ -98,6 +99,14 @@ export default function InventoryTable({
                 </td>
 
                 <td className="actions">
+                  <button
+                      className="availability-btn"
+                      onClick={() => onAvailability(item)}
+                      title="Manage unavailable dates"
+                      aria-label={`Manage unavailable dates for ${item.item_name}`}
+                  >
+                      <FaCalendarTimes />
+                  </button>
                   <button
                       className="edit-btn"
                       onClick={() => onEdit(item)}

@@ -150,7 +150,9 @@ function validatePolicyConstraints({
 
 async function loadValidationContext(client, request) {
   const inventoryIds = [...new Set(request.items.map((item) => String(item.inventoryId)).filter(Boolean))];
-  if (inventoryIds.length === 0) return { inventory: [], existingBorrowings: [], existingRequests: [] };
+  if (inventoryIds.length === 0) return {
+    inventory: [], existingBorrowings: [], existingRequests: [], inventoryAvailability: {},
+  };
 
   // Inventory locks serialize capacity checks. The student-scoped advisory
   // lock additionally serializes disjoint-item requests by the same borrower,
@@ -195,6 +197,16 @@ async function loadValidationContext(client, request) {
     [request.studentId.trim().toLowerCase(), ACTIVE_BORROWING_STATUSES]
   );
 
+  const unavailabilityResult = await client.query(
+    `SELECT inventory_id, start_date::text AS start_date, end_date::text AS end_date, reason
+       FROM public.inventory_unavailability
+      WHERE inventory_id::text = ANY($1::text[])
+        AND start_date <= $2::date
+        AND end_date >= $3::date
+      ORDER BY inventory_id, start_date, end_date`,
+    [inventoryIds, request.returnDate, request.borrowDate]
+  );
+
   const requestsById = new Map();
   for (const row of conflictsResult.rows) {
     if (!requestsById.has(String(row.id))) {
@@ -216,6 +228,17 @@ async function loadValidationContext(client, request) {
     }
   }
 
+  const inventoryAvailability = {};
+  for (const row of unavailabilityResult.rows) {
+    const inventoryId = String(row.inventory_id);
+    inventoryAvailability[inventoryId] ||= [];
+    inventoryAvailability[inventoryId].push({
+      startDate: String(row.start_date).slice(0, 10),
+      endDate: String(row.end_date).slice(0, 10),
+      reason: row.reason,
+    });
+  }
+
   return {
     inventory: inventoryResult.rows,
     existingBorrowings: reservationsResult.rows.map((row) => ({
@@ -223,6 +246,7 @@ async function loadValidationContext(client, request) {
       quantity: row.has_invalid_quantity ? Number.NaN : Number(row.quantity),
     })),
     existingRequests: [...requestsById.values()],
+    inventoryAvailability,
   };
 }
 
@@ -251,7 +275,7 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
     const policyValidation = validatePolicyConstraints({
       request,
       ...context,
-      inventoryAvailability: validationOptions.inventoryAvailability,
+      inventoryAvailability: validationOptions.inventoryAvailability ?? context.inventoryAvailability,
       policy: validationOptions.policy,
       now: validationOptions.now,
     });

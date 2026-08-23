@@ -164,6 +164,9 @@ test("loads conflict context under a normalized student advisory lock", async ()
           { id: 9, student_id: "Student-1", borrow_date: "2026-08-10", return_date: "2026-08-12", status: "Pending", inventory_id: 8, quantity: 2 },
         ],
       };
+      if (sql.includes("FROM public.inventory_unavailability")) return {
+        rows: [{ inventory_id: 7, start_date: "2026-08-11", end_date: "2026-08-13", reason: "Maintenance" }],
+      };
       return { rows: [] };
     },
   };
@@ -184,6 +187,9 @@ test("loads conflict context under a normalized student advisory lock", async ()
     { inventoryId: 7, quantity: 1 },
     { inventoryId: 8, quantity: 2 },
   ]);
+  assert.deepEqual(context.inventoryAvailability, {
+    7: [{ startDate: "2026-08-11", endDate: "2026-08-13", reason: "Maintenance" }],
+  });
 });
 
 test("rolls back a duplicate before any borrowing or inventory write", async () => {
@@ -380,6 +386,44 @@ test("rolls back a lead-time violation before any data write", async () => {
   assert.equal(result.validation.valid, false);
   assert.equal(
     result.validation.reasons.some((reason) => reason.code === "LEAD_TIME_NOT_MET"),
+    true
+  );
+  assert.equal(statements.at(-1), "ROLLBACK");
+  assert.equal(statements.some((sql) => /^\s*(INSERT|UPDATE)/.test(sql)), false);
+});
+
+test("rolls back when a database unavailability period intersects the request", async () => {
+  const statements = [];
+  const client = {
+    async query(sql) {
+      statements.push(sql);
+      if (sql.includes("FROM public.inventory_unavailability")) return {
+        rows: [{
+          inventory_id: 7,
+          start_date: "2026-09-11",
+          end_date: "2026-09-12",
+          reason: "Annual inspection",
+        }],
+      };
+      if (sql.includes("FROM inventory")) return { rows: policyFixture().inventory };
+      if (sql.includes("COALESCE(SUM")) return { rows: [] };
+      if (sql.includes("FROM borrow_requests br")) return { rows: [] };
+      return { rows: [] };
+    },
+    release() {},
+  };
+
+  const result = await withValidation(
+    policyFixture().request,
+    true,
+    { async connect() { return client; } },
+    { now: policyFixture().now }
+  );
+
+  assert.equal(result.validation.valid, false);
+  assert.equal(
+    result.validation.reasons.some((reason) =>
+      reason.code === "INVENTORY_DATE_UNAVAILABLE" && reason.message.includes("Annual inspection")),
     true
   );
   assert.equal(statements.at(-1), "ROLLBACK");
