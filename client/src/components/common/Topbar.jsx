@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../auth/useAuth";
 
 export default function Topbar({
   sidebarOpen,
@@ -7,7 +7,7 @@ export default function Topbar({
   sidebarCollapsed,
   setSidebarCollapsed,
 }) {
-  const navigate = useNavigate();
+  const { profile, signOut } = useAuth();
 
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
@@ -47,9 +47,9 @@ export default function Topbar({
 
       <button
         className="role-switch"
-        onClick={() => navigate("/admin")}
+        onClick={signOut}
       >
-        Student
+        {profile?.full_name || "Student"} · Sign out
       </button>
     </header>
   );

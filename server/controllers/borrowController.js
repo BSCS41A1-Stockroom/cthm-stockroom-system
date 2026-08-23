@@ -67,6 +67,14 @@ function serializeBorrowRequest(request) {
   };
 }
 
+function authenticatedStudentRequest(body, user) {
+  return {
+    ...(body && typeof body === "object" ? body : {}),
+    studentName: user.full_name,
+    studentId: user.student_id,
+  };
+}
+
 const POLICY_REASON_CODES = Object.freeze({
   inventory_capacity: "INSUFFICIENT_INVENTORY",
   time_overlap: "TIME_OVERLAP",
@@ -283,8 +291,8 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
     }
 
     const requestResult = await client.query(
-      `INSERT INTO borrow_requests (student_name, student_id, borrow_date, return_date, purpose, status)
-       VALUES ($1, $2, $3::date, $4::date, $5, $6)
+      `INSERT INTO borrow_requests (student_name, student_id, borrow_date, return_date, purpose, status, user_id)
+       VALUES ($1, $2, $3::date, $4::date, $5, $6, $7)
        RETURNING *`,
       [
         request.studentName.trim(),
@@ -293,6 +301,7 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
         request.returnDate,
         request.purpose.trim(),
         "Pending",
+        validationOptions.userId ?? null,
       ]
     );
     const savedRequest = requestResult.rows[0];
@@ -325,7 +334,12 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
 
 async function validateBorrowRequest(req, res, next) {
   try {
-    const result = await withValidation(req.body, false);
+    const result = await withValidation(
+      authenticatedStudentRequest(req.body, req.user),
+      false,
+      pool,
+      { userId: req.user.id }
+    );
     return res.status(result.validation.valid ? 200 : 422).json(result);
   } catch (error) {
     return next(error);
@@ -334,6 +348,7 @@ async function validateBorrowRequest(req, res, next) {
 
 async function listBorrowRequests(req, res, next) {
   try {
+    const studentOnly = req.user.role === "student";
     const result = await pool.query(
       `SELECT br.id, br.student_name, br.student_id, br.borrow_date,
               br.return_date, br.purpose, br.status, br.created_at,
@@ -347,8 +362,10 @@ async function listBorrowRequests(req, res, next) {
          FROM borrow_requests br
          LEFT JOIN borrow_request_items bri ON bri.request_id = br.id
          LEFT JOIN inventory ON inventory.id = bri.inventory_id
+        WHERE ($1::boolean = false OR br.user_id = $2::uuid)
         GROUP BY br.id
-        ORDER BY br.created_at DESC, br.id DESC`
+        ORDER BY br.created_at DESC, br.id DESC`,
+      [studentOnly, req.user.id]
     );
 
     return res.json({ requests: result.rows.map(serializeBorrowRequest) });
@@ -359,7 +376,12 @@ async function listBorrowRequests(req, res, next) {
 
 async function createBorrowRequest(req, res, next) {
   try {
-    const result = await withValidation(req.body, true);
+    const result = await withValidation(
+      authenticatedStudentRequest(req.body, req.user),
+      true,
+      pool,
+      { userId: req.user.id }
+    );
     return res.status(result.validation.valid ? 201 : 422).json(result);
   } catch (error) {
     return next(error);
@@ -462,6 +484,7 @@ async function updateBorrowRequestStatus(req, res, next) {
 }
 
 module.exports = {
+  authenticatedStudentRequest,
   createBorrowRequest,
   inventoryDeltas,
   listBorrowRequests,

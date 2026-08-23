@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import "./MyRequests.css";
-import { API_URL } from "../../lib/api";
+import { authenticatedFetch } from "../../lib/api";
 
 const STATUS_META = {
   pending: { label: "Pending", className: "badge-pending" },
@@ -39,7 +39,7 @@ export default function MyRequests() {
     setLoading(true);
     setLoadError("");
     try {
-      const res = await fetch(`${API_URL}/api/borrowings`);
+      const res = await authenticatedFetch("/api/borrowings");
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const data = await res.json();
       setRequests(Array.isArray(data) ? data : data.requests || []);

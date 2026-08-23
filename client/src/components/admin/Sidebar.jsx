@@ -6,12 +6,14 @@ import {
     FaCalendarAlt,
     FaChartBar,
 } from "react-icons/fa";
+import { useAuth } from "../../auth/useAuth";
 
 export default function Sidebar({
     sidebarOpen,
     setSidebarOpen,
     sidebarCollapsed,
 }) {
+    const { profile } = useAuth();
 
     const menuItems = [
         {
@@ -39,7 +41,7 @@ export default function Sidebar({
             icon: <FaChartBar />,
             label: "Reports",
         },
-    ];
+    ].filter((item) => item.path !== "/admin/inventory" || profile?.role === "admin");
 
     return (
         <>
