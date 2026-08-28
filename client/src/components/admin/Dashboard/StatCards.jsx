@@ -1,24 +1,24 @@
-export default function StatCards() {
+export default function StatCards({ summary = {} }) {
 
     const cards = [
         {
-            title: "Total Items",
-            value: 128,
-            subtitle: "Total in Inventory",
+            title: "Available Inventory",
+            value: summary.available_inventory_units ?? 0,
+            subtitle: "Available Units",
         },
         {
             title: "Total Requests",
-            value: 24,
-            subtitle: "This Month",
+            value: summary.total_borrowings ?? 0,
+            subtitle: "Selected Period",
         },
         {
             title: "Pending Requests",
-            value: 5,
+            value: summary.pending_requests ?? 0,
             subtitle: "For Approval",
         },
         {
             title: "Returned Today",
-            value: 7,
+            value: summary.returned_today ?? 0,
             subtitle: "Items",
         },
     ];

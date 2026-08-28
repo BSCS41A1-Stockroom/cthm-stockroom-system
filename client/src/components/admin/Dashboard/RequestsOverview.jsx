@@ -1,6 +1,6 @@
 import RequestsLineChart from "./RequestsLineChart";
 
-export default function RequestsOverview() {
+export default function RequestsOverview({ data }) {
     return (
         <div className="admin-card">
 
@@ -8,7 +8,7 @@ export default function RequestsOverview() {
                 <h3>Requests Overview</h3>
             </div>
 
-            <RequestsLineChart />
+            <RequestsLineChart data={data} />
 
         </div>
     );

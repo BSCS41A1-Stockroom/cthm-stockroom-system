@@ -1,26 +1,4 @@
-export default function UpcomingBorrowings(){
-
-    const data=[
-
-        {
-            date:"July 27",
-            activity:"Kitchen Laboratory",
-            items:12,
-        },
-
-        {
-            date:"July 29",
-            activity:"Baking Laboratory",
-            items:8,
-        },
-
-        {
-            date:"July 30",
-            activity:"Restaurant Service",
-            items:16,
-        },
-
-    ];
+export default function UpcomingBorrowings({ data = [] }){
 
     return(
 
@@ -34,34 +12,36 @@ export default function UpcomingBorrowings(){
 
             </div>
 
-            {data.map((borrow,index)=>(
+            {data.map((borrow)=>(
 
                 <div
-                    key={index}
+                    key={borrow.id}
                     className="borrow-item"
                 >
 
                     <div>
 
                         <strong>
-                            {borrow.activity}
+                            {borrow.purpose || "Equipment borrowing"}
                         </strong>
 
                         <p>
-                            {borrow.date}
+                            {new Date(`${borrow.borrow_date}T00:00:00`).toLocaleDateString()}
                         </p>
 
                     </div>
 
                     <span>
 
-                        {borrow.items} Items
+                        {borrow.units} Units
 
                     </span>
 
                 </div>
 
             ))}
+
+            {data.length === 0 && <p className="dashboard-state">No upcoming approved borrowings.</p>}
 
         </div>
 

@@ -1,27 +1,4 @@
-const data = [
-  {
-    item: "Chef Knife",
-    borrowed: 58
-  },
-  {
-    item: "Mixing Bowl",
-    borrowed: 44
-  },
-  {
-    item: "Frying Pan",
-    borrowed: 37
-  },
-  {
-    item: "Cutting Board",
-    borrowed: 32
-  },
-  {
-    item: "Measuring Cup",
-    borrowed: 29
-  }
-];
-
-export default function MostBorrowedTable() {
+export default function MostBorrowedTable({ data = [] }) {
   return (
     <div className="report-table-card">
 
@@ -39,11 +16,13 @@ export default function MostBorrowedTable() {
         <tbody>
 
           {data.map((item) => (
-            <tr key={item.item}>
+            <tr key={item.id}>
               <td>{item.item}</td>
               <td>{item.borrowed}</td>
             </tr>
           ))}
+
+          {data.length === 0 && <tr><td colSpan="2">No borrowing activity in this period.</td></tr>}
 
         </tbody>
 

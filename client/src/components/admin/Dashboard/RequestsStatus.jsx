@@ -1,6 +1,6 @@
 import RequestsPieChart from "./RequestsPieChart";
 
-export default function RequestsStatus() {
+export default function RequestsStatus({ data }) {
     return (
         <div className="admin-card">
 
@@ -8,7 +8,7 @@ export default function RequestsStatus() {
                 <h3>Requests by Status</h3>
             </div>
 
-            <RequestsPieChart />
+            <RequestsPieChart data={data} />
 
         </div>
     );
