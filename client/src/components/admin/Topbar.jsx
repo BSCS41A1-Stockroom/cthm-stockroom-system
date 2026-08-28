@@ -1,5 +1,6 @@
-import { FiMenu, FiBell } from "react-icons/fi";
+import { FiMenu } from "react-icons/fi";
 import { useAuth } from "../../auth/useAuth";
+import NotificationCenter from "../common/NotificationCenter";
 
 export default function Topbar({
   setSidebarOpen,
@@ -33,10 +34,7 @@ const toggleSidebar = () => {
 
       <div className="admin-topbar-right">
 
-        <button className="admin-icon-btn">
-          <FiBell />
-          <span className="notification-dot"></span>
-        </button>
+        <NotificationCenter />
 
         <div
           className="admin-profile"

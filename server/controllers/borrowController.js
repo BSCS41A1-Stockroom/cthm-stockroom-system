@@ -12,6 +12,7 @@ const {
   detectBorrowingConflicts,
 } = require("../algorithms/conflictDetection");
 const { writeAuditLog } = require("../utils/auditLog");
+const { notifyRoles, notifyUser } = require("../utils/notifications");
 
 const RESERVED_STATUSES = new Set(["Pending", "Validated", "Approved"]);
 const BORROWED_STATUSES = new Set(["Borrowed"]);
@@ -353,6 +354,14 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
       entityId: savedRequest.id,
       newValues: { ...savedRequest, items: request.items },
     });
+    await notifyRoles(client, ["professor", "admin"], {
+      type: "borrowing_submitted",
+      title: "New borrowing request",
+      message: `${savedRequest.student_name} submitted a borrowing request for ${savedRequest.borrow_date}.`,
+      relatedPath: "/admin/requests",
+      entityType: "borrowing_request",
+      entityId: savedRequest.id,
+    });
 
     await client.query("COMMIT");
     return { request: savedRequest, validation };
@@ -511,6 +520,14 @@ async function updateBorrowRequestStatus(req, res, next) {
       entityId: requestId,
       oldValues: { status: request.status },
       newValues: { status: nextStatus },
+    });
+    await notifyUser(client, request.user_id, {
+      type: `borrowing_${String(nextStatus).toLowerCase()}`,
+      title: `Borrowing request ${String(nextStatus).toLowerCase()}`,
+      message: `Your borrowing request BR-${String(requestId).padStart(3, "0")} is now ${String(nextStatus).toLowerCase()}.`,
+      relatedPath: "/my-requests",
+      entityType: "borrowing_request",
+      entityId: requestId,
     });
 
     await client.query("COMMIT");
