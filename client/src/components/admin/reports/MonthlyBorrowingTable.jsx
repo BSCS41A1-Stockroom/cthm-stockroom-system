@@ -1,31 +1,10 @@
-const months = [
-  {
-    month: "January",
-    borrowings: 12
-  },
-  {
-    month: "February",
-    borrowings: 18
-  },
-  {
-    month: "March",
-    borrowings: 24
-  },
-  {
-    month: "April",
-    borrowings: 21
-  },
-  {
-    month: "May",
-    borrowings: 30
-  },
-  {
-    month: "June",
-    borrowings: 27
-  }
-];
+function monthLabel(value) {
+  const [year, month] = value.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" })
+    .format(new Date(year, month - 1, 1));
+}
 
-export default function MonthlyBorrowingTable() {
+export default function MonthlyBorrowingTable({ months = [] }) {
   return (
     <div className="report-table-card">
 
@@ -44,10 +23,12 @@ export default function MonthlyBorrowingTable() {
 
           {months.map((item) => (
             <tr key={item.month}>
-              <td>{item.month}</td>
+              <td>{monthLabel(item.month)}</td>
               <td>{item.borrowings}</td>
             </tr>
           ))}
+
+          {months.length === 0 && <tr><td colSpan="2">No monthly activity available.</td></tr>}
 
         </tbody>
 

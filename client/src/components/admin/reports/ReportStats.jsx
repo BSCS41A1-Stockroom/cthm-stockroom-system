@@ -5,30 +5,13 @@ import {
   FaUndo
 } from "react-icons/fa";
 
-const cards = [
-  {
-    title: "Total Borrowings",
-    value: 184,
-    icon: <FaClipboardList />
-  },
-  {
-    title: "Returned Items",
-    value: 162,
-    icon: <FaUndo />
-  },
-  {
-    title: "Borrowed Items",
-    value: 37,
-    icon: <FaBoxOpen />
-  },
-  {
-    title: "Active Borrowers",
-    value: 28,
-    icon: <FaUsers />
-  }
-];
-
-export default function ReportStats() {
+export default function ReportStats({ summary = {} }) {
+  const cards = [
+    { title: "Total Borrowings", value: summary.total_borrowings ?? 0, icon: <FaClipboardList /> },
+    { title: "Returned Units", value: summary.returned_units ?? 0, icon: <FaUndo /> },
+    { title: "Borrowed Units", value: summary.borrowed_units ?? 0, icon: <FaBoxOpen /> },
+    { title: "Active Borrowers", value: summary.active_borrowers ?? 0, icon: <FaUsers /> },
+  ];
   return (
     <div className="report-stats">
       {cards.map((card) => (

@@ -8,32 +8,44 @@ import RequestsStatus from "../../components/admin/Dashboard/RequestsStatus";
 
 import RecentRequests from "../../components/admin/Dashboard/RecentRequests";
 import LowStockAlerts from "../../components/admin/Dashboard/LowStockAlerts";
+import UpcomingBorrowings from "../../components/admin/Dashboard/UpcomingBorrowings";
+import { useState } from "react";
+import { reportPreset } from "../../utils/reporting";
+import { useReportData } from "../../hooks/useReportData";
 
 export default function Dashboard() {
+    const [rangeName, setRangeName] = useState("month");
+    const range = reportPreset(rangeName);
+    const { data, loading, error, refresh } = useReportData(range.from, range.to);
 
     return (
 
         <div className="dashboard-page">
 
-            <DashboardHeader />
+            <DashboardHeader range={rangeName} onRangeChange={setRangeName} />
 
-            <StatCards />
+            {error && <div className="dashboard-state error">{error} <button type="button" onClick={refresh}>Retry</button></div>}
+            {loading && !data && <div className="dashboard-state">Loading dashboard...</div>}
+
+            <StatCards summary={data?.summary} />
 
             <div className="dashboard-grid">
 
-                <RequestsOverview />
+                <RequestsOverview data={data?.monthly} />
 
-                <RequestsStatus />
+                <RequestsStatus data={data?.statuses} />
 
             </div>
 
             <div className="dashboard-grid">
 
-                <RecentRequests />
+                <RecentRequests requests={data?.recentRequests} />
 
                 <LowStockAlerts />
 
             </div>
+
+            <UpcomingBorrowings data={data?.upcomingBorrowings} />
 
         </div>
 

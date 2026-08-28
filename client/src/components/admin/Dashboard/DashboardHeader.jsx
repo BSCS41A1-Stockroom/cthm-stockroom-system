@@ -1,4 +1,4 @@
-export default function DashboardHeader() {
+export default function DashboardHeader({ range, onRangeChange }) {
     return (
         <div className="dashboard-header">
 
@@ -12,12 +12,10 @@ export default function DashboardHeader() {
 
             </div>
 
-            <select className="dashboard-range">
-
-                <option>May 1 - May 20, 2025</option>
-                <option>This Week</option>
-                <option>This Month</option>
-                <option>This Year</option>
+            <select className="dashboard-range" value={range} onChange={(event) => onRangeChange(event.target.value)}>
+                <option value="week">Last 7 Days</option>
+                <option value="month">This Month</option>
+                <option value="year">This Year</option>
 
             </select>
 

@@ -1,32 +1,4 @@
-export default function RecentRequests() {
-
-    const requests = [
-
-        {
-            id:"BR-2025-0015",
-            item:"Microphone",
-            status:"Pending",
-        },
-
-        {
-            id:"BR-2025-0016",
-            item:"Projector",
-            status:"Approved",
-        },
-
-        {
-            id:"BR-2025-0017",
-            item:"Canon Camera",
-            status:"Returned",
-        },
-
-        {
-            id:"BR-2025-0018",
-            item:"Tripod",
-            status:"Pending",
-        },
-
-    ];
+export default function RecentRequests({ requests = [] }) {
 
     return (
 
@@ -42,13 +14,13 @@ export default function RecentRequests() {
 
                 <tbody>
 
-                {requests.map((request,index)=>(
+                {requests.map((request)=>(
 
-                    <tr key={index}>
+                    <tr key={request.id}>
 
-                        <td>{request.id}</td>
+                        <td>BR-{String(request.id).padStart(3, "0")}</td>
 
-                        <td>{request.item}</td>
+                        <td>{request.items}</td>
 
                         <td>
 
@@ -63,6 +35,8 @@ export default function RecentRequests() {
                     </tr>
 
                 ))}
+
+                {requests.length === 0 && <tr><td colSpan="3">No requests in this period.</td></tr>}
 
                 </tbody>
 
