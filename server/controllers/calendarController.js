@@ -3,6 +3,7 @@
 const pool = require("../config/db");
 const { intervalsOverlap, parseTime } = require("../algorithms/csp");
 const { isValidDate } = require("../algorithms/borrowingValidation");
+const { writeAuditLog } = require("../utils/auditLog");
 
 const EVENT_TYPES = new Set(["activity", "holiday", "reminder", "borrowing"]);
 
@@ -115,12 +116,14 @@ async function saveEvent(req, res, next) {
 
   try {
     await client.query("BEGIN");
+    let previousEvent = null;
     if (eventId) {
-      const existing = await client.query(`SELECT id FROM calendar_events WHERE id = $1 FOR UPDATE`, [eventId]);
+      const existing = await client.query(`SELECT * FROM calendar_events WHERE id = $1 FOR UPDATE`, [eventId]);
       if (existing.rowCount === 0) {
         await client.query("ROLLBACK");
         return res.status(404).json({ error: "EVENT_NOT_FOUND", message: "Calendar event was not found." });
       }
+      previousEvent = existing.rows[0];
     }
 
     const errors = await validateRoomSchedule(client, event, eventId);
@@ -155,6 +158,14 @@ async function saveEvent(req, res, next) {
         parameters
       );
 
+    await writeAuditLog(client, req.user, {
+      action: eventId ? "calendar_event_updated" : "calendar_event_created",
+      entityType: "calendar_event",
+      entityId: result.rows[0].id,
+      oldValues: previousEvent,
+      newValues: result.rows[0],
+    });
+
     await client.query("COMMIT");
     return res.status(eventId ? 200 : 201).json({ event: result.rows[0] });
   } catch (error) {
@@ -166,22 +177,33 @@ async function saveEvent(req, res, next) {
 }
 
 async function deleteEvent(req, res, next) {
+  const client = await pool.connect();
   try {
-    const result = await pool.query(
+    await client.query("BEGIN");
+    const result = await client.query(
       `DELETE FROM calendar_events
         WHERE id=$1 AND borrow_request_id IS NULL
-      RETURNING id`,
+      RETURNING *`,
       [req.params.id]
     );
     if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
       return res.status(409).json({
         error: "EVENT_NOT_DELETABLE",
         message: "Linked borrowing events are managed through the borrowing request.",
       });
     }
+    await writeAuditLog(client, req.user, {
+      action: "calendar_event_deleted", entityType: "calendar_event",
+      entityId: req.params.id, oldValues: result.rows[0],
+    });
+    await client.query("COMMIT");
     return res.status(204).end();
   } catch (error) {
+    await client.query("ROLLBACK");
     return next(error);
+  } finally {
+    client.release();
   }
 }
 

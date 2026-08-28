@@ -11,6 +11,7 @@ const {
   ACTIVE_BORROWING_STATUSES,
   detectBorrowingConflicts,
 } = require("../algorithms/conflictDetection");
+const { writeAuditLog } = require("../utils/auditLog");
 
 const RESERVED_STATUSES = new Set(["Pending", "Validated", "Approved"]);
 const BORROWED_STATUSES = new Set(["Borrowed"]);
@@ -346,6 +347,13 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
       );
     }
 
+    await writeAuditLog(client, validationOptions.actor, {
+      action: "borrowing_submitted",
+      entityType: "borrowing_request",
+      entityId: savedRequest.id,
+      newValues: { ...savedRequest, items: request.items },
+    });
+
     await client.query("COMMIT");
     return { request: savedRequest, validation };
   } catch (error) {
@@ -362,7 +370,7 @@ async function validateBorrowRequest(req, res, next) {
       authenticatedStudentRequest(req.body, req.user),
       false,
       pool,
-      { userId: req.user.id }
+      { userId: req.user.id, actor: req.user }
     );
     return res.status(result.validation.valid ? 200 : 422).json(result);
   } catch (error) {
@@ -404,7 +412,7 @@ async function createBorrowRequest(req, res, next) {
       authenticatedStudentRequest(req.body, req.user),
       true,
       pool,
-      { userId: req.user.id }
+      { userId: req.user.id, actor: req.user }
     );
     return res.status(result.validation.valid ? 201 : 422).json(result);
   } catch (error) {
@@ -496,6 +504,14 @@ async function updateBorrowRequestStatus(req, res, next) {
     if (nextStatus === "Rejected") {
       await client.query(`DELETE FROM calendar_events WHERE borrow_request_id = $1`, [requestId]);
     }
+
+    await writeAuditLog(client, req.user, {
+      action: "borrowing_status_changed",
+      entityType: "borrowing_request",
+      entityId: requestId,
+      oldValues: { status: request.status },
+      newValues: { status: nextStatus },
+    });
 
     await client.query("COMMIT");
     return res.json({ request: updatedResult.rows[0] });
