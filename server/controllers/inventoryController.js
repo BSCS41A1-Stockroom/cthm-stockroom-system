@@ -3,6 +3,7 @@
 const pool = require("../config/db");
 const { isValidDate } = require("../algorithms/borrowingValidation");
 const { ACTIVE_BORROWING_STATUSES } = require("../algorithms/conflictDetection");
+const { writeAuditLog } = require("../utils/auditLog");
 
 function normalizeUnavailability(body = {}) {
   return {
@@ -51,6 +52,7 @@ async function saveUnavailability(req, res, next) {
 
   try {
     await client.query("BEGIN");
+    let previousPeriod = null;
     const inventoryResult = await client.query(
       `SELECT id FROM inventory WHERE id = $1 FOR UPDATE`,
       [inventoryId]
@@ -62,7 +64,7 @@ async function saveUnavailability(req, res, next) {
 
     if (periodId) {
       const currentResult = await client.query(
-        `SELECT id FROM inventory_unavailability
+        `SELECT * FROM inventory_unavailability
           WHERE id = $1 AND inventory_id = $2 FOR UPDATE`,
         [periodId, inventoryId]
       );
@@ -70,6 +72,7 @@ async function saveUnavailability(req, res, next) {
         await client.query("ROLLBACK");
         return res.status(404).json({ error: "PERIOD_NOT_FOUND", message: "Unavailability period was not found." });
       }
+      previousPeriod = currentResult.rows[0];
     }
 
     const overlapResult = await client.query(
@@ -126,6 +129,15 @@ async function saveUnavailability(req, res, next) {
         [inventoryId, period.startDate, period.endDate, period.reason, req.user.id]
       );
 
+    await writeAuditLog(client, req.user, {
+      action: periodId ? "unavailability_updated" : "unavailability_created",
+      entityType: "inventory_unavailability",
+      entityId: result.rows[0].id,
+      oldValues: previousPeriod,
+      newValues: result.rows[0],
+      metadata: { inventoryId: String(inventoryId) },
+    });
+
     await client.query("COMMIT");
     return res.status(periodId ? 200 : 201).json({ period: result.rows[0] });
   } catch (error) {
@@ -150,7 +162,7 @@ async function deleteUnavailability(req, res, next) {
     }
 
     const periodResult = await client.query(
-      `SELECT id, inventory_id FROM inventory_unavailability
+      `SELECT * FROM inventory_unavailability
         WHERE id = $1 AND inventory_id = $2 FOR UPDATE`,
       [req.params.periodId, req.params.inventoryId]
     );
@@ -160,6 +172,13 @@ async function deleteUnavailability(req, res, next) {
     }
 
     await client.query(`DELETE FROM inventory_unavailability WHERE id = $1`, [req.params.periodId]);
+    await writeAuditLog(client, req.user, {
+      action: "unavailability_deleted",
+      entityType: "inventory_unavailability",
+      entityId: req.params.periodId,
+      oldValues: periodResult.rows[0],
+      metadata: { inventoryId: String(req.params.inventoryId) },
+    });
     await client.query("COMMIT");
     return res.status(204).end();
   } catch (error) {

@@ -5,6 +5,7 @@ const borrowRoutes = require("./routes/borrowRoutes");
 const calendarRoutes = require("./routes/calendarRoutes");
 const inventoryRoutes = require("./routes/inventoryRoutes");
 const reportRoutes = require("./routes/reportRoutes");
+const auditRoutes = require("./routes/auditRoutes");
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use("/api/borrowings", borrowRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/audit-logs", auditRoutes);
 
 app.use((error, req, res, next) => {
   console.error(error);
