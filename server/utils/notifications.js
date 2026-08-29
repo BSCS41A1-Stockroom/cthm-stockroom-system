@@ -21,7 +21,7 @@ async function notifyRoles(client, roles, entry) {
   await client.query(
     `INSERT INTO public.notifications
       (recipient_user_id, type, title, message, related_path, entity_type, entity_id)
-     SELECT user_id, $2, $3, $4, $5, $6, $7 FROM public.profiles WHERE role = ANY($1::text[])`,
+     SELECT user_id, $2, $3, $4, $5, $6, $7 FROM public.profiles WHERE role = ANY($1::text[]) AND is_active = true`,
     [roles, ...notificationValues(entry)]
   );
 }

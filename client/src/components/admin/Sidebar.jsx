@@ -6,6 +6,7 @@ import {
     FaCalendarAlt,
     FaChartBar,
     FaHistory,
+    FaUsersCog,
 } from "react-icons/fa";
 import { useAuth } from "../../auth/useAuth";
 
@@ -47,7 +48,8 @@ export default function Sidebar({
             icon: <FaHistory />,
             label: "Activity Logs",
         },
-    ].filter((item) => !["/admin/inventory", "/admin/activity-logs"].includes(item.path) || profile?.role === "admin");
+        { path: "/admin/users", icon: <FaUsersCog />, label: "Users" },
+    ].filter((item) => !["/admin/inventory", "/admin/activity-logs", "/admin/users"].includes(item.path) || profile?.role === "admin");
 
     return (
         <>
