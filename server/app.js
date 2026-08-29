@@ -8,6 +8,7 @@ const reportRoutes = require("./routes/reportRoutes");
 const auditRoutes = require("./routes/auditRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const userRoutes = require("./routes/userRoutes");
+const jobRoutes = require("./routes/jobRoutes");
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/audit-logs", auditRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/jobs", jobRoutes);
 
 app.use((error, req, res, next) => {
   console.error(error);
