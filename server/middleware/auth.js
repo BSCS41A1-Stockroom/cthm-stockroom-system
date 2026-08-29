@@ -40,13 +40,16 @@ function createAuthenticate({ client = null, databasePool = pool } = {}) {
       }
 
       const profileResult = await databasePool.query(
-        `SELECT user_id, role, full_name, student_id
+        `SELECT user_id, role, full_name, student_id, is_active
            FROM public.profiles
           WHERE user_id = $1`,
         [data.user.id]
       );
       if (profileResult.rowCount === 0) {
         return res.status(403).json({ error: "PROFILE_REQUIRED", message: "Your account profile has not been configured." });
+      }
+      if (profileResult.rows[0].is_active === false) {
+        return res.status(403).json({ error: "ACCOUNT_DISABLED", message: "Your account has been deactivated. Contact an administrator." });
       }
 
       req.user = Object.freeze({

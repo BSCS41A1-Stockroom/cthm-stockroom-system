@@ -17,6 +17,7 @@ import Requests from "../pages/admin/Requests";
 import AdminCalendar from "../pages/admin/Calendar";
 import Reports from "../pages/admin/Reports";
 import AuditLogs from "../pages/admin/AuditLogs";
+import Users from "../pages/admin/Users";
 import Login from "../pages/Login";
 import ProtectedRoute from "../auth/ProtectedRoute";
 
@@ -49,6 +50,7 @@ export default function AppRoutes() {
           <Route element={<ProtectedRoute roles={["admin"]} />}>
             <Route path="/admin/inventory" element={<Inventory />} />
             <Route path="/admin/activity-logs" element={<AuditLogs />} />
+            <Route path="/admin/users" element={<Users />} />
           </Route>
         </Route>
       </Route>

@@ -67,3 +67,13 @@ test("role middleware permits only explicitly allowed roles", () => {
   requireRoles("professor", "admin")({ user: { role: "professor" } }, responseRecorder(), () => { allowed = true; });
   assert.equal(allowed, true);
 });
+
+test("rejects a deactivated authenticated profile", async () => {
+  const authenticate = createAuthenticate({
+    client: { auth: { async getUser() { return { data: { user: { id: "disabled" } }, error: null }; } } },
+    databasePool: { async query() { return { rowCount: 1, rows: [{ user_id: "disabled", role: "student", is_active: false }] }; } },
+  });
+  const response = responseRecorder();
+  await authenticate({ headers: { authorization: "Bearer token" } }, response, () => assert.fail("next should not run"));
+  assert.equal(response.statusCode, 403); assert.equal(response.body.error, "ACCOUNT_DISABLED");
+});
