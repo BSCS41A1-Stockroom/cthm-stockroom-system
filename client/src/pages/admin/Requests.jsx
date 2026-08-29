@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FaSearch,
   FaEye,
@@ -28,61 +28,87 @@ export default function Requests() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [selected, setSelected] = useState(null);
+  const [returnRequest, setReturnRequest] = useState(null);
+  const [returnForm, setReturnForm] = useState({ items: [], remarks: "" });
+  const [returning, setReturning] = useState(false);
+  const [returnError, setReturnError] = useState("");
+  const loadSequence = useRef(0);
   const ITEMS_PER_PAGE = 8;
 
   const [page,setPage] = useState(1);
 
   const loadRequests = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setLoading(true);
     setLoadError("");
 
-    const [requestsResult, itemsResult, inventoryResult] = await Promise.all([
-      supabase.from("borrow_requests").select("*").order("created_at", { ascending: false }),
-      supabase.from("borrow_request_items").select("request_id, inventory_id, quantity"),
-      supabase.from("inventory").select("id, item_name"),
-    ]);
+    try {
+      const response = await authenticatedFetch("/api/borrowings");
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "Unable to load borrowing requests.");
+      const nextRequests = (result.requests || []).map((request) => {
+        const requestItems = request.items || [];
+        return {
+          databaseId: request.id,
+          id: `BR-${String(request.id).padStart(3, "0")}`,
+          student: request.studentName,
+          studentId: request.studentId,
+          item: requestItems.map((item) => item.name).join(", ") || "No items",
+          quantity: requestItems.reduce((sum, item) => sum + Number(item.quantity), 0),
+          items: requestItems,
+          borrowDate: formatDate(request.borrowDate),
+          returnDate: formatDate(request.returnDate),
+          actualReturnedAt: request.actualReturnedAt,
+          overdue: request.overdue,
+          purpose: request.purpose || "-",
+          status: request.status.charAt(0).toUpperCase() + request.status.slice(1),
+        };
+      });
+      if (sequence === loadSequence.current) setRequests(nextRequests);
+    } catch (error) {
+      if (sequence === loadSequence.current) {
+        setLoadError(error.message);
+        setRequests([]);
+      }
+    } finally {
+      if (sequence === loadSequence.current) setLoading(false);
+    }
+  }, []);
 
-    const error = requestsResult.error || itemsResult.error || inventoryResult.error;
-    if (error) {
-      setLoadError(error.message);
-      setRequests([]);
-      setLoading(false);
+  function openReturn(request) {
+    setReturnError("");
+    setReturnRequest(request);
+    setReturnForm({ remarks: "", items: request.items.map((item) => ({
+      inventoryId: item.inventoryId, name: item.name,
+      outstandingQuantity: Number(item.outstandingQuantity ?? item.quantity),
+      goodQuantity: 0, damagedQuantity: 0, missingQuantity: 0, conditionNote: "",
+    })) });
+  }
+
+  async function submitReturn(event) {
+    event.preventDefault();
+    const accounted = returnForm.items.reduce((sum, item) => sum + item.goodQuantity + item.damagedQuantity + item.missingQuantity, 0);
+    const exceeded = returnForm.items.find((item) => item.goodQuantity + item.damagedQuantity + item.missingQuantity > item.outstandingQuantity);
+    if (accounted <= 0 || exceeded) {
+      setReturnError(exceeded ? `Entered quantities exceed the outstanding units for ${exceeded.name}.` : "Enter at least one returned, damaged, or missing unit.");
       return;
     }
-
-    const inventoryById = new Map(
-      (inventoryResult.data || []).map((item) => [String(item.id), item.item_name])
-    );
-    const itemsByRequest = new Map();
-
-    for (const item of itemsResult.data || []) {
-      const requestId = String(item.request_id);
-      const group = itemsByRequest.get(requestId) || [];
-      group.push({
-        name: inventoryById.get(String(item.inventory_id)) || `Item #${item.inventory_id}`,
-        quantity: Number(item.quantity),
+    setReturning(true);
+    setReturnError("");
+    try {
+      const response = await authenticatedFetch(`/api/borrowings/${returnRequest.databaseId}/returns`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(returnForm),
       });
-      itemsByRequest.set(requestId, group);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.reasons?.[0] || result.message || "Unable to process the return.");
+      setReturnRequest(null);
+      await loadRequests();
+    } catch (error) {
+      setReturnError(error.message);
+    } finally {
+      setReturning(false);
     }
-
-    setRequests((requestsResult.data || []).map((request) => {
-      const requestItems = itemsByRequest.get(String(request.id)) || [];
-      return {
-        databaseId: request.id,
-        id: `BR-${String(request.id).padStart(3, "0")}`,
-        student: request.student_name,
-        studentId: request.student_id,
-        item: requestItems.map((item) => item.name).join(", ") || "No items",
-        quantity: requestItems.reduce((sum, item) => sum + item.quantity, 0),
-        items: requestItems,
-        borrowDate: formatDate(request.borrow_date),
-        returnDate: formatDate(request.return_date),
-        purpose: request.purpose || "-",
-        status: request.status,
-      };
-    }));
-    setLoading(false);
-  }, []);
+  }
 
   useEffect(() => {
     const timer = window.setTimeout(loadRequests, 0);
@@ -187,7 +213,9 @@ export default function Requests() {
           >
               <option>All</option>
               <option>Pending</option>
+              <option>Validated</option>
               <option>Approved</option>
+              <option>Borrowed</option>
               <option>Rejected</option>
               <option>Returned</option>
           </select>
@@ -249,7 +277,7 @@ export default function Requests() {
                   <span
                     className={`status-badge ${r.status.toLowerCase()}`}
                   >
-                    {r.status}
+                    {r.status}{r.overdue ? " · Overdue" : ""}
                   </span>
                 </td>
 
@@ -312,8 +340,8 @@ export default function Requests() {
                     {r.status === "Borrowed" && (
                       <button
                         className="return-btn"
-                        onClick={() => updateStatus(r.id, "Returned")}
-                        title="Mark as returned"
+                        onClick={() => openReturn(r)}
+                        title="Process return"
                       >
                         <FaUndo />
                       </button>
@@ -399,7 +427,7 @@ export default function Requests() {
 
               {selected.items.map((item, index) => (
                 <p key={`${item.name}-${index}`}>
-                  <strong>{item.name}:</strong> {item.quantity}
+                  <strong>{item.name}:</strong> {item.accountedQuantity ?? 0} of {item.quantity} accounted
                 </p>
               ))}
 
@@ -432,6 +460,33 @@ export default function Requests() {
 
         </div>
 
+      )}
+
+      {returnRequest && (
+        <div className="modal-overlay" onClick={() => !returning && setReturnRequest(null)}>
+          <form className="request-modal return-modal" onSubmit={submitReturn} onClick={(event) => event.stopPropagation()}>
+            <h2>Process Return · {returnRequest.id}</h2>
+            <p>Record only the units being accounted for in this return. Unaccounted units remain outstanding.</p>
+            {returnError && <p className="form-error">{returnError}</p>}
+            <div className="return-items">
+              {returnForm.items.map((item, index) => (
+                <section className="return-item" key={item.inventoryId}>
+                  <div className="return-item-title"><strong>{item.name}</strong><span>{item.outstandingQuantity} outstanding</span></div>
+                  <div className="return-quantity-grid">
+                    {[['goodQuantity', 'Good'], ['damagedQuantity', 'Damaged'], ['missingQuantity', 'Missing']].map(([field, label]) => (
+                      <label key={field}>{label}<input type="number" min="0" max={item.outstandingQuantity} value={item[field]}
+                        onChange={(event) => setReturnForm((current) => ({ ...current, items: current.items.map((entry, itemIndex) => itemIndex === index ? { ...entry, [field]: Number(event.target.value) } : entry) }))}/></label>
+                    ))}
+                  </div>
+                  <label>Condition note<input maxLength="500" value={item.conditionNote} placeholder="Optional condition details"
+                    onChange={(event) => setReturnForm((current) => ({ ...current, items: current.items.map((entry, itemIndex) => itemIndex === index ? { ...entry, conditionNote: event.target.value } : entry) }))}/></label>
+                </section>
+              ))}
+            </div>
+            <label>Return remarks<textarea maxLength="1000" rows="3" value={returnForm.remarks} onChange={(event) => setReturnForm({ ...returnForm, remarks: event.target.value })}/></label>
+            <div className="modal-actions"><button type="button" disabled={returning} onClick={() => setReturnRequest(null)}>Cancel</button><button type="submit" className="approve-btn" disabled={returning}>{returning ? "Processing..." : "Record Return"}</button></div>
+          </form>
+        </div>
       )}
 
     </div>

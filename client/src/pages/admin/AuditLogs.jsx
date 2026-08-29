@@ -3,7 +3,7 @@ import { authenticatedFetch } from "../../lib/api";
 import "../../styles/audit-logs.css";
 
 const ACTIONS = [
-  "borrowing_submitted", "borrowing_status_changed", "inventory_created",
+  "borrowing_submitted", "borrowing_status_changed", "borrowing_return_processed", "inventory_created",
   "inventory_updated", "inventory_deleted", "calendar_event_created",
   "calendar_event_updated", "calendar_event_deleted", "unavailability_created",
   "unavailability_updated", "unavailability_deleted",

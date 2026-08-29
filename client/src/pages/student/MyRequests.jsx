@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import "./MyRequests.css";
 import { authenticatedFetch } from "../../lib/api";
+import { supabase } from "../../lib/supabase";
 
 const STATUS_META = {
   pending: { label: "Pending", className: "badge-pending" },
@@ -33,6 +34,12 @@ export default function MyRequests() {
 
   useEffect(() => {
     fetchRequests();
+    const channel = supabase
+      .channel("student-return-progress")
+      .on("postgres_changes", { event: "*", schema: "public", table: "borrow_requests" }, fetchRequests)
+      .on("postgres_changes", { event: "*", schema: "public", table: "borrowing_return_items" }, fetchRequests)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   async function fetchRequests() {
@@ -149,7 +156,7 @@ export default function MyRequests() {
                       <td className="muted">{formatDate(req.borrowDate)}</td>
                       <td className="muted">{formatDate(req.returnDate)}</td>
                       <td>
-                        <StatusBadge status={req.status} />
+                        <StatusBadge status={req.status} />{req.overdue && <span className="requested-at"> Overdue</span>}
                       </td>
                       <td>
                         <button
@@ -200,7 +207,7 @@ export default function MyRequests() {
                   <li key={idx}>
                     <span>{item.name}</span>
                     <span className="modal-qty">
-                      ×{item.quantity} {item.unit || ""}
+                      ×{item.quantity} · {item.accountedQuantity ?? 0} accounted · {item.outstandingQuantity ?? item.quantity} outstanding
                     </span>
                   </li>
                 ))}
@@ -222,6 +229,7 @@ export default function MyRequests() {
               <h3>Purpose</h3>
               <p>{activeRequest.purpose || "—"}</p>
             </div>
+            {activeRequest.actualReturnedAt && <div className="modal-section"><h3>Completed return</h3><p>{new Date(activeRequest.actualReturnedAt).toLocaleString()}</p></div>}
           </div>
         </div>
       )}
