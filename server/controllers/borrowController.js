@@ -541,7 +541,9 @@ async function processBorrowingReturn(req, res, next) {
     const complete = requestedResult.rows.every((item) => (previous.get(String(item.inventory_id)) ?? 0) === Number(item.quantity));
     const updatedResult = await client.query(
       `UPDATE borrow_requests SET status = CASE WHEN $2 THEN 'Returned' ELSE status END,
-          actual_returned_at = CASE WHEN $2 THEN now() ELSE actual_returned_at END, updated_at = now()
+          actual_returned_at = CASE WHEN $2 THEN now() ELSE actual_returned_at END,
+          overdue_resolved_at = CASE WHEN $2 AND overdue_detected_at IS NOT NULL THEN now() ELSE overdue_resolved_at END,
+          updated_at = now()
         WHERE id = $1 RETURNING *`, [requestId, complete]
     );
     if (complete) await client.query(`DELETE FROM calendar_events WHERE borrow_request_id = $1`, [requestId]);
