@@ -2,15 +2,62 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const pool = require("../config/db");
 const {
   authenticatedStudentRequest,
   inventoryDeltas,
   loadValidationContext,
   normalizeRequest,
+  normalizeReturn,
+  processBorrowingReturn,
+  returnErrors,
   serializeBorrowRequest,
   validatePolicyConstraints,
   withValidation,
 } = require("./borrowController");
+
+test("normalizes return quantities and rejects invalid return batches", () => {
+  const valid = normalizeReturn({ remarks: " Checked ", items: [{ inventory_id: 7, good_quantity: "2", damaged_quantity: 1, missing_quantity: 0 }] });
+  assert.equal(valid.remarks, "Checked");
+  assert.equal(valid.items[0].goodQuantity, 2);
+  assert.deepEqual(returnErrors(valid), []);
+
+  const duplicate = normalizeReturn({ items: [
+    { inventoryId: 7, goodQuantity: 1 }, { inventoryId: 7, missingQuantity: 1 },
+  ] });
+  assert.equal(returnErrors(duplicate).some((error) => error.includes("appears more than once")), true);
+  assert.equal(returnErrors(normalizeReturn({ items: [{ inventoryId: 7 }] })).includes("At least one unit must be accounted for."), true);
+});
+
+test("processes a complete return and updates inventory condition counters atomically", async () => {
+  const calls = [];
+  const client = {
+    async query(sql, params) {
+      calls.push({ sql, params });
+      if (sql.includes("SELECT * FROM borrow_requests")) return { rowCount: 1, rows: [{ id: 10, status: "Borrowed", user_id: "student-user" }] };
+      if (sql.includes("SELECT inventory_id, quantity FROM borrow_request_items")) return { rows: [{ inventory_id: 7, quantity: 2 }] };
+      if (sql.includes("SUM(good_quantity")) return { rows: [] };
+      if (sql.includes("INSERT INTO borrowing_returns")) return { rows: [{ id: 20, request_id: 10 }] };
+      if (sql.includes("UPDATE inventory")) return { rowCount: 1, rows: [{ id: 7 }] };
+      if (sql.includes("UPDATE borrow_requests SET status")) return { rows: [{ id: 10, status: "Returned" }] };
+      return { rowCount: 1, rows: [] };
+    },
+    release() {},
+  };
+  const originalConnect = pool.connect;
+  pool.connect = async () => client;
+  const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+  try {
+    await processBorrowingReturn({ params: { id: "10" }, body: { items: [{ inventoryId: 7, goodQuantity: 1, damagedQuantity: 1 }] }, user: { id: "admin-user", role: "admin" } }, response, (error) => { throw error; });
+  } finally {
+    pool.connect = originalConnect;
+  }
+  assert.equal(response.statusCode, 201);
+  assert.equal(response.body.complete, true);
+  const inventoryUpdate = calls.find((call) => call.sql.includes("UPDATE inventory"));
+  assert.deepEqual(inventoryUpdate.params, [2, 1, 0, 7]);
+  assert.equal(calls.at(-1).sql, "COMMIT");
+});
 
 test("uses the authenticated profile instead of client-supplied student identity", () => {
   const request = authenticatedStudentRequest(
@@ -147,6 +194,8 @@ test("serializes database borrowing rows for the student request page", () => {
     purpose: "Lab",
     status: "borrowed",
     requestedAt: "2026-08-19T00:00:00Z",
+    actualReturnedAt: null,
+    overdue: false,
     items: [{ name: "Pan", quantity: 2 }],
   });
 });

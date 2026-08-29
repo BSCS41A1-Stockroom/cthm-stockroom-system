@@ -55,6 +55,10 @@ async function reportSummary(req, res, next) {
            SELECT items.*, requests.status, requests.student_id
              FROM borrow_request_items items
              JOIN ranged_requests requests ON requests.id = items.request_id
+         ), ranged_return_items AS (
+           SELECT return_items.*
+             FROM borrowing_return_items return_items
+             JOIN ranged_requests requests ON requests.id = return_items.request_id
          ), inventory_totals AS (
            SELECT COALESCE(SUM(GREATEST(0,
              COALESCE(quantity, 0) + COALESCE(additional_qty, 0) - COALESCE(replaces, 0)
@@ -72,14 +76,12 @@ async function reportSummary(req, res, next) {
            COUNT(DISTINCT lower(trim(student_id))) FILTER
              (WHERE status IN ('Pending', 'Validated', 'Approved', 'Borrowed')) AS active_borrowers,
            COALESCE((SELECT SUM(quantity) FROM ranged_items WHERE status = 'Borrowed'), 0) AS borrowed_units,
-           COALESCE((SELECT SUM(quantity) FROM ranged_items WHERE status = 'Returned'), 0) AS returned_units,
+           COALESCE((SELECT SUM(good_quantity + damaged_quantity) FROM ranged_return_items), 0) AS returned_units,
            (SELECT available_units FROM inventory_totals) AS available_inventory_units,
            COALESCE((
-             SELECT SUM(items.quantity)
-               FROM borrow_request_items items
-               JOIN borrow_requests returned_requests ON returned_requests.id = items.request_id
-              WHERE returned_requests.status = 'Returned'
-                AND (returned_requests.updated_at AT TIME ZONE 'Asia/Manila')::date
+             SELECT SUM(good_quantity + damaged_quantity + missing_quantity)
+               FROM borrowing_return_items returned_items
+              WHERE (returned_items.created_at AT TIME ZONE 'Asia/Manila')::date
                     = (now() AT TIME ZONE 'Asia/Manila')::date
            ), 0) AS returned_today
          FROM ranged_requests`,

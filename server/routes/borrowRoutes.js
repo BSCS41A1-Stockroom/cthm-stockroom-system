@@ -8,6 +8,7 @@ const {
   listBorrowRequests,
   validateBorrowRequest,
   updateBorrowRequestStatus,
+  processBorrowingReturn,
 } = require("../controllers/borrowController");
 
 const router = express.Router();
@@ -50,6 +51,12 @@ router.patch(
   "/:id/status",
   requireRoles("professor", "admin"),
   updateBorrowRequestStatus
+);
+
+router.post(
+  "/:id/returns",
+  requireRoles("professor", "admin"),
+  processBorrowingReturn
 );
 
 
