@@ -1,12 +1,192 @@
-.login-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #f1f5f9; }
-.login-card { width: min(420px, 100%); display: flex; flex-direction: column; gap: 10px; padding: 36px; background: white; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 18px 45px rgba(15, 23, 42, .1); }
-.login-brand { color: #2563eb; font-weight: 800; letter-spacing: .03em; }
-.login-card h1 { margin-top: 8px; color: #0f172a; }
-.login-card p { margin-bottom: 14px; color: #64748b; }
-.login-card label { margin-top: 6px; color: #334155; font-weight: 600; font-size: 14px; }
-.login-card input { width: 100%; padding: 12px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px; }
-.login-card input:focus { outline: 3px solid rgba(37, 99, 235, .18); border-color: #2563eb; }
-.login-card button { margin-top: 14px; padding: 12px; border: 0; border-radius: 8px; background: #2563eb; color: white; font-weight: 700; cursor: pointer; }
-.login-card button:disabled { opacity: .65; cursor: wait; }
-.login-error, .auth-error { color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 12px; }
-.auth-state { min-height: 100vh; display: grid; place-items: center; padding: 24px; color: #475569; }
+/* =========================
+   CTHM STOCKROOM LOGIN
+   Modern Academic Luxury
+========================= */
+
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+
+  background:
+    linear-gradient(
+      rgba(23, 38, 60, 0.96),
+      rgba(23, 38, 60, 0.96)
+    ),
+    #17263c;
+}
+
+.login-card {
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  padding: 46px 42px;
+
+  background: #ffffff;
+  border: 1px solid rgba(182, 155, 98, 0.45);
+
+  border-radius: 4px;
+
+  box-shadow:
+    0 25px 70px rgba(0, 0, 0, 0.28);
+}
+
+.login-brand {
+  color: #b69b62;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.login-card h1 {
+  margin: 6px 0 0;
+
+  color: #17263c;
+
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 36px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.login-card p {
+  margin: 0 0 20px;
+
+  color: #8a8275;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.login-card label {
+  margin-top: 8px;
+
+  color: #1c2430;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.login-card input {
+  width: 100%;
+  box-sizing: border-box;
+
+  padding: 13px 14px;
+
+  background: #ffffff;
+  color: #1c2430;
+
+  border: 1px solid #d8d4cc;
+  border-radius: 2px;
+
+  font-size: 15px;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.login-card input::placeholder {
+  color: #aaa39a;
+}
+
+.login-card input:focus {
+  outline: none;
+
+  border-color: #b69b62;
+
+  box-shadow:
+    0 0 0 3px rgba(182, 155, 98, 0.14);
+}
+
+.login-card button {
+  margin-top: 20px;
+  padding: 14px;
+
+  border: 1px solid #17263c;
+  border-radius: 2px;
+
+  background: #17263c;
+  color: #ffffff;
+
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.15s ease;
+}
+
+.login-card button:hover:not(:disabled) {
+  background: #b69b62;
+  border-color: #b69b62;
+}
+
+.login-card button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.login-card button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.login-error,
+.auth-error {
+  margin-top: 8px;
+
+  color: #8f1d1d;
+  background: #fff7f5;
+
+  border: 1px solid #e5c4bd;
+  border-left: 3px solid #b54a3d;
+
+  border-radius: 2px;
+
+  padding: 11px 12px;
+
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.auth-state {
+  min-height: 100vh;
+
+  display: grid;
+  place-items: center;
+
+  padding: 24px;
+
+  background: #f5f3ee;
+  color: #17263c;
+
+  font-family: Arial, sans-serif;
+}
+
+/* =========================
+   MOBILE
+========================= */
+
+@media (max-width: 520px) {
+  .login-page {
+    padding: 16px;
+  }
+
+  .login-card {
+    padding: 36px 26px;
+  }
+
+  .login-card h1 {
+    font-size: 30px;
+  }
+}

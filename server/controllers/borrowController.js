@@ -36,22 +36,57 @@ function inventoryDeltas(previousStatus, nextStatus, quantity) {
 
 function normalizeRequest(body) {
   const source = body && typeof body === "object" ? body : {};
+
   const normalizeQuantity = (value) => {
     if (typeof value === "number") return value;
-    if (typeof value === "string" && /^\d+$/.test(value.trim())) return Number(value.trim());
+
+    if (
+      typeof value === "string" &&
+      /^\d+$/.test(value.trim())
+    ) {
+      return Number(value.trim());
+    }
+
     return Number.NaN;
   };
 
   return {
-    studentName: source.studentName ?? source.student_name,
-    studentId: source.studentId ?? source.student_id,
-    borrowDate: source.borrowDate ?? source.borrow_date,
-    returnDate: source.returnDate ?? source.return_date,
-    purpose: source.purpose,
-    items: Array.isArray(source.items) ? source.items.map((item) => ({
-      inventoryId: item?.inventoryId ?? item?.inventory_id,
-      quantity: normalizeQuantity(item?.quantity),
-    })) : [],
+    studentName:
+      source.studentName ??
+      source.student_name,
+
+    studentId:
+      source.studentId ??
+      source.student_id,
+
+    laboratoryNumber:
+      source.laboratoryNumber ??
+      source.laboratory_number,
+
+    borrowDate:
+      source.borrowDate ??
+      source.borrow_date,
+
+    returnDate:
+      source.returnDate ??
+      source.return_date,
+
+    purpose:
+      source.purpose,
+
+    items:
+      Array.isArray(source.items)
+        ? source.items.map((item) => ({
+            inventoryId:
+              item?.inventoryId ??
+              item?.inventory_id,
+
+            quantity:
+              normalizeQuantity(
+                item?.quantity
+              ),
+          }))
+        : [],
   };
 }
 
@@ -60,6 +95,7 @@ function serializeBorrowRequest(request) {
     id: request.id,
     studentName: request.student_name,
     studentId: request.student_id,
+    laboratoryNumber: request.laboratory_number,
     borrowDate: request.borrow_date,
     returnDate: request.return_date,
     purpose: request.purpose,
@@ -357,12 +393,33 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
     }
 
     const requestResult = await client.query(
-      `INSERT INTO borrow_requests (student_name, student_id, borrow_date, return_date, purpose, status, user_id)
-       VALUES ($1, $2, $3::date, $4::date, $5, $6, $7)
-       RETURNING *`,
+      `INSERT INTO borrow_requests
+        (
+          student_name,
+          student_id,
+          laboratory_number,
+          borrow_date,
+          return_date,
+          purpose,
+          status,
+          user_id
+        )
+      VALUES
+        (
+          $1,
+          $2,
+          $3,
+          $4::date,
+          $5::date,
+          $6,
+          $7,
+          $8
+        )
+      RETURNING *`,
       [
         request.studentName.trim(),
         request.studentId.trim(),
+        request.laboratoryNumber?.trim() || null,
         request.borrowDate,
         request.returnDate,
         request.purpose.trim(),

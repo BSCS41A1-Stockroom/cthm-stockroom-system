@@ -1,68 +1,118 @@
-import { FaArrowRight, FaBoxes } from "react-icons/fa";
+import {
+  FaArrowRight,
+  FaClipboardList,
+  FaBoxOpen
+} from "react-icons/fa";
+
 import { useNavigate } from "react-router-dom";
 
 export default function Hero() {
   const navigate = useNavigate();
 
   return (
-    <section className="hero">
-      <div className="hero-content">
-        <span className="hero-label">
-          CTHM STOCKROOM
-        </span>
+    <div className="home-hero">
 
-        <h1>
-          Laboratory Equipment
-          <br />
-          Management System
-        </h1>
+      {/* =====================================================
+          STATUS BAR
+      ===================================================== */}
 
-        <p>
-          Manage laboratory equipment, borrowing requests,
-          schedules, and stockroom activities in one
-          centralized platform.
-        </p>
+      <section className="status-bar">
 
-        <button
-          className="hero-button"
-          onClick={() => navigate("/borrowing")}
-        >
-          Browse Equipment
-          <FaArrowRight />
-        </button>
-      </div>
+        <div className="status-greeting">
 
-      <div className="hero-visual">
-        <div className="hero-visual-header">
-          <span>STOCKROOM OVERVIEW</span>
+          <strong>Welcome back!</strong>
 
-          <span className="status-indicator">
-            <span></span>
-            SYSTEM ACTIVE
+          <span>
+            CTHM Student · Manage your stockroom requests
           </span>
+
         </div>
 
-        <div className="hero-box">
-          <FaBoxes />
-        </div>
 
-        <div className="hero-stats">
-          <div>
+        <div className="status-numbers">
+
+          <div className="status-number">
+
+            <strong>2</strong>
+
+            <span>ACTIVE</span>
+
+          </div>
+
+
+          <div className="status-number due">
+
+            <strong>1</strong>
+
+            <span>DUE TOMORROW</span>
+
+          </div>
+
+
+          <div className="status-number">
+
             <strong>128</strong>
-            <span>Equipment Items</span>
+
+            <span>ITEMS IN STOCK</span>
+
           </div>
 
-          <div>
-            <strong>24</strong>
-            <span>Available Today</span>
-          </div>
-
-          <div>
-            <strong>08</strong>
-            <span>Pending Requests</span>
-          </div>
         </div>
-      </div>
-    </section>
+
+      </section>
+
+
+      {/* =====================================================
+          PRIMARY ACTION
+      ===================================================== */}
+
+      <section className="primary-action">
+
+        <div className="primary-action-text">
+
+          <h2>
+            Need equipment for class?
+          </h2>
+
+          <p>
+            Submit a borrow request and get it approved
+            before your scheduled activity.
+          </p>
+
+        </div>
+
+
+        <div className="primary-action-buttons">
+
+          <button
+            className="btn-primary-light"
+            onClick={() => navigate("/borrowing")}
+          >
+
+            <FaBoxOpen />
+
+            New borrow request
+
+            <FaArrowRight />
+
+          </button>
+
+
+          <button
+            className="btn-primary-ghost"
+            onClick={() => navigate("/requests")}
+          >
+
+            <FaClipboardList />
+
+            View my requests
+
+          </button>
+
+        </div>
+
+      </section>
+
+    </div>
   );
 }
