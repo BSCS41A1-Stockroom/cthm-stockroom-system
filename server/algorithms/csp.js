@@ -184,6 +184,10 @@ function dateDifferenceInDays(
   );
 }
 
+function studentKey(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
 function dateInTimeZone(date, timeZone) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
@@ -762,8 +766,8 @@ function checkDuplicateRequest(
 
 
     if (
-      existing.studentId !==
-      normalized.studentId
+      studentKey(existing.studentId) !==
+      studentKey(normalized.studentId)
     ) {
       continue;
     }
@@ -1054,8 +1058,8 @@ function checkOutstandingBorrowing(
 
 
     if (
-      existing.studentId !==
-      normalized.studentId
+      studentKey(existing.studentId) !==
+      studentKey(normalized.studentId)
     ) {
       continue;
     }
@@ -1078,32 +1082,16 @@ function checkOutstandingBorrowing(
     }
 
 
-    for (
-      const newItem
-      of normalized.items
-    ) {
+    return {
+      satisfied: false,
 
-      const outstanding =
-        existing.items.some(
-          (oldItem) =>
-            oldItem.itemId ===
-            newItem.itemId
-        );
+      constraint:
+        "return_outstanding",
 
-
-      if (outstanding) {
-        return {
-          satisfied: false,
-
-          constraint:
-            "return_outstanding",
-
-          message:
-            `Student has an outstanding borrowing ` +
-            `for item '${newItem.itemId}'.`,
-        };
-      }
-    }
+      message:
+        `Student has an outstanding borrowing ` +
+        `(request '${existing.id}'). All borrowed items must be returned before submitting another request.`,
+    };
   }
 
 
@@ -1168,8 +1156,8 @@ function checkStatus(
 
 
     if (
-      existing.studentId !==
-      normalized.studentId
+      studentKey(existing.studentId) !==
+      studentKey(normalized.studentId)
     ) {
       continue;
     }

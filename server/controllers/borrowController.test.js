@@ -344,7 +344,7 @@ test("maps every borrowing-policy violation to a stable API reason code", () => 
           returnDate: "2026-08-02",
           purpose: "Earlier class",
           status: "Borrowed",
-          items: [{ inventoryId: 7, quantity: 1 }],
+          items: [{ inventoryId: 99, quantity: 1 }],
         }],
       },
     },
@@ -376,6 +376,26 @@ test("maps every borrowing-policy violation to a stable API reason code", () => 
       `Expected ${code}`
     );
   }
+});
+
+test("blocks a policy-valid item when the student has a different outstanding item", () => {
+  const validation = validatePolicyConstraints(policyFixture({
+    existingRequests: [{
+      id: 14,
+      studentId: " STUDENT-1 ",
+      borrowDate: "2026-08-01",
+      returnDate: "2026-08-02",
+      purpose: "Earlier class",
+      status: "Borrowed",
+      items: [{ inventoryId: 99, quantity: 1 }],
+    }],
+  }));
+
+  assert.equal(validation.valid, false);
+  assert.equal(
+    validation.reasons.some((reason) => reason.code === "OUTSTANDING_BORROWING"),
+    true
+  );
 });
 
 test("commits a valid request only after all policy constraints pass", async () => {
