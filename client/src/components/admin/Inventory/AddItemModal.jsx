@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { supabase } from "../../../lib/supabase";
+import { authenticatedFetch } from "../../../lib/api";
 import { DEFAULT_LOW_STOCK_THRESHOLD, inventoryTotals } from "../../../utils/inventoryAvailability";
 
 export default function AddItemModal({ open, onClose }) {
@@ -32,12 +32,15 @@ export default function AddItemModal({ open, onClose }) {
     }
 
     async function handleSave() {
-        const { error } = await supabase
-            .from("inventory")
-            .insert([form]);
+        const response = await authenticatedFetch("/api/inventory", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(form),
+        });
+        const result = await response.json();
 
-        if (error) {
-            alert(error.message);
+        if (!response.ok) {
+            alert(result.reasons?.[0] || result.message || "Unable to create inventory item.");
             return;
         }
 

@@ -3,13 +3,19 @@
 const express = require("express");
 const { authenticate, requireRoles } = require("../middleware/auth");
 const {
+  deleteInventory,
   deleteUnavailability,
   listUnavailability,
   saveUnavailability,
+  saveInventory,
 } = require("../controllers/inventoryController");
 
 const router = express.Router();
 router.use(authenticate, requireRoles("admin"));
+
+router.post("/", saveInventory);
+router.put("/:inventoryId", saveInventory);
+router.delete("/:inventoryId", deleteInventory);
 
 router.get("/:inventoryId/unavailability", listUnavailability);
 router.post("/:inventoryId/unavailability", saveUnavailability);
