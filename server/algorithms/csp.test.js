@@ -734,6 +734,26 @@ test("rejects request with multiple CSP violations", () => {
   );
 });
 
+test("rejects a different item while the student has an outstanding borrowing", () => {
+  const request = baseRequest({
+    studentId: "STU-001",
+    items: [{ itemId: "plate", quantity: 1 }],
+  });
+  const existing = existingRequest({
+    studentId: " stu-001 ",
+    status: "borrowed",
+    items: [{ itemId: "knife", quantity: 1 }],
+  });
+
+  const result = checkOutstandingBorrowing(request, [existing], {
+    preventOutstandingBorrowing: true,
+  });
+
+  assert.equal(result.satisfied, false);
+  assert.equal(result.constraint, "return_outstanding");
+  assert.match(result.message, /all borrowed items must be returned/i);
+});
+
 test("rejects a multi-day request that intersects an unavailable period", () => {
   const request = baseRequest({
     borrowDate: "2026-08-20",
