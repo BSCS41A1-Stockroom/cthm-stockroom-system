@@ -13,6 +13,7 @@ const {
 } = require("../algorithms/conflictDetection");
 const { writeAuditLog } = require("../utils/auditLog");
 const { notifyRoles, notifyUser } = require("../utils/notifications");
+const { loadInventoryCommitment, usableInventoryQuantity } = require("../utils/inventoryCommitments");
 
 const RESERVED_STATUSES = new Set(["Pending", "Validated", "Approved"]);
 const BORROWED_STATUSES = new Set(["Borrowed"]);
@@ -172,6 +173,7 @@ function validatePolicyConstraints({
   inventoryAvailability = {},
   policy = {},
   now = new Date(),
+  outstandingBorrowingId = null,
 }) {
   const reservedByInventoryId = new Map(existingBorrowings.map((entry) => [
     String(entry.inventoryId),
@@ -215,18 +217,27 @@ function validatePolicyConstraints({
     now,
   });
 
+  const reasons = result.violations.map((violation) => ({
+    code: POLICY_REASON_CODES[violation.constraint] ?? "BORROWING_POLICY_VIOLATION",
+    constraint: violation.constraint,
+    message: violation.message,
+  }));
+  if (outstandingBorrowingId != null && !reasons.some((reason) => reason.constraint === "return_outstanding")) {
+    reasons.push({
+      code: "OUTSTANDING_BORROWING",
+      constraint: "return_outstanding",
+      message: `Student has an outstanding borrowing (request '${outstandingBorrowingId}'). All borrowed items must be returned before submitting another request.`,
+    });
+  }
+
   return Object.freeze({
-    valid: result.valid,
+    valid: result.valid && outstandingBorrowingId == null,
     checkedConstraints: result.checkedConstraints,
-    reasons: Object.freeze(result.violations.map((violation) => ({
-      code: POLICY_REASON_CODES[violation.constraint] ?? "BORROWING_POLICY_VIOLATION",
-      constraint: violation.constraint,
-      message: violation.message,
-    }))),
+    reasons: Object.freeze(reasons),
   });
 }
 
-async function loadValidationContext(client, request) {
+async function loadValidationContext(client, request, userId = null) {
   const inventoryIds = [...new Set(request.items.map((item) => String(item.inventoryId)).filter(Boolean))];
   if (inventoryIds.length === 0) return {
     inventory: [], existingBorrowings: [], existingRequests: [], inventoryAvailability: {},
@@ -237,7 +248,7 @@ async function loadValidationContext(client, request) {
   // preventing simultaneous duplicate or schedule-conflicting inserts.
   await client.query(
     `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
-    [request.studentId.trim().toLowerCase()]
+    [userId ? `user:${userId}` : `student:${request.studentId.trim().toLowerCase()}`]
   );
 
   const inventoryResult = await client.query(
@@ -251,17 +262,42 @@ async function loadValidationContext(client, request) {
   );
 
   const reservationsResult = await client.query(
-    `SELECT bri.inventory_id,
-            COALESCE(SUM(bri.quantity), 0)::bigint AS quantity,
-            count(*) FILTER (WHERE bri.quantity IS NULL OR bri.quantity <= 0) > 0 AS has_invalid_quantity
+    `WITH returned AS (
+       SELECT request_id, inventory_id,
+              SUM(good_quantity + damaged_quantity + missing_quantity)::bigint AS accounted
+         FROM borrowing_return_items
+        GROUP BY request_id, inventory_id
+     )
+     SELECT bri.inventory_id,
+            COALESCE(SUM(CASE
+              WHEN br.status = 'Borrowed' THEN GREATEST(bri.quantity - COALESCE(returned.accounted, 0), 0)
+              ELSE bri.quantity
+            END), 0)::bigint AS quantity,
+            count(*) FILTER (WHERE bri.quantity IS NULL OR bri.quantity <= 0
+              OR COALESCE(returned.accounted, 0) < 0
+              OR COALESCE(returned.accounted, 0) > bri.quantity) > 0 AS has_invalid_quantity
        FROM borrow_request_items bri
        JOIN borrow_requests br ON br.id = bri.request_id
+       LEFT JOIN returned ON returned.request_id = bri.request_id AND returned.inventory_id = bri.inventory_id
       WHERE bri.inventory_id::text = ANY($1::text[])
-        AND br.status = ANY($2::text[])
-        AND br.borrow_date <= $3::date
-        AND br.return_date >= $4::date
+        AND (br.status = 'Borrowed' OR (
+          br.status = ANY($2::text[])
+          AND br.borrow_date <= $3::date
+          AND br.return_date >= $4::date
+        ))
       GROUP BY bri.inventory_id`,
-    [inventoryIds, ACTIVE_BORROWING_STATUSES, request.returnDate, request.borrowDate]
+    [inventoryIds, ["Pending", "Validated", "Approved"], request.returnDate, request.borrowDate]
+  );
+
+  const outstandingResult = await client.query(
+    `SELECT request.id
+       FROM public.borrow_requests request
+      WHERE (($1::uuid IS NOT NULL AND request.user_id = $1::uuid)
+        OR (request.user_id IS NULL AND lower(trim(request.student_id)) = $2))
+        AND request.status IN ('Approved', 'Borrowed')
+      ORDER BY request.id
+      LIMIT 1`,
+    [userId, request.studentId.trim().toLowerCase()]
   );
 
   const conflictsResult = await client.query(
@@ -269,10 +305,11 @@ async function loadValidationContext(client, request) {
             bri.inventory_id, bri.quantity
        FROM borrow_requests br
        LEFT JOIN borrow_request_items bri ON bri.request_id = br.id
-      WHERE lower(trim(br.student_id)) = $1
-        AND br.status = ANY($2::text[])
+      WHERE (($1::uuid IS NOT NULL AND br.user_id = $1::uuid)
+        OR (br.user_id IS NULL AND lower(trim(br.student_id)) = $2))
+        AND br.status = ANY($3::text[])
       ORDER BY br.id, bri.inventory_id`,
-    [request.studentId.trim().toLowerCase(), ACTIVE_BORROWING_STATUSES]
+    [userId, request.studentId.trim().toLowerCase(), ACTIVE_BORROWING_STATUSES]
   );
 
   const unavailabilityResult = await client.query(
@@ -325,6 +362,7 @@ async function loadValidationContext(client, request) {
     })),
     existingRequests: [...requestsById.values()],
     inventoryAvailability,
+    outstandingBorrowingId: outstandingResult.rows[0]?.id ?? null,
   };
 }
 
@@ -348,7 +386,7 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
 
   try {
     await client.query("BEGIN");
-    const context = await loadValidationContext(client, request);
+    const context = await loadValidationContext(client, request, validationOptions.userId ?? null);
     const cspValidation = validateBorrowingRequest({ request, ...context });
     const policyValidation = validatePolicyConstraints({
       request,
@@ -356,6 +394,7 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
       inventoryAvailability: validationOptions.inventoryAvailability ?? context.inventoryAvailability,
       policy: validationOptions.policy,
       now: validationOptions.now,
+      outstandingBorrowingId: context.outstandingBorrowingId,
     });
     const conflicts = detectBorrowingConflicts({
       request,
@@ -644,6 +683,9 @@ async function createBorrowRequest(req, res, next) {
 async function updateBorrowRequestStatus(req, res, next) {
   const requestId = req.params.id;
   const nextStatus = req.body?.status;
+  if (!/^[1-9]\d*$/.test(String(requestId ?? ""))) {
+    return res.status(400).json({ error: "INVALID_REQUEST_ID", message: "Borrowing request ID is invalid." });
+  }
   const client = await pool.connect();
 
   try {
@@ -677,7 +719,20 @@ async function updateBorrowRequestStatus(req, res, next) {
     );
 
     for (const item of itemsResult.rows) {
-      await client.query(`SELECT id FROM inventory WHERE id = $1 FOR UPDATE`, [item.inventory_id]);
+      const lockedInventory = await client.query(`SELECT * FROM inventory WHERE id = $1 FOR UPDATE`, [item.inventory_id]);
+      if (!lockedInventory.rowCount) throw new Error(`Inventory item '${item.inventory_id}' no longer exists.`);
+      if (nextStatus === "Borrowed") {
+        const commitment = await loadInventoryCommitment(client, item.inventory_id, requestId);
+        const required = commitment.borrowed + Number(item.quantity);
+        if (!commitment.valid || !Number.isSafeInteger(required)) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ error: "INVALID_COMMITMENT_DATA", message: "Existing borrowing commitments are inconsistent. The release was not processed." });
+        }
+        if (usableInventoryQuantity(lockedInventory.rows[0]) < required) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ error: "INSUFFICIENT_INVENTORY_AT_RELEASE", message: `Inventory item '${item.inventory_id}' no longer has enough physical units for release.` });
+        }
+      }
       const delta = inventoryDeltas(request.status, nextStatus, Number(item.quantity));
       const inventoryResult = await client.query(
         `UPDATE inventory

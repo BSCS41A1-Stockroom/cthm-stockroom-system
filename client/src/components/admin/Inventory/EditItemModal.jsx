@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { supabase } from "../../../lib/supabase";
+import { authenticatedFetch } from "../../../lib/api";
 import { DEFAULT_LOW_STOCK_THRESHOLD, inventoryTotals } from "../../../utils/inventoryAvailability";
 
 export default function EditItemModal({
@@ -42,13 +42,15 @@ export default function EditItemModal({
 
     async function handleUpdate() {
 
-        const { error } = await supabase
-            .from("inventory")
-            .update(form)
-            .eq("id", item.id);
+        const response = await authenticatedFetch(`/api/inventory/${item.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(form),
+        });
+        const result = await response.json();
 
-        if (error) {
-            alert(error.message);
+        if (!response.ok) {
+            alert(result.reasons?.[0] || result.message || "Unable to update inventory item.");
             return;
         }
 
