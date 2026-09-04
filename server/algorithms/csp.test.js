@@ -734,6 +734,18 @@ test("rejects request with multiple CSP violations", () => {
   );
 });
 
+test("rejects a borrowing date in the past", () => {
+  const result = checkLeadTime(
+    baseRequest({ borrowDate: "2026-08-16" }),
+    new Date("2026-08-17T10:00:00Z"),
+    { leadTimeDays: 0, timeZone: "Asia/Manila" }
+  );
+
+  assert.equal(result.satisfied, false);
+  assert.equal(result.constraint, "lead_time");
+  assert.match(result.message, /cannot be in the past/i);
+});
+
 test("rejects a different item while the student has an outstanding borrowing", () => {
   const request = baseRequest({
     studentId: "STU-001",

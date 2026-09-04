@@ -190,6 +190,10 @@ export default function BorrowingInterface() {
       return "Borrow date is required.";
     }
 
+    if (borrowDate < today) {
+      return "Borrow date cannot be in the past.";
+    }
+
     if (!returnDate) {
       return "Return date is required.";
     }
@@ -372,10 +376,12 @@ export default function BorrowingInterface() {
     );
   }
 
-  const today =
-    new Date()
-      .toISOString()
-      .split("T")[0];
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 
   /*
    * ============================================================
@@ -383,7 +389,7 @@ export default function BorrowingInterface() {
    * ============================================================
    */
 
-  function InventoryTable() {
+  function renderInventoryTable() {
     return (
       <table className="inventory-table">
 
@@ -508,7 +514,6 @@ export default function BorrowingInterface() {
    * LOADING
    * ============================================================
    */
-
   if (loading) {
     return (
       <div className="borrow-page">
@@ -722,7 +727,7 @@ export default function BorrowingInterface() {
 
         <div className="table-wrap">
 
-          <InventoryTable />
+          {renderInventoryTable()}
 
         </div>
 
@@ -851,7 +856,7 @@ export default function BorrowingInterface() {
 
             <div className="expanded-table-wrap">
 
-              <InventoryTable />
+              {renderInventoryTable()}
 
             </div>
 
