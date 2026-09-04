@@ -17,6 +17,7 @@ export default function Users() {
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState("");
   const [formError, setFormError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const loadSequence = useRef(0);
@@ -83,6 +84,9 @@ export default function Users() {
       }
       setEditing(null);
       setForm(EMPTY_FORM);
+      setSuccess(inviting
+        ? "User added. A secure account activation email has been sent."
+        : "User account updated successfully.");
       await load();
     } catch (requestError) {
       setFormError(requestError.message);
@@ -91,17 +95,18 @@ export default function Users() {
     }
   }
 
-  function openInvite() {
+  function openAddUser() {
     setEditing("new");
     setForm(EMPTY_FORM);
     setFormError("");
+    setSuccess("");
   }
 
   return (
     <div className="users-page">
       <header>
         <h1>User Management</h1>
-        <p>Invite users and manage their system roles and access.</p>
+        <p>Add users through secure email activation and manage their roles and access.</p>
       </header>
 
       <div className="users-toolbar">
@@ -110,9 +115,10 @@ export default function Users() {
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search name, email, or student ID"
         />
-        <button onClick={openInvite}>Invite User</button>
+        <button onClick={openAddUser}>Add User</button>
       </div>
 
+      {success && <p className="form-success" role="status">{success}</p>}
       {error && <p className="form-error">{error}</p>}
       {loading ? (
         <p>Loading users...</p>
@@ -147,7 +153,12 @@ export default function Users() {
       {editing && (
         <div className="modal-overlay" onClick={() => !saving && setEditing(null)}>
           <form className="user-modal" onSubmit={save} onClick={(event) => event.stopPropagation()}>
-            <h2>{editing === "new" ? "Invite User" : "Manage User"}</h2>
+            <h2>{editing === "new" ? "Add New User" : "Manage User"}</h2>
+            {editing === "new" && (
+              <p className="user-invite-help">
+                The user will receive a secure activation email to create their own password. Administrators never see or set the password.
+              </p>
+            )}
             {formError && <p className="form-error">{formError}</p>}
             {editing === "new" && (
               <label>Email<input type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
@@ -160,7 +171,7 @@ export default function Users() {
             <label className="user-active"><input type="checkbox" checked={form.isActive} onChange={(event) => setForm({ ...form, isActive: event.target.checked })} /> Account active</label>
             <div className="modal-actions">
               <button type="button" disabled={saving} onClick={() => setEditing(null)}>Cancel</button>
-              <button type="submit" disabled={saving}>{saving ? "Saving..." : editing === "new" ? "Send Invitation" : "Save Changes"}</button>
+              <button type="submit" disabled={saving}>{saving ? "Saving..." : editing === "new" ? "Send Account Invitation" : "Save Changes"}</button>
             </div>
           </form>
         </div>
