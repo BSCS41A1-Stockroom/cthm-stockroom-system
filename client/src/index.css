@@ -254,3 +254,34 @@ body {
 .profile-dropdown-details span{overflow-wrap:anywhere;color:#6b7280;font-size:12px;}
 .profile-signout{width:100%;padding:12px 16px;border:0;background:#fff;color:#b91c1c;cursor:pointer;font:inherit;font-size:13px;font-weight:600;text-align:left;}
 .profile-signout:hover,.profile-signout:focus-visible{background:#fef2f2;}
+
+.signout-confirm-overlay{
+    position:fixed;
+    inset:0;
+    z-index:2000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    background:rgba(15,23,42,.48);
+}
+
+.signout-confirm-dialog{
+    width:min(100%,390px);
+    padding:24px;
+    border-radius:12px;
+    background:#fff;
+    color:#111827;
+    box-shadow:0 24px 60px rgba(15,23,42,.3);
+}
+
+.signout-confirm-dialog h3{margin:0 0 8px;font-size:20px;}
+.signout-confirm-dialog p{margin:0;color:#6b7280;font-size:14px;line-height:1.5;}
+.signout-confirm-dialog .signout-confirm-error{margin-top:12px;color:#b91c1c;}
+.signout-confirm-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;}
+.signout-confirm-actions button{padding:10px 15px;border-radius:8px;cursor:pointer;font:inherit;font-size:13px;font-weight:600;}
+.signout-confirm-actions button:disabled{cursor:not-allowed;opacity:.65;}
+.signout-cancel{border:1px solid #d1d5db;background:#fff;color:#374151;}
+.signout-submit{border:1px solid #b91c1c;background:#b91c1c;color:#fff;}
+.signout-cancel:hover:not(:disabled){background:#f9fafb;}
+.signout-submit:hover:not(:disabled){background:#991b1b;}
