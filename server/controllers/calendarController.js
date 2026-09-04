@@ -1,7 +1,7 @@
 "use strict";
 
 const pool = require("../config/db");
-const { intervalsOverlap, parseTime } = require("../algorithms/csp");
+const { dateInTimeZone, intervalsOverlap, parseTime } = require("../algorithms/csp");
 const { isValidDate } = require("../algorithms/borrowingValidation");
 const { writeAuditLog } = require("../utils/auditLog");
 
@@ -19,10 +19,13 @@ function normalizeEvent(body) {
   };
 }
 
-function basicEventErrors(event) {
+function basicEventErrors(event, now = new Date()) {
   const errors = [];
   if (!event.title) errors.push("Event title is required.");
   if (!isValidDate(event.date)) errors.push("A valid event date is required.");
+  if (isValidDate(event.date) && event.date < dateInTimeZone(now, "Asia/Manila")) {
+    errors.push("Calendar events cannot be scheduled in the past.");
+  }
   if (!EVENT_TYPES.has(event.type)) errors.push("Event type is invalid.");
   if (Boolean(event.start) !== Boolean(event.end)) errors.push("Start and end time must both be provided.");
   if (event.roomId && (!event.start || !event.end)) errors.push("Room events require a start and end time.");

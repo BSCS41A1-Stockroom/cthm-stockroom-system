@@ -60,10 +60,6 @@ function normalizeRequest(body) {
       source.studentId ??
       source.student_id,
 
-    laboratoryNumber:
-      source.laboratoryNumber ??
-      source.laboratory_number,
-
     borrowDate:
       source.borrowDate ??
       source.borrow_date,
@@ -96,7 +92,6 @@ function serializeBorrowRequest(request) {
     id: request.id,
     studentName: request.student_name,
     studentId: request.student_id,
-    laboratoryNumber: request.laboratory_number,
     borrowDate: request.borrow_date,
     returnDate: request.return_date,
     purpose: request.purpose,
@@ -436,7 +431,6 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
         (
           student_name,
           student_id,
-          laboratory_number,
           borrow_date,
           return_date,
           purpose,
@@ -447,18 +441,16 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
         (
           $1,
           $2,
-          $3,
+          $3::date,
           $4::date,
-          $5::date,
+          $5,
           $6,
-          $7,
-          $8
+          $7
         )
       RETURNING *`,
       [
         request.studentName.trim(),
         request.studentId.trim(),
-        request.laboratoryNumber?.trim() || null,
         request.borrowDate,
         request.returnDate,
         request.purpose.trim(),

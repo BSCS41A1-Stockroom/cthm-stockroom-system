@@ -14,6 +14,12 @@ export default function ActivityModal({ open, onClose, onSave, editEvent, rooms 
   const [form, setForm] = useState(() => editEvent ? { ...EMPTY_FORM, ...editEvent } : { ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 
   if (!open) return null;
 
@@ -25,6 +31,10 @@ export default function ActivityModal({ open, onClose, onSave, editEvent, rooms 
   const handleSave = async () => {
     if (!form.title.trim() || !form.date) {
       setError("Activity name and date are required.");
+      return;
+    }
+    if (form.date < today) {
+      setError("Activities cannot be scheduled in the past.");
       return;
     }
     setSaving(true);
@@ -53,7 +63,7 @@ export default function ActivityModal({ open, onClose, onSave, editEvent, rooms 
             </div>
             <div className="form-group">
               <label>Date</label>
-              <input type="date" name="date" value={form.date} onChange={handleChange} />
+              <input type="date" name="date" min={today} value={form.date} onChange={handleChange} />
             </div>
             <div className="form-group">
               <label>Start Time</label>

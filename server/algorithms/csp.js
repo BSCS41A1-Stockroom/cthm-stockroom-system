@@ -962,6 +962,14 @@ function checkLeadTime(
       normalized.borrowDate
     );
 
+  if (days < 0) {
+    return {
+      satisfied: false,
+      constraint: "lead_time",
+      message: "Borrow date cannot be in the past.",
+    };
+  }
+
 
   if (
     days <
@@ -1520,6 +1528,7 @@ module.exports = {
   intervalsOverlap,
   isValidDate,
   parseTime,
+  dateInTimeZone,
 
   /* Normalization */
   normalizeRequest,
