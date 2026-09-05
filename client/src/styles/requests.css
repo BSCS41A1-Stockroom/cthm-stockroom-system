@@ -312,19 +312,16 @@
 
 .requests-table-wrapper {
     width: 100% !important;
-
     margin: 0 !important;
 
     background: #ffffff;
-
     border: 1px solid #edf2f7;
-
     border-radius: 12px;
 
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: visible;
 
-    box-shadow:
-        0 1px 4px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 
     text-align: left;
 }
@@ -335,13 +332,55 @@
 ====================================================== */
 
 .requests-table {
-    width: max-content;
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed;
+}
 
-    min-width: 1700px;
 
-    border-collapse: collapse;
+/* ======================================================
+   COLUMN WIDTHS
+====================================================== */
 
-    border-spacing: 0;
+.requests-table th:nth-child(1),
+.requests-table td:nth-child(1) {
+    width: 8%;
+}
+
+.requests-table th:nth-child(2),
+.requests-table td:nth-child(2) {
+    width: 15%;
+}
+
+.requests-table th:nth-child(3),
+.requests-table td:nth-child(3) {
+    width: 19%;
+}
+
+.requests-table th:nth-child(4),
+.requests-table td:nth-child(4) {
+    width: 7%;
+    text-align: center;
+}
+
+.requests-table th:nth-child(5),
+.requests-table td:nth-child(5) {
+    width: 11%;
+}
+
+.requests-table th:nth-child(6),
+.requests-table td:nth-child(6) {
+    width: 11%;
+}
+
+.requests-table th:nth-child(7),
+.requests-table td:nth-child(7) {
+    width: 13%;
+}
+
+.requests-table th:nth-child(8),
+.requests-table td:nth-child(8) {
+    width: 16%;
 }
 
 
@@ -351,12 +390,10 @@
 
 .requests-table thead th {
     position: sticky;
-
     top: 0;
-
     z-index: 5;
 
-    padding: 14px 16px;
+    padding: 14px 12px;
 
     background: #fafafa;
 
@@ -365,14 +402,14 @@
     color: #64748b;
 
     font-size: 13px;
-
     font-weight: 600;
 
     line-height: 1.4;
 
     text-align: left;
 
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 
@@ -381,7 +418,7 @@
 ====================================================== */
 
 .requests-table tbody td {
-    padding: 14px 16px;
+    padding: 14px 12px;
 
     background: #ffffff;
 
@@ -395,7 +432,9 @@
 
     text-align: left;
 
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
 }
 
 
@@ -420,13 +459,12 @@
 
 .requests-table tbody td:first-child {
     color: #111827;
-
     font-weight: 600;
 }
 
 
 /* ======================================================
-   STATUS BADGES
+   STATUS
 ====================================================== */
 
 .status-badge {
@@ -435,54 +473,19 @@
     align-items: center;
     justify-content: center;
 
-    min-width: 76px;
+    max-width: 100%;
 
-    padding: 5px 10px;
+    padding: 5px 9px;
 
     border-radius: 999px;
 
     font-size: 12px;
-
     font-weight: 600;
 
     line-height: 1.2;
 
-    white-space: nowrap;
-}
-
-
-.status-badge.pending {
-    background: #fef3c7;
-
-    color: #b45309;
-}
-
-
-.status-badge.approved {
-    background: #ecfdf5;
-
-    color: #15803d;
-}
-
-
-.status-badge.rejected {
-    background: #fee2e2;
-
-    color: #dc2626;
-}
-
-
-.status-badge.borrowed {
-    background: #ede9fe;
-
-    color: #6d28d9;
-}
-
-
-.status-badge.returned {
-    background: #eff6ff;
-
-    color: #2563eb;
+    white-space: normal;
+    text-align: center;
 }
 
 
@@ -494,8 +497,11 @@
     display: flex;
 
     align-items: center;
+    justify-content: flex-start;
 
-    gap: 6px;
+    gap: 5px;
+
+    flex-wrap: nowrap;
 }
 
 
@@ -503,22 +509,21 @@
 .approve-btn,
 .reject-btn,
 .return-btn {
-    width: 34px;
+    width: 32px;
+    height: 32px;
 
-    height: 34px;
+    min-width: 32px;
 
     flex-shrink: 0;
 
     display: flex;
 
     align-items: center;
-
     justify-content: center;
 
     padding: 0;
 
     border: none;
-
     border-radius: 8px;
 
     cursor: pointer;
