@@ -190,10 +190,6 @@ export default function BorrowingInterface() {
       return "Borrow date is required.";
     }
 
-    if (borrowDate < today) {
-      return "Borrow date cannot be in the past.";
-    }
-
     if (!returnDate) {
       return "Return date is required.";
     }
@@ -340,7 +336,6 @@ export default function BorrowingInterface() {
     );
   }
 
-<<<<<<< HEAD
   /*
    * ============================================================
    * PRINT
@@ -963,14 +958,6 @@ export default function BorrowingInterface() {
     new Date()
       .toISOString()
       .split("T")[0];
-=======
-  const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Manila",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
->>>>>>> 1d658fe5273e990e98ecd8d900e19e08113dd72d
 
   /*
    * ============================================================
@@ -978,7 +965,7 @@ export default function BorrowingInterface() {
    * ============================================================
    */
 
-  function renderInventoryTable() {
+  function InventoryTable() {
     return (
       <table className="inventory-table">
 
@@ -1103,6 +1090,7 @@ export default function BorrowingInterface() {
    * LOADING
    * ============================================================
    */
+
   if (loading) {
     return (
       <div className="borrow-page">
@@ -1316,7 +1304,7 @@ export default function BorrowingInterface() {
 
         <div className="table-wrap">
 
-          {renderInventoryTable()}
+          <InventoryTable />
 
         </div>
 
@@ -1445,7 +1433,7 @@ export default function BorrowingInterface() {
 
             <div className="expanded-table-wrap">
 
-              {renderInventoryTable()}
+              <InventoryTable />
 
             </div>
 
