@@ -233,6 +233,10 @@ TOPBAR
     display:flex;
     align-items:center;
     gap:12px;
+    border:0;
+    background:transparent;
+    font:inherit;
+    text-align:left;
 }
 
 .admin-profile img{
@@ -241,12 +245,12 @@ TOPBAR
     border-radius:50%;
 }
 
-.admin-profile h4{
+.admin-profile strong{
     font-size:15px;
     color:#111827;
 }
 
-.admin-profile span{
+.admin-profile small{
     font-size:12px;
     color:#6b7280;
 }

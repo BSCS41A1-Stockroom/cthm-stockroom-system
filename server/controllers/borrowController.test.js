@@ -200,7 +200,7 @@ test("serializes database borrowing rows for the student request page", () => {
   });
 });
 
-test("loads conflict context under a normalized student advisory lock", async () => {
+test("loads conflict context under an immutable authenticated-user advisory lock", async () => {
   const calls = [];
   const client = {
     async query(sql, params) {
@@ -225,10 +225,10 @@ test("loads conflict context under a normalized student advisory lock", async ()
     borrowDate: "2026-08-10",
     returnDate: "2026-08-12",
     items: [{ inventoryId: 7, quantity: 1 }],
-  });
+  }, "00000000-0000-4000-8000-000000000001");
 
   assert.match(calls[0].sql, /pg_advisory_xact_lock/);
-  assert.equal(calls[0].params[0], "student-1");
+  assert.equal(calls[0].params[0], "user:00000000-0000-4000-8000-000000000001");
   assert.match(calls.find((call) => call.sql.includes("COALESCE(SUM")).sql, /::bigint/);
   assert.match(calls.find((call) => call.sql.includes("COALESCE(SUM")).sql, /has_invalid_quantity/);
   assert.deepEqual(context.existingBorrowings, [{ inventoryId: 7, quantity: 2 }]);
@@ -239,6 +239,21 @@ test("loads conflict context under a normalized student advisory lock", async ()
   assert.deepEqual(context.inventoryAvailability, {
     7: [{ startDate: "2026-08-11", endDate: "2026-08-13", reason: "Maintenance" }],
   });
+  const reservationSql = calls.find((call) => call.sql.includes("WITH returned AS"));
+  assert.match(reservationSql.sql, /br\.status = 'Borrowed'/);
+  assert.match(reservationSql.sql, /GREATEST\(bri\.quantity - COALESCE\(returned\.accounted, 0\), 0\)/);
+  const identitySql = calls.find((call) => call.sql.includes("public.borrow_requests request"));
+  assert.match(identitySql.sql, /request\.user_id = \$1::uuid/);
+});
+
+test("falls back to normalized student identity only for legacy requests", async () => {
+  const calls = [];
+  const client = { async query(sql, params) { calls.push({ sql, params }); return { rows: [] }; } };
+  await loadValidationContext(client, {
+    studentId: " LEGACY-1 ", borrowDate: "2026-09-10", returnDate: "2026-09-11",
+    items: [{ inventoryId: 7, quantity: 1 }],
+  });
+  assert.equal(calls[0].params[0], "student:legacy-1");
 });
 
 test("rolls back a duplicate before any borrowing or inventory write", async () => {
@@ -344,7 +359,7 @@ test("maps every borrowing-policy violation to a stable API reason code", () => 
           returnDate: "2026-08-02",
           purpose: "Earlier class",
           status: "Borrowed",
-          items: [{ inventoryId: 7, quantity: 1 }],
+          items: [{ inventoryId: 99, quantity: 1 }],
         }],
       },
     },
@@ -376,6 +391,26 @@ test("maps every borrowing-policy violation to a stable API reason code", () => 
       `Expected ${code}`
     );
   }
+});
+
+test("blocks a policy-valid item when the student has a different outstanding item", () => {
+  const validation = validatePolicyConstraints(policyFixture({
+    existingRequests: [{
+      id: 14,
+      studentId: " STUDENT-1 ",
+      borrowDate: "2026-08-01",
+      returnDate: "2026-08-02",
+      purpose: "Earlier class",
+      status: "Borrowed",
+      items: [{ inventoryId: 99, quantity: 1 }],
+    }],
+  }));
+
+  assert.equal(validation.valid, false);
+  assert.equal(
+    validation.reasons.some((reason) => reason.code === "OUTSTANDING_BORROWING"),
+    true
+  );
 });
 
 test("commits a valid request only after all policy constraints pass", async () => {

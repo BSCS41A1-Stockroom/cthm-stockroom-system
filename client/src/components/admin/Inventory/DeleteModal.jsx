@@ -1,4 +1,4 @@
-import { supabase } from "../../../lib/supabase";
+import { authenticatedFetch } from "../../../lib/api";
 
 export default function DeleteModal({
     open,
@@ -11,13 +11,11 @@ export default function DeleteModal({
 
     async function handleDelete() {
 
-        const { error } = await supabase
-            .from("inventory")
-            .delete()
-            .eq("id", item.id);
+        const response = await authenticatedFetch(`/api/inventory/${item.id}`, { method: "DELETE" });
 
-        if (error) {
-            alert(error.message);
+        if (!response.ok) {
+            const result = await response.json();
+            alert(result.message || "Unable to delete inventory item.");
             return;
         }
 

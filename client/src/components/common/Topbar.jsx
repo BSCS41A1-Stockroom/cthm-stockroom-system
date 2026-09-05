@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "../../auth/useAuth";
 import NotificationCenter from "./NotificationCenter";
+import ProfileMenu from "./ProfileMenu";
 
 export default function Topbar({ sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed }) {
-  const { profile, signOut } = useAuth();
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
   useEffect(() => {
@@ -25,7 +24,7 @@ export default function Topbar({ sidebarOpen, setSidebarOpen, sidebarCollapsed, 
     <h2>CTHM Stockroom</h2>
     <div className="student-topbar-actions">
       <NotificationCenter />
-      <button className="role-switch" onClick={signOut}>{profile?.full_name || "Student"} · Sign out</button>
+      <ProfileMenu variant="student" />
     </div>
   </header>;
 }
