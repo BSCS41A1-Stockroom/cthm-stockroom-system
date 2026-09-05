@@ -393,15 +393,6 @@
 
 /* ============================================================
    INVENTORY TABLE
-
-   COMPACT 4-COLUMN VERSION
-
-   Select       6%
-   Item        50%
-   Available   22%
-   Qty         22%
-
-   TOTAL = 100%
 ============================================================ */
 
 .inventory-table {
@@ -728,8 +719,6 @@
 
 /* ============================================================
    FOOTER ACTIONS
-
-   RIGHT SIDE
 ============================================================ */
 
 .borrow-footer-actions {
@@ -938,8 +927,6 @@
 
 /* ============================================================
    EXPANDED TABLE
-
-   Still NO horizontal scroll.
 ============================================================ */
 
 .expanded-table-wrap {
@@ -999,8 +986,11 @@
         margin: 12mm;
     }
 
+    html,
     body {
-        margin: 0;
+        margin: 0 !important;
+
+        padding: 0 !important;
 
         background: #ffffff !important;
     }
@@ -1023,11 +1013,6 @@
 
         font-size: 10px;
     }
-
-
-    /* ========================================================
-       PRINT HEADER
-    ======================================================== */
 
     .print-header {
         display: flex;
@@ -1082,72 +1067,6 @@
 
         font-size: 10px;
     }
-
-
-    /* ========================================================
-       PRINT INFORMATION
-    ======================================================== */
-
-    .print-info {
-        display: grid;
-
-        grid-template-columns:
-            1.5fr
-            1fr
-            1fr;
-
-        gap: 0;
-
-        margin-top: 10px;
-
-        border-top: 1px solid #000000;
-
-        border-left: 1px solid #000000;
-    }
-
-    .print-info > div {
-        min-height: 34px;
-
-        padding: 5px 6px;
-
-        border-right: 1px solid #000000;
-
-        border-bottom: 1px solid #000000;
-
-        box-sizing: border-box;
-    }
-
-    .print-info span {
-        display: block;
-
-        margin-bottom: 3px;
-
-        font-size: 7px;
-
-        font-weight: 700;
-
-        text-transform: uppercase;
-    }
-
-    .print-info strong {
-        display: block;
-
-        font-size: 9px;
-
-        font-weight: 400;
-
-        overflow-wrap: anywhere;
-    }
-
-    .print-purpose {
-        grid-column: 1 / -1;
-    }
-
-
-    /* ========================================================
-       PRINT BORROW TABLE
-    ======================================================== */
-
     .print-borrow-table {
         width: 100%;
 
@@ -1222,11 +1141,6 @@
 
         text-align: left;
     }
-
-
-    /* ========================================================
-       SIGNATURES
-    ======================================================== */
 
     .print-signatures {
         display: grid;

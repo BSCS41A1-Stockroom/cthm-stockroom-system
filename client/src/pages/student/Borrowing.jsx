@@ -313,42 +313,6 @@ export default function BorrowingInterface() {
 
   /*
    * ============================================================
-   * PRINT
-   * ============================================================
-   */
-
-  function handlePrint() {
-    setFormError("");
-
-    if (totalItems === 0) {
-      setFormError(
-        "Please select at least one item before printing."
-      );
-
-      return;
-    }
-
-    const validation = validate();
-
-    if (validation) {
-      setFormError(validation);
-      return;
-    }
-
-    const now = new Date();
-
-    const controlNo =
-      generateControlNumber(now);
-
-    setPrintControlNo(controlNo);
-
-    setTimeout(() => {
-      window.print();
-    }, 100);
-  }
-
-  /*
-   * ============================================================
    * DATE FORMAT
    * ============================================================
    */
@@ -370,6 +334,624 @@ export default function BorrowingInterface() {
         day: "numeric",
       }
     );
+  }
+
+  /*
+   * ============================================================
+   * PRINT
+   * ============================================================
+   */
+
+  function handlePrint() {
+  setFormError("");
+
+  if (totalItems === 0) {
+    setFormError(
+      "Please select at least one item before printing."
+    );
+
+    return;
+  }
+
+  const validation = validate();
+
+  if (validation) {
+    setFormError(validation);
+    return;
+  }
+
+  const now = new Date();
+
+  const controlNo =
+    generateControlNumber(now);
+
+  const currentDate =
+    now.toLocaleDateString(
+      "en-PH",
+      {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }
+    );
+
+  const borrowDateText =
+    formatDate(borrowDate);
+
+  const returnDateText =
+    formatDate(returnDate);
+
+  const rows = Array.from(
+    { length: 30 },
+    (_, index) => {
+      const item = selectedList[index];
+
+      return `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${item ? escapeHtml(item.item_name) : ""}</td>
+          <td>${item ? item.borrowQty : ""}</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+      `;
+    }
+  ).join("");
+
+  const printWindow =
+    window.open(
+      "",
+      "_blank",
+      "width=1000,height=800"
+    );
+
+  if (!printWindow) {
+    setFormError(
+      "Print window was blocked by the browser. Please allow pop-ups for this site."
+    );
+
+    return;
+  }
+
+  printWindow.document.open();
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+
+        <meta charset="UTF-8" />
+
+        <title>
+          Laboratory Borrowing Form
+        </title>
+
+        <style>
+
+          @page {
+            size: A4 portrait;
+            margin: 12mm;
+          }
+
+          * {
+            box-sizing: border-box;
+          }
+
+          html,
+          body {
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+          }
+
+          body {
+            color: #000000;
+            font-family:
+              Arial,
+              Helvetica,
+              sans-serif;
+            font-size: 10px;
+          }
+
+          .print-document {
+            width: 100%;
+            color: #000000;
+          }
+
+          /* =========================================
+             HEADER
+          ========================================= */
+
+          .print-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+
+            gap: 20px;
+
+            padding-bottom: 10px;
+
+            border-bottom: 2px solid #000000;
+          }
+
+          .print-header h1 {
+            margin: 0;
+
+            font-size: 18px;
+            font-weight: 700;
+          }
+
+          .print-header p {
+            margin: 4px 0 0;
+
+            font-size: 9px;
+          }
+
+          .print-control {
+            min-width: 145px;
+
+            border: 1px solid #000000;
+
+            text-align: center;
+          }
+
+          .print-control div {
+            padding: 4px;
+
+            border-bottom: 1px solid #000000;
+
+            font-size: 8px;
+            font-weight: 700;
+          }
+
+          .print-control strong {
+            display: block;
+
+            padding: 6px 4px;
+
+            font-size: 10px;
+          }
+
+          /* =========================================
+             SIMPLE INFORMATION
+             NO TABLE / NO GRID
+          ========================================= */
+
+          .print-info {
+            display: flex;
+
+            flex-wrap: wrap;
+
+            gap: 14px 28px;
+
+            margin-top: 12px;
+
+            padding-bottom: 10px;
+
+            border-bottom: 1px solid #000000;
+          }
+
+          .print-info-item {
+            display: flex;
+
+            align-items: baseline;
+
+            gap: 5px;
+
+            white-space: nowrap;
+          }
+
+          .print-info-item span {
+            font-size: 8px;
+
+            font-weight: 700;
+          }
+
+          .print-info-item strong {
+            font-size: 9px;
+
+            font-weight: 400;
+          }
+
+          /* =========================================
+             BORROW DATE / RETURN DATE
+          ========================================= */
+
+          .print-dates {
+            display: flex;
+
+            gap: 28px;
+
+            margin-top: 8px;
+
+            padding-bottom: 8px;
+          }
+
+          .print-date-item {
+            display: flex;
+
+            gap: 5px;
+
+            align-items: baseline;
+          }
+
+          .print-date-item span {
+            font-size: 8px;
+
+            font-weight: 700;
+          }
+
+          .print-date-item strong {
+            font-size: 9px;
+
+            font-weight: 400;
+          }
+
+          /* =========================================
+             BORROWING TABLE
+          ========================================= */
+
+          .print-borrow-table {
+            width: 100%;
+
+            margin-top: 12px;
+
+            border-collapse: collapse;
+
+            table-layout: fixed;
+
+            font-size: 9px;
+          }
+
+          .print-borrow-table th,
+          .print-borrow-table td {
+            border: 1px solid #000000;
+
+            padding: 3px 4px;
+
+            height: 17px;
+          }
+
+          .print-borrow-table th {
+            height: 25px;
+
+            background: #eeeeee;
+
+            text-align: center;
+
+            font-weight: 700;
+          }
+
+          .print-borrow-table th:nth-child(1),
+          .print-borrow-table td:nth-child(1) {
+            width: 6%;
+
+            text-align: center;
+          }
+
+          .print-borrow-table th:nth-child(2),
+          .print-borrow-table td:nth-child(2) {
+            width: 34%;
+
+            text-align: left;
+          }
+
+          .print-borrow-table th:nth-child(3),
+          .print-borrow-table td:nth-child(3) {
+            width: 9%;
+
+            text-align: center;
+          }
+
+          .print-borrow-table th:nth-child(4),
+          .print-borrow-table td:nth-child(4) {
+            width: 15%;
+
+            text-align: center;
+          }
+
+          .print-borrow-table th:nth-child(5),
+          .print-borrow-table td:nth-child(5) {
+            width: 15%;
+
+            text-align: center;
+          }
+
+          .print-borrow-table th:nth-child(6),
+          .print-borrow-table td:nth-child(6) {
+            width: 21%;
+
+            text-align: left;
+          }
+
+          /* =========================================
+             SIGNATURES
+          ========================================= */
+
+          .print-signatures {
+            display: grid;
+
+            grid-template-columns:
+              repeat(3, 1fr);
+
+            gap: 20px;
+
+            margin-top: 25px;
+          }
+
+          .print-signatures > div {
+            display: flex;
+
+            flex-direction: column;
+
+            gap: 4px;
+          }
+
+          .print-signatures span {
+            font-size: 8px;
+
+            font-weight: 700;
+          }
+
+          .print-signatures strong {
+            margin-top: 20px;
+
+            min-height: 15px;
+
+            border-bottom: 1px solid #000000;
+
+            font-size: 9px;
+
+            font-weight: 400;
+
+            text-align: center;
+          }
+
+          .print-signatures small {
+            font-size: 7px;
+
+            text-align: center;
+          }
+
+        </style>
+
+      </head>
+
+      <body>
+
+        <div class="print-document">
+
+          <div class="print-header">
+
+            <div>
+
+              <h1>
+                LABORATORY BORROWING FORM
+              </h1>
+
+              <p>
+                Laboratory Equipment / Supplies Borrowing
+              </p>
+
+            </div>
+
+            <div class="print-control">
+
+              <div>
+                Control No.
+              </div>
+
+              <strong>
+                ${escapeHtml(controlNo)}
+              </strong>
+
+            </div>
+
+          </div>
+
+
+          <!-- SIMPLE INFO -->
+
+          <div class="print-info">
+
+            <div class="print-info-item">
+              <span>Name:</span>
+
+              <strong>
+                ${escapeHtml(studentName)}
+              </strong>
+            </div>
+
+            <div class="print-info-item">
+              <span>Student ID:</span>
+
+              <strong>
+                ${escapeHtml(studentId)}
+              </strong>
+            </div>
+
+            <div class="print-info-item">
+              <span>Date:</span>
+
+              <strong>
+                ${escapeHtml(currentDate)}
+              </strong>
+            </div>
+
+            <div class="print-info-item">
+              <span>Laboratory No.:</span>
+
+              <strong>
+                ____________________
+              </strong>
+            </div>
+
+          </div>
+
+
+          <div class="print-dates">
+
+            <div class="print-date-item">
+
+              <span>
+                Borrow Date:
+              </span>
+
+              <strong>
+                ${escapeHtml(borrowDateText)}
+              </strong>
+
+            </div>
+
+            <div class="print-date-item">
+
+              <span>
+                Return Date:
+              </span>
+
+              <strong>
+                ${escapeHtml(returnDateText)}
+              </strong>
+
+            </div>
+
+          </div>
+
+
+          <!-- INVENTORY TABLE -->
+
+          <table class="print-borrow-table">
+
+            <thead>
+
+              <tr>
+
+                <th>
+                  No.
+                </th>
+
+                <th>
+                  Description
+                </th>
+
+                <th>
+                  Qty
+                </th>
+
+                <th>
+                  Returned
+                </th>
+
+                <th>
+                  Unreturned
+                </th>
+
+                <th>
+                  Remarks
+                </th>
+
+              </tr>
+
+            </thead>
+
+            <tbody>
+
+              ${rows}
+
+            </tbody>
+
+          </table>
+
+
+          <!-- SIGNATURES -->
+
+          <div class="print-signatures">
+
+            <div>
+
+              <span>
+                Requested by:
+              </span>
+
+              <strong>
+                ${escapeHtml(studentName)}
+              </strong>
+
+              <small>
+                Student
+              </small>
+
+            </div>
+
+
+            <div>
+
+              <span>
+                Laboratory Personnel:
+              </span>
+
+              <strong>
+                ______________________________
+              </strong>
+
+              <small>
+                Signature over Printed Name
+              </small>
+
+            </div>
+
+
+            <div>
+
+              <span>
+                Approved by:
+              </span>
+
+              <strong>
+                ______________________________
+              </strong>
+
+              <small>
+                Instructor / Authorized Personnel
+              </small>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+
+  printWindow.focus();
+
+  setTimeout(() => {
+    printWindow.print();
+
+    setTimeout(() => {
+      printWindow.close();
+    }, 500);
+  }, 250);
+}
+
+  /*
+   * ============================================================
+   * ESCAPE HTML
+   * ============================================================
+   */
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 
   const today =
@@ -898,276 +1480,6 @@ export default function BorrowingInterface() {
 
         </div>
       )}
-
-
-      {/* ======================================================
-          PRINT VERSION
-      ====================================================== */}
-
-      <div className="print-document">
-
-        <div className="print-header">
-
-          <div>
-
-            <h1>
-              LABORATORY BORROWING FORM
-            </h1>
-
-            <p>
-              Laboratory Equipment / Supplies Borrowing
-            </p>
-
-          </div>
-
-          <div className="print-control">
-
-            <div>
-              Control No.
-            </div>
-
-            <strong>
-              {printControlNo}
-            </strong>
-
-          </div>
-
-        </div>
-
-
-        <div className="print-info">
-
-          <div>
-            <span>
-              Student Name
-            </span>
-
-            <strong>
-              {studentName}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              Student ID
-            </span>
-
-            <strong>
-              {studentId}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              Laboratory Number
-            </span>
-
-            <strong>
-              ____________________
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              Date
-            </span>
-
-            <strong>
-              {new Date().toLocaleDateString(
-                "en-PH",
-                {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                }
-              )}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              Time
-            </span>
-
-            <strong>
-              {new Date().toLocaleTimeString(
-                "en-PH",
-                {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                }
-              )}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              Borrow Date
-            </span>
-
-            <strong>
-              {formatDate(borrowDate)}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              Return Date
-            </span>
-
-            <strong>
-              {formatDate(returnDate)}
-            </strong>
-          </div>
-
-          <div className="print-purpose">
-
-            <span>
-              Purpose
-            </span>
-
-            <strong>
-              {purpose || "—"}
-            </strong>
-
-          </div>
-
-        </div>
-
-
-        <table className="print-borrow-table">
-
-          <thead>
-
-            <tr>
-
-              <th>
-                No.
-              </th>
-
-              <th>
-                Description
-              </th>
-
-              <th>
-                Qty
-              </th>
-
-              <th>
-                Returned
-              </th>
-
-              <th>
-                Unreturned
-              </th>
-
-              <th>
-                Remarks
-              </th>
-
-            </tr>
-
-          </thead>
-
-          <tbody>
-
-            {Array.from(
-              { length: 30 },
-              (_, index) => {
-
-                const item =
-                  selectedList[index];
-
-                return (
-                  <tr key={index}>
-
-                    <td>
-                      {index + 1}
-                    </td>
-
-                    <td>
-                      {item
-                        ? item.item_name
-                        : ""}
-                    </td>
-
-                    <td>
-                      {item
-                        ? item.borrowQty
-                        : ""}
-                    </td>
-
-                    <td></td>
-
-                    <td></td>
-
-                    <td></td>
-
-                  </tr>
-                );
-              }
-            )}
-
-          </tbody>
-
-        </table>
-
-
-        <div className="print-signatures">
-
-          <div>
-
-            <span>
-              Requested by:
-            </span>
-
-            <strong>
-              {studentName}
-            </strong>
-
-            <small>
-              Student
-            </small>
-
-          </div>
-
-          <div>
-
-            <span>
-              Laboratory Personnel:
-            </span>
-
-            <strong>
-              ______________________________
-            </strong>
-
-            <small>
-              Signature over Printed Name
-            </small>
-
-          </div>
-
-          <div>
-
-            <span>
-              Approved by:
-            </span>
-
-            <strong>
-              ______________________________
-            </strong>
-
-            <small>
-              Instructor / Authorized Personnel
-            </small>
-
-          </div>
-
-        </div>
-
-      </div>
-
     </div>
   );
 }
