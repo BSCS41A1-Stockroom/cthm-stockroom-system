@@ -19,12 +19,14 @@ import Reports from "../pages/admin/Reports";
 import AuditLogs from "../pages/admin/AuditLogs";
 import Users from "../pages/admin/Users";
 import Login from "../pages/Login";
+import SetPassword from "../pages/SetPassword";
 import ProtectedRoute from "../auth/ProtectedRoute";
 
 export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/set-password" element={<SetPassword />} />
 
       {/* =========================
           STUDENT

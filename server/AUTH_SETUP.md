@@ -33,4 +33,6 @@ CLIENT_URL=https://YOUR_FRONTEND.example.com
 
 `CLIENT_URL` accepts a comma-separated list when both preview and production frontend origins are required. Never expose the database password or Supabase service-role key in the frontend.
 
+For account invitations, the first `CLIENT_URL` origin is used as the password-setup redirect. Add `https://YOUR_FRONTEND_DOMAIN/set-password` (and `http://localhost:5173/set-password` for local testing) to Supabase Authentication > URL Configuration > Redirect URLs. Configure Supabase Authentication > Security and Protection > Password Security with a minimum length of 8 and required uppercase, lowercase, digit, and symbol characters. The app's invitation form additionally limits passwords to 16 characters; Supabase's built-in password settings do not offer a maximum-length control, so this upper bound is not a global server-side rule for other Supabase password flows.
+
 Legacy borrowing records have no authenticated owner and remain visible to professors/admins. If students must see legacy records, link their `borrow_requests.user_id` values to the correct `profiles.user_id` after verifying ownership.
