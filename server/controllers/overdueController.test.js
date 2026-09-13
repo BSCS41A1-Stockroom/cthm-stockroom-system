@@ -2,7 +2,49 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { authorizedCronRequest, processOverdueBorrowings } = require("./overdueController");
+const { authorizedCronRequest, processUpcomingDeadlines, processOverdueBorrowings } = require("./overdueController");
+
+test("creates one early warning per due-date threshold and only for outstanding borrowed items", async () => {
+  const calls = [];
+  const client = {
+    async query(sql, values) {
+      calls.push({ sql, values });
+      if (sql.includes("pg_try_advisory_xact_lock")) return { rows: [{ acquired: true }] };
+      if (sql.includes("JOIN public.calendar_events due")) return { rowCount: 1, rows: [{
+        id: 12, user_id: "student-user", due_date: "2026-09-16", days_remaining: 3, units_outstanding: 2,
+      }] };
+      if (sql.includes("INSERT INTO public.notifications")) return { rowCount: 1, rows: [{ id: 1 }] };
+      return { rows: [], rowCount: 0 };
+    },
+    release() { calls.push({ sql: "RELEASE" }); },
+  };
+
+  assert.deepEqual(await processUpcomingDeadlines({ connect: async () => client }), {
+    processed: 1, notificationsCreated: 1, skipped: false,
+  });
+  const reminder = calls.find((call) => call.sql.includes("INSERT INTO public.notifications"));
+  assert.match(reminder.sql, /ON CONFLICT \(notification_key\).*DO NOTHING/s);
+  assert.equal(reminder.values[4], "return-due:12:2026-09-16:3:student-user");
+  assert.match(reminder.values[2], /2 unit\(s\) remain outstanding/);
+  assert.ok(calls.some((call) => call.sql === "COMMIT"));
+});
+
+test("skips deadline reminders when another run holds the lock", async () => {
+  const calls = [];
+  const client = {
+    async query(sql) {
+      calls.push(sql);
+      if (sql.includes("pg_try_advisory_xact_lock")) return { rows: [{ acquired: false }] };
+      return { rows: [], rowCount: 0 };
+    },
+    release() { calls.push("RELEASE"); },
+  };
+  assert.deepEqual(await processUpcomingDeadlines({ connect: async () => client }), {
+    processed: 0, notificationsCreated: 0, skipped: true,
+  });
+  assert.ok(calls.includes("ROLLBACK"));
+  assert.equal(calls.some((sql) => sql.includes("JOIN public.calendar_events due")), false);
+});
 
 test("accepts only an exact bearer cron secret", () => {
   assert.equal(authorizedCronRequest("Bearer correct-secret", "correct-secret"), true);

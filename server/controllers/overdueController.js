@@ -100,15 +100,86 @@ async function processOverdueBorrowings(databasePool = pool) {
   }
 }
 
+async function processUpcomingDeadlines(databasePool = pool) {
+  const client = await databasePool.connect();
+  try {
+    await client.query("BEGIN");
+    const lock = await client.query(
+      "SELECT pg_try_advisory_xact_lock(hashtextextended('return-deadline-warnings', 0)) AS acquired"
+    );
+    if (!lock.rows[0]?.acquired) {
+      await client.query("ROLLBACK");
+      return { processed: 0, notificationsCreated: 0, skipped: true };
+    }
+
+    const upcomingResult = await client.query(
+      `SELECT request.id, request.user_id, due.event_date::text AS due_date,
+              (due.event_date - (now() AT TIME ZONE 'Asia/Manila')::date)::integer AS days_remaining,
+              outstanding.units_outstanding
+         FROM public.borrow_requests request
+         JOIN public.calendar_events due
+           ON due.borrow_request_id = request.id AND due.event_type = 'return_due'
+         JOIN LATERAL (
+           SELECT COALESCE(SUM(items.quantity - COALESCE(returned.accounted, 0)), 0)::integer AS units_outstanding
+             FROM public.borrow_request_items items
+             LEFT JOIN (
+               SELECT request_id, inventory_id,
+                      SUM(good_quantity + damaged_quantity + missing_quantity)::integer AS accounted
+                 FROM public.borrowing_return_items
+                GROUP BY request_id, inventory_id
+             ) returned ON returned.request_id = items.request_id
+                       AND returned.inventory_id = items.inventory_id
+            WHERE items.request_id = request.id
+         ) outstanding ON true
+        WHERE request.status = 'Borrowed'
+          AND request.user_id IS NOT NULL
+          AND due.event_date BETWEEN (now() AT TIME ZONE 'Asia/Manila')::date
+                                 AND (now() AT TIME ZONE 'Asia/Manila')::date + 3
+          AND outstanding.units_outstanding > 0
+        ORDER BY request.id
+        FOR UPDATE OF request`
+    );
+
+    let notificationsCreated = 0;
+    for (const request of upcomingResult.rows) {
+      const requestCode = `BR-${String(request.id).padStart(3, "0")}`;
+      const message = request.days_remaining === 0
+        ? `${requestCode} is due today (${request.due_date}). ${request.units_outstanding} unit(s) remain outstanding.`
+        : `${requestCode} is due in ${request.days_remaining} day(s) (${request.due_date}). ${request.units_outstanding} unit(s) remain outstanding.`;
+      const notice = await client.query(
+        `INSERT INTO public.notifications
+          (recipient_user_id, type, title, message, related_path, entity_type, entity_id, notification_key)
+         VALUES ($1, 'borrowing_due_soon', $2, $3, '/my-requests',
+                 'borrowing_request', $4, $5)
+         ON CONFLICT (notification_key) WHERE notification_key IS NOT NULL DO NOTHING
+         RETURNING id`,
+        [request.user_id, request.days_remaining === 0 ? "Borrowing due today" : "Borrowing return reminder",
+          message, String(request.id), `return-due:${request.id}:${request.due_date}:${request.days_remaining}:${request.user_id}`]
+      );
+      notificationsCreated += notice.rowCount;
+    }
+
+    await client.query("COMMIT");
+    return { processed: upcomingResult.rowCount, notificationsCreated, skipped: false };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function runOverdueMonitoring(req, res, next) {
   if (!authorizedCronRequest(req.get("authorization"))) {
     return res.status(401).json({ error: "INVALID_CRON_AUTHORIZATION", message: "Scheduled job authorization is invalid." });
   }
   try {
-    return res.json(await processOverdueBorrowings());
+    const upcoming = await processUpcomingDeadlines();
+    const overdue = await processOverdueBorrowings();
+    return res.json({ upcoming, overdue });
   } catch (error) {
     return next(error);
   }
 }
 
-module.exports = { authorizedCronRequest, processOverdueBorrowings, runOverdueMonitoring };
+module.exports = { authorizedCronRequest, processUpcomingDeadlines, processOverdueBorrowings, runOverdueMonitoring };

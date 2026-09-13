@@ -56,6 +56,10 @@ test("processes a complete return and updates inventory condition counters atomi
   assert.equal(response.body.complete, true);
   const inventoryUpdate = calls.find((call) => call.sql.includes("UPDATE inventory"));
   assert.deepEqual(inventoryUpdate.params, [2, 1, 0, 7]);
+  const completionEvent = calls.find((call) => call.sql.includes("borrowing_return_id"));
+  assert.equal(completionEvent.params[1], "return_completed");
+  assert.equal(completionEvent.params[4], 20);
+  assert.ok(calls.some((call) => call.sql.includes("DELETE FROM calendar_events") && call.sql.includes("event_type = 'return_due'")));
   assert.equal(calls.at(-1).sql, "COMMIT");
 });
 
