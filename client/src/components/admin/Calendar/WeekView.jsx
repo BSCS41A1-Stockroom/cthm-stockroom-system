@@ -22,6 +22,16 @@ export default function WeekView({ events = [], selectedDate = new Date() }) {
         ))}
       </div>
       <div className="week-body">
+        <div className="week-row">
+          <div className="week-time">All day</div>
+          {days.map((day) => (
+            <div key={formatDate(day)} className="week-cell">
+              {events.filter((event) => event.date === formatDate(day) && !event.start).map((event) => (
+                <div key={event.id} className={`week-event ${event.type}`}>{event.title}</div>
+              ))}
+            </div>
+          ))}
+        </div>
         {hours.map((hour) => {
           const time = `${String(hour).padStart(2, "0")}:00`;
           return (

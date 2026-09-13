@@ -1620,3 +1620,21 @@
 
     color: #b91c1c;
 }
+
+.calendar-event.return_due, .week-event.return_due, .event-chip.return_due {
+    background: #fef3c7;
+    color: #92400e;
+}
+.calendar-event.return_partial, .week-event.return_partial, .event-chip.return_partial {
+    background: #ede9fe;
+    color: #6d28d9;
+}
+.calendar-event.return_completed, .week-event.return_completed, .event-chip.return_completed {
+    background: #dcfce7;
+    color: #166534;
+}
+.mini-dot.borrowing, .legend-dot.borrowing, .tooltip-dot.borrowing { background: #2563eb; }
+.mini-dot.return_due, .legend-dot.return_due, .tooltip-dot.return_due { background: #d97706; }
+.mini-dot.return_partial, .legend-dot.return_partial, .tooltip-dot.return_partial { background: #7c3aed; }
+.mini-dot.return_completed, .legend-dot.return_completed, .tooltip-dot.return_completed { background: #16a34a; }
+.calendar-all-day { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; }

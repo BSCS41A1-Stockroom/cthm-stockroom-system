@@ -26,6 +26,10 @@ export default function CalendarLegend(){
                 Borrow Reminder
             </div>
 
+            <div className="legend-row"><span className="legend-dot borrowing"></span>Borrowed</div>
+            <div className="legend-row"><span className="legend-dot return_due"></span>Return Due</div>
+            <div className="legend-row"><span className="legend-dot return_completed"></span>Returned</div>
+
         </div>
 
     );

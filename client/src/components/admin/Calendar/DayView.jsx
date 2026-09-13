@@ -5,12 +5,18 @@ const hours = Array.from({ length: 14 }, (_, index) => index + 7);
 export default function DayView({ events = [], selectedDate = new Date() }) {
   const selectedDateString = formatDate(selectedDate);
   const dayEvents = events.filter((event) => event.date === selectedDateString);
+  const allDayEvents = dayEvents.filter((event) => !event.start);
 
   return (
     <div className="calendar-container">
       <h2 className="view-title">
         {selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
       </h2>
+      {allDayEvents.length > 0 && (
+        <div className="calendar-all-day">
+          {allDayEvents.map((event) => <div key={event.id} className={`week-event ${event.type}`}>{event.title}</div>)}
+        </div>
+      )}
       <div className="day-view">
         {hours.map((hour) => {
           const time = `${String(hour).padStart(2, "0")}:00`;

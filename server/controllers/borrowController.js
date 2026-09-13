@@ -634,7 +634,27 @@ async function processBorrowingReturn(req, res, next) {
           updated_at = now()
         WHERE id = $1 RETURNING *`, [requestId, complete]
     );
-    if (complete) await client.query(`DELETE FROM calendar_events WHERE borrow_request_id = $1`, [requestId]);
+    const returnedUnits = submittedItems.reduce(
+      (sum, item) => sum + item.goodQuantity + item.damagedQuantity + item.missingQuantity, 0
+    );
+    const returnedItems = submittedItems.map((item) =>
+      `item #${item.inventoryId}: ${item.goodQuantity} good, ${item.damagedQuantity} damaged, ${item.missingQuantity} missing`
+    ).join("; ");
+    await client.query(
+      `INSERT INTO calendar_events
+        (title, event_date, event_type, description, borrow_request_id, borrowing_return_id)
+       VALUES ($1, (now() AT TIME ZONE 'Asia/Manila')::date, $2, $3, $4, $5)`,
+      [
+        `${complete ? "Returned" : "Partial return"}: BR-${String(requestId).padStart(3, "0")}`,
+        complete ? "return_completed" : "return_partial",
+        `${returnedUnits} unit(s) accounted for (${returnedItems}). ${complete ? "All items returned." : "Outstanding items remain."}`,
+        requestId,
+        returnResult.rows[0].id,
+      ]
+    );
+    if (complete) {
+      await client.query(`DELETE FROM calendar_events WHERE borrow_request_id = $1 AND event_type = 'return_due'`, [requestId]);
+    }
 
     await writeAuditLog(client, req.user, {
       action: "borrowing_return_processed", entityType: "borrowing_request", entityId: requestId,
@@ -755,7 +775,8 @@ async function updateBorrowRequestStatus(req, res, next) {
         `INSERT INTO calendar_events
           (title, event_date, event_type, description, borrow_request_id)
          VALUES ($1, $2, 'borrowing', $3, $4)
-         ON CONFLICT (borrow_request_id) WHERE borrow_request_id IS NOT NULL
+         ON CONFLICT (borrow_request_id, event_type)
+           WHERE borrow_request_id IS NOT NULL AND event_type IN ('borrowing', 'return_due')
          DO UPDATE SET title = excluded.title,
                        event_date = excluded.event_date,
                        description = excluded.description,
@@ -766,6 +787,31 @@ async function updateBorrowRequestStatus(req, res, next) {
           `${request.purpose || "Equipment borrowing"} (Return: ${request.return_date.toISOString?.().slice(0, 10) || request.return_date})`,
           requestId,
         ]
+      );
+    }
+
+    if (nextStatus === "Borrowed") {
+      await client.query(
+        `INSERT INTO calendar_events (title, event_date, event_type, description, borrow_request_id)
+         VALUES ($1, (now() AT TIME ZONE 'Asia/Manila')::date, 'borrowing', $2, $3)
+         ON CONFLICT (borrow_request_id, event_type)
+           WHERE borrow_request_id IS NOT NULL AND event_type IN ('borrowing', 'return_due')
+         DO UPDATE SET title = excluded.title, event_date = excluded.event_date,
+                       description = excluded.description, updated_at = now()`,
+        [`Borrowed: BR-${String(requestId).padStart(3, "0")}`,
+          `${request.student_name} borrowed ${itemsResult.rows.map((item) => `item #${item.inventory_id} × ${item.quantity}`).join("; ")}. Return due ${request.return_date.toISOString?.().slice(0, 10) || request.return_date}.`,
+          requestId]
+      );
+      await client.query(
+        `INSERT INTO calendar_events (title, event_date, event_type, description, borrow_request_id)
+         VALUES ($1, $2::date, 'return_due', $3, $4)
+         ON CONFLICT (borrow_request_id, event_type)
+           WHERE borrow_request_id IS NOT NULL AND event_type IN ('borrowing', 'return_due')
+         DO UPDATE SET event_date = excluded.event_date, updated_at = now()`,
+        [`Return due: BR-${String(requestId).padStart(3, "0")}`,
+          request.return_date,
+          "Return all outstanding items by this date.",
+          requestId]
       );
     }
 

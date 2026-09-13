@@ -4,6 +4,7 @@ const hours = Array.from({ length: 12 }, (_, index) => index + 7);
 
 export default function DayView({ selectedDate = new Date(), events = [] }) {
   const date = formatDate(selectedDate);
+  const allDayEvents = events.filter((event) => event.date === date && !event.start);
   return (
     <div className="week-container">
       <div className="week-header">
@@ -12,6 +13,11 @@ export default function DayView({ selectedDate = new Date(), events = [] }) {
           {selectedDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
         </div>
       </div>
+      {allDayEvents.length > 0 && (
+        <div className="calendar-all-day">
+          {allDayEvents.map((event) => <div key={event.id} className={`week-event ${event.type}`}>{event.title}</div>)}
+        </div>
+      )}
       <div className="week-body">
         {hours.map((hour) => {
           const time = `${String(hour).padStart(2, "0")}:00`;

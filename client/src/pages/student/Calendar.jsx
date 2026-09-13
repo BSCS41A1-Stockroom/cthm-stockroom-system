@@ -37,7 +37,7 @@ export default function Calendar() {
         date: event.event_date,
         start: event.start_time?.slice(0, 5) || "",
         end: event.end_time?.slice(0, 5) || "",
-        type: event.event_type === "borrowing" ? "reminder" : event.event_type,
+        type: event.event_type,
         description: event.description || "",
       })));
     }
