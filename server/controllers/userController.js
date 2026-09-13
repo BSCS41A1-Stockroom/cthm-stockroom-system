@@ -5,6 +5,15 @@ const { writeAuditLog } = require("../utils/auditLog");
 
 const ROLES = new Set(["student", "professor", "admin"]);
 let adminClient;
+function invitationRedirectUrl(clientUrl = process.env.CLIENT_URL) {
+  const origin = String(clientUrl ?? "").split(",")[0].trim();
+  if (!origin) throw new Error("CLIENT_URL is required for account invitations.");
+  const url = new URL(origin);
+  if (url.protocol !== "https:" && url.hostname !== "localhost") {
+    throw new Error("CLIENT_URL must use HTTPS for account invitations.");
+  }
+  return new URL("/set-password", url).toString();
+}
 function getAdminClient() {
   if (adminClient) return adminClient;
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -45,7 +54,10 @@ async function inviteUser(req, res, next) {
   if (errors.length) return res.status(422).json({ error: "INVALID_USER", reasons: errors });
   let invitedId;
   try {
-    const { data, error } = await getAdminClient().auth.admin.inviteUserByEmail(user.email, { data: { full_name: user.fullName, student_id: user.studentId || undefined } });
+    const { data, error } = await getAdminClient().auth.admin.inviteUserByEmail(user.email, {
+      data: { full_name: user.fullName, student_id: user.studentId || undefined },
+      redirectTo: invitationRedirectUrl(),
+    });
     if (error) return res.status(409).json({ error: "INVITATION_FAILED", message: error.message });
     invitedId = data.user.id;
     const result = await pool.query(`UPDATE public.profiles SET full_name=$2, role=$3, student_id=$4, is_active=$5, updated_at=now()
@@ -56,6 +68,9 @@ async function inviteUser(req, res, next) {
   } catch (error) {
     if (invitedId) await getAdminClient().auth.admin.deleteUser(invitedId).catch(() => {});
     if (error.code === "USER_ADMIN_NOT_CONFIGURED") return res.status(503).json({ error: error.code, message: error.message });
+    if (error.message === "CLIENT_URL is required for account invitations." || error.message === "CLIENT_URL must use HTTPS for account invitations.") {
+      return res.status(503).json({ error: "INVITATION_REDIRECT_NOT_CONFIGURED", message: error.message });
+    }
     if (error.code === "23505") return res.status(409).json({ error: "STUDENT_ID_IN_USE", message: "That student ID is already assigned to another account." });
     return next(error);
   }
@@ -88,4 +103,4 @@ async function updateUser(req, res, next) {
     return next(error);
   } finally { client.release(); }
 }
-module.exports = { inviteUser, listUsers, normalizeUser, updateUser, userErrors };
+module.exports = { inviteUser, invitationRedirectUrl, listUsers, normalizeUser, updateUser, userErrors };

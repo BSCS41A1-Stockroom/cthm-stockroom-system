@@ -191,6 +191,11 @@
   }
 }
 
+.password-form { display: flex; flex-direction: column; gap: 12px; }
+.password-form p { margin: 0; }
+.password-requirements { margin: 0; padding-left: 20px; color: #8f1d1d; font-size: 13px; line-height: 1.7; }
+.password-requirements .met { color: #166534; }
+
 .login-card .microsoft-signin {
   display: flex;
   align-items: center;
