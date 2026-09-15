@@ -764,6 +764,12 @@ async function updateBorrowRequestStatus(req, res, next) {
           message: "Scan the borrower's current account QR and confirm their identity before releasing items.",
         });
       }
+      const qrState = await client.query(`SELECT is_active, qr_status, qr_version, qr_revoked_at FROM public.profiles WHERE user_id=$1`, [request.user_id]);
+      const qrProfile = qrState.rows[0];
+      if (!qrProfile || !qrProfile.is_active || qrProfile.qr_status !== "active" || qrProfile.qr_revoked_at || qrProfile.qr_version !== claim.qrVersion) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: "QR_NO_LONGER_ACTIVE", message: "The borrower's QR was revoked, replaced, or deactivated. Scan the currently issued QR again." });
+      }
       const returnDate = request.return_date.toISOString?.().slice(0, 10) || String(request.return_date).slice(0, 10);
       const todayParts = new Intl.DateTimeFormat("en-CA", {
         timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit",

@@ -3,6 +3,7 @@
 const crypto = require("node:crypto");
 const pool = require("../config/db");
 const { writeAuditLog } = require("../utils/auditLog");
+const { notifyUser } = require("../utils/notifications");
 const { createAccountQr, createClaimTicket, parseAccountQr } = require("../utils/qrCredential");
 
 const PAIR_TOKEN_PATTERN = /^pair\.v1\.([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.([A-Za-z0-9_-]{43})$/i;
@@ -21,12 +22,12 @@ async function findActiveProfileFromQr(token, database = pool) {
   const parsed = parseAccountQr(token);
   if (!parsed) { const error = new Error("This account QR code is invalid."); error.code = "INVALID_QR"; throw error; }
   const result = await database.query(
-    `SELECT user_id, full_name, student_id, role, is_active, qr_version, qr_revoked_at
+    `SELECT user_id, full_name, student_id, role, is_active, qr_version, qr_revoked_at, qr_status
        FROM public.profiles WHERE qr_public_id=$1`, [parsed.publicId]
   );
   const profile = result.rows[0];
-  if (!profile || profile.qr_version !== parsed.version || profile.qr_revoked_at || !profile.is_active) {
-    const error = new Error("This QR code is revoked, outdated, or belongs to an inactive account."); error.code = "QR_NOT_ACTIVE"; throw error;
+  if (!profile || profile.qr_version !== parsed.version || profile.qr_revoked_at || profile.qr_status !== "active" || !profile.is_active) {
+    const error = new Error("This QR code is not issued, revoked, outdated, or belongs to an inactive account."); error.code = "QR_NOT_ACTIVE"; throw error;
   }
   return profile;
 }
@@ -75,7 +76,7 @@ function claimResponse(profile, request, staffId) {
   return {
     borrower: { fullName: profile.full_name, studentId: profile.student_id, role: profile.role },
     request: { id: request.id, borrowDate: request.borrow_date, returnDate: request.return_date, purpose: request.purpose, items: request.items },
-    claimToken: createClaimTicket({ requestId: request.id, userId: profile.user_id, staffId, expiresAt }),
+    claimToken: createClaimTicket({ requestId: request.id, userId: profile.user_id, staffId, qrVersion: profile.qr_version, expiresAt }),
     expiresAt: new Date(expiresAt).toISOString(),
   };
 }
@@ -83,10 +84,13 @@ function claimResponse(profile, request, staffId) {
 async function getMyQr(req, res, next) {
   try {
     const result = await pool.query(
-      `SELECT qr_public_id, qr_version, qr_revoked_at FROM public.profiles WHERE user_id=$1`, [req.user.id]
+      `SELECT qr_public_id, qr_version, qr_revoked_at, qr_status FROM public.profiles WHERE user_id=$1`, [req.user.id]
     );
     if (!result.rowCount) return res.status(404).json({ error: "PROFILE_NOT_FOUND", message: "Profile was not found." });
     const qr = result.rows[0];
+    if (qr.qr_status !== "active" || qr.qr_revoked_at) {
+      return res.status(409).json({ error: "QR_NOT_ISSUED", message: "Your physical account QR has not been issued or currently requires replacement. Contact an administrator." });
+    }
     return res.json({ token: createAccountQr(qr.qr_public_id, qr.qr_version), revoked: Boolean(qr.qr_revoked_at) });
   } catch (error) {
     if (error.code === "QR_NOT_CONFIGURED") return res.status(503).json({ error: error.code, message: error.message });
@@ -94,24 +98,83 @@ async function getMyQr(req, res, next) {
   }
 }
 
-async function regenerateMyQr(req, res, next) {
+async function loadManagedQrProfile(client, userId, lock = false) {
+  if (!UUID_PATTERN.test(userId)) { const error = new Error("User ID is invalid."); error.code = "INVALID_USER_ID"; throw error; }
+  const result = await client.query(
+    `SELECT user_id, full_name, student_id, role, is_active, qr_public_id, qr_version,
+            qr_status, qr_issued_at, qr_last_printed_at, qr_revoked_at, qr_revocation_reason
+       FROM public.profiles WHERE user_id=$1${lock ? " FOR UPDATE" : ""}`, [userId]
+  );
+  if (!result.rowCount) { const error = new Error("User profile was not found."); error.code = "USER_NOT_FOUND"; throw error; }
+  if (result.rows[0].role !== "student") { const error = new Error("Physical account QR codes can only be managed for Student accounts."); error.code = "QR_STUDENT_ONLY"; throw error; }
+  return result.rows[0];
+}
+
+function managedQrResponse(profile) {
+  return {
+    userId: profile.user_id, fullName: profile.full_name, studentId: profile.student_id,
+    isActive: profile.is_active, status: profile.qr_status, issuedAt: profile.qr_issued_at,
+    lastPrintedAt: profile.qr_last_printed_at, revokedAt: profile.qr_revoked_at,
+    revocationReason: profile.qr_revocation_reason,
+    token: profile.qr_status === "revoked" || profile.qr_revoked_at ? null : createAccountQr(profile.qr_public_id, profile.qr_version),
+  };
+}
+
+async function getManagedUserQr(req, res, next) {
+  try { return res.json(managedQrResponse(await loadManagedQrProfile(pool, req.params.id))); }
+  catch (error) {
+    const statuses = { INVALID_USER_ID: 400, USER_NOT_FOUND: 404, QR_STUDENT_ONLY: 422 };
+    if (error.code === "QR_NOT_CONFIGURED") return res.status(503).json({ error: error.code, message: error.message });
+    if (statuses[error.code]) return res.status(statuses[error.code]).json({ error: error.code, message: error.message });
+    return next(error);
+  }
+}
+
+async function mutateManagedQr(req, res, next, action) {
+  const reason = String(req.body?.reason ?? "").trim();
+  if (["revoke", "replace"].includes(action) && (reason.length < 5 || reason.length > 500)) {
+    return res.status(422).json({ error: "QR_REASON_REQUIRED", message: "Enter a reason between 5 and 500 characters." });
+  }
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const result = await client.query(
-      `UPDATE public.profiles SET qr_public_id=gen_random_uuid(), qr_version=qr_version+1,
-              qr_revoked_at=null, updated_at=now() WHERE user_id=$1
-        RETURNING qr_public_id, qr_version`, [req.user.id]
-    );
-    await writeAuditLog(client, req.user, { action: "account_qr_regenerated", entityType: "user_profile", entityId: req.user.id });
+    const current = await loadManagedQrProfile(client, req.params.id, true);
+    let result;
+    if (action === "issue") {
+      if (!current.is_active) { await client.query("ROLLBACK"); return res.status(409).json({ error: "ACCOUNT_INACTIVE", message: "Activate the student account before issuing its QR." }); }
+      if (current.qr_status === "revoked") { await client.query("ROLLBACK"); return res.status(409).json({ error: "QR_REPLACEMENT_REQUIRED", message: "Generate a replacement before issuing this revoked QR." }); }
+      result = await client.query(`UPDATE public.profiles SET qr_status='active', qr_issued_at=now(), qr_issued_by=$2, qr_revoked_at=null, qr_revocation_reason=null, updated_at=now() WHERE user_id=$1 RETURNING *`, [current.user_id, req.user.id]);
+    } else if (action === "revoke") {
+      result = await client.query(`UPDATE public.profiles SET qr_status='revoked', qr_version=qr_version+1, qr_revoked_at=now(), qr_revocation_reason=$2, updated_at=now() WHERE user_id=$1 RETURNING *`, [current.user_id, reason]);
+    } else if (action === "replace") {
+      result = await client.query(`UPDATE public.profiles SET qr_status='replacement_required', qr_public_id=gen_random_uuid(), qr_version=qr_version+1, qr_issued_at=null, qr_issued_by=null, qr_revoked_at=null, qr_revocation_reason=$2, updated_at=now() WHERE user_id=$1 RETURNING *`, [current.user_id, reason]);
+    } else if (action === "print") {
+      if (current.qr_status === "revoked") { await client.query("ROLLBACK"); return res.status(409).json({ error: "QR_REVOKED", message: "A revoked QR cannot be printed. Generate its replacement first." }); }
+      result = await client.query(`UPDATE public.profiles SET qr_last_printed_at=now(), qr_last_printed_by=$2, updated_at=now() WHERE user_id=$1 RETURNING *`, [current.user_id, req.user.id]);
+    }
+    const actionNames = { issue: "account_qr_issued", revoke: "account_qr_revoked", replace: "account_qr_replaced", print: "account_qr_print_prepared" };
+    await writeAuditLog(client, req.user, { action: actionNames[action], entityType: "user_profile", entityId: current.user_id, oldValues: { qrStatus: current.qr_status }, newValues: { qrStatus: result.rows[0].qr_status }, metadata: reason ? { reason } : {} });
+    if (action !== "print") await notifyUser(client, current.user_id, {
+      type: `account_qr_${action === "replace" ? "replaced" : action === "revoke" ? "revoked" : "issued"}`,
+      title: action === "issue" ? "Account QR issued" : action === "revoke" ? "Account QR revoked" : "Replacement QR generated",
+      message: action === "issue" ? "Your physical account QR is now active." : action === "revoke" ? `Your account QR was revoked: ${reason}` : "A replacement account QR was generated and must be issued by the stockroom.",
+      relatedPath: "/my-qr", entityType: "user_profile", entityId: current.user_id,
+    });
     await client.query("COMMIT");
-    return res.json({ token: createAccountQr(result.rows[0].qr_public_id, result.rows[0].qr_version) });
+    return res.json(managedQrResponse(result.rows[0]));
   } catch (error) {
     await client.query("ROLLBACK");
+    const statuses = { INVALID_USER_ID: 400, USER_NOT_FOUND: 404, QR_STUDENT_ONLY: 422 };
     if (error.code === "QR_NOT_CONFIGURED") return res.status(503).json({ error: error.code, message: error.message });
+    if (statuses[error.code]) return res.status(statuses[error.code]).json({ error: error.code, message: error.message });
     return next(error);
   } finally { client.release(); }
 }
+
+const issueManagedUserQr = (req, res, next) => mutateManagedQr(req, res, next, "issue");
+const revokeManagedUserQr = (req, res, next) => mutateManagedQr(req, res, next, "revoke");
+const replaceManagedUserQr = (req, res, next) => mutateManagedQr(req, res, next, "replace");
+const recordManagedUserQrPrint = (req, res, next) => mutateManagedQr(req, res, next, "print");
 
 async function lookupReadyRequest(req, res, next) {
   const mode = req.body?.mode ?? "claim";
@@ -207,7 +270,8 @@ async function getPairingResult(req, res, next) {
   if (!UUID_PATTERN.test(req.params.id)) return res.status(400).json({ error: "INVALID_PAIRING", message: "Scanner pairing ID is invalid." });
   try {
     const result = await pool.query(
-      `SELECT session.*, profile.full_name, profile.student_id, profile.role, profile.is_active
+      `SELECT session.*, profile.full_name, profile.student_id, profile.role, profile.is_active,
+              profile.qr_version, profile.qr_status, profile.qr_revoked_at
          FROM public.qr_scanner_sessions session
          LEFT JOIN public.profiles profile ON profile.user_id=session.scanned_user_id
         WHERE session.id=$1 AND session.staff_user_id=$2`, [req.params.id, req.user.id]
@@ -216,13 +280,13 @@ async function getPairingResult(req, res, next) {
     if (!session) return res.status(404).json({ error: "PAIRING_NOT_FOUND", message: "Scanner pairing was not found." });
     if (session.status === "closed" || new Date(session.expires_at).getTime() <= Date.now()) return res.status(410).json({ error: "PAIRING_EXPIRED", message: "Scanner pairing expired." });
     if (session.status !== "scanned" || !session.scanned_user_id) return res.json({ status: session.status, expiresAt: session.expires_at });
-    if (!session.is_active) return res.status(404).json({ error: "ACCOUNT_INACTIVE", message: "The scanned account is inactive." });
+    if (!session.is_active || session.qr_status !== "active" || session.qr_revoked_at) return res.status(404).json({ error: "ACCOUNT_INACTIVE", message: "The scanned account or its QR is no longer active." });
     if (session.scan_mode === "return") {
       const requests = await findBorrowedRequests(session.scanned_user_id);
       return res.json({ mode: "return", borrower: { fullName: session.full_name, studentId: session.student_id, role: session.role }, requests });
     }
     const request = await findReadyRequest(session.scanned_user_id);
-    return res.json(claimResponse({ user_id: session.scanned_user_id, full_name: session.full_name, student_id: session.student_id, role: session.role }, request, req.user.id));
+    return res.json(claimResponse({ user_id: session.scanned_user_id, full_name: session.full_name, student_id: session.student_id, role: session.role, qr_version: session.qr_version }, request, req.user.id));
   } catch (error) {
     const statuses = { NO_READY_REQUEST: 404, NO_ACTIVE_BORROWING: 404, MULTIPLE_READY_REQUESTS: 409 };
     if (error.code === "QR_NOT_CONFIGURED") return res.status(503).json({ error: error.code, message: error.message });
@@ -242,4 +306,4 @@ async function closeScannerPairing(req, res, next) {
   } catch (error) { return next(error); }
 }
 
-module.exports = { closeScannerPairing, createScannerPairing, getMyQr, getPairingResult, joinScannerPairing, lookupReadyRequest, regenerateMyQr, submitPairedScan };
+module.exports = { closeScannerPairing, createScannerPairing, getManagedUserQr, getMyQr, getPairingResult, issueManagedUserQr, joinScannerPairing, lookupReadyRequest, recordManagedUserQrPrint, replaceManagedUserQr, revokeManagedUserQr, submitPairedScan };

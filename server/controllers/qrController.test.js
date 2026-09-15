@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
 const pool = require("../config/db");
 const { createAccountQr } = require("../utils/qrCredential");
-const { createScannerPairing, lookupReadyRequest, submitPairedScan } = require("./qrController");
+const { createScannerPairing, getMyQr, lookupReadyRequest, revokeManagedUserQr, submitPairedScan } = require("./qrController");
 
 const STAFF_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const STUDENT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -47,7 +47,7 @@ test("accepts one paired scan for the same staff account and stores no raw QR to
     async query(sql, values) {
       calls.push({ sql, values });
       if (sql.includes("SELECT * FROM public.qr_scanner_sessions")) return { rowCount: 1, rows: [{ id: SESSION_ID, staff_user_id: STAFF_ID, secret_hash: secretHash, status: "connected", expires_at: new Date(Date.now() + 60_000).toISOString() }] };
-      if (sql.includes("FROM public.profiles WHERE qr_public_id")) return { rowCount: 1, rows: [{ user_id: STUDENT_ID, full_name: "Student", student_id: "2026-001", role: "student", is_active: true, qr_version: 1, qr_revoked_at: null }] };
+      if (sql.includes("FROM public.profiles WHERE qr_public_id")) return { rowCount: 1, rows: [{ user_id: STUDENT_ID, full_name: "Student", student_id: "2026-001", role: "student", is_active: true, qr_version: 1, qr_revoked_at: null, qr_status: "active" }] };
       if (sql.includes("FROM public.borrow_requests request")) return { rowCount: 1, rows: [{ id: 9, items: [] }] };
       return { rowCount: 1, rows: [] };
     },
@@ -68,7 +68,7 @@ test("return-mode QR lookup returns only outstanding borrowed transactions", asy
   context.after(() => { pool.query = originalQuery; });
   const publicId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
   pool.query = async (sql) => {
-    if (sql.includes("FROM public.profiles WHERE qr_public_id")) return { rowCount: 1, rows: [{ user_id: STUDENT_ID, full_name: "Student", student_id: "2026-001", role: "student", is_active: true, qr_version: 1, qr_revoked_at: null }] };
+    if (sql.includes("FROM public.profiles WHERE qr_public_id")) return { rowCount: 1, rows: [{ user_id: STUDENT_ID, full_name: "Student", student_id: "2026-001", role: "student", is_active: true, qr_version: 1, qr_revoked_at: null, qr_status: "active" }] };
     if (sql.includes("request.status='Borrowed'")) return { rowCount: 1, rows: [{ id: 14, return_date: "2026-09-20", items: [{ inventoryId: 2, quantity: 3, accountedQuantity: 1, outstandingQuantity: 2 }] }] };
     return { rowCount: 1, rows: [] };
   };
@@ -77,4 +77,22 @@ test("return-mode QR lookup returns only outstanding borrowed transactions", asy
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.mode, "return");
   assert.equal(res.body.requests[0].items[0].outstandingQuantity, 2);
+});
+
+test("students cannot retrieve a physical QR before an admin issues it", async (context) => {
+  const originalQuery = pool.query;
+  context.after(() => { pool.query = originalQuery; });
+  pool.query = async () => ({ rowCount: 1, rows: [{ qr_public_id: SESSION_ID, qr_version: 1, qr_revoked_at: null, qr_status: "not_issued" }] });
+  const res = responseRecorder();
+  await getMyQr({ user: { id: STUDENT_ID } }, res, assert.fail);
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.body.error, "QR_NOT_ISSUED");
+  assert.equal(res.body.token, undefined);
+});
+
+test("admin QR revocation requires an explicit reason", async () => {
+  const res = responseRecorder();
+  await revokeManagedUserQr({ params: { id: STUDENT_ID }, body: { reason: "lost" }, user: { id: STAFF_ID, role: "admin" } }, res, assert.fail);
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.body.error, "QR_REASON_REQUIRED");
 });

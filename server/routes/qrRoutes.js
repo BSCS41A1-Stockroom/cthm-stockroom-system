@@ -1,11 +1,15 @@
 "use strict";
 const express = require("express");
 const { authenticate, requireRoles } = require("../middleware/auth");
-const { closeScannerPairing, createScannerPairing, getMyQr, getPairingResult, joinScannerPairing, lookupReadyRequest, regenerateMyQr, submitPairedScan } = require("../controllers/qrController");
+const { closeScannerPairing, createScannerPairing, getManagedUserQr, getMyQr, getPairingResult, issueManagedUserQr, joinScannerPairing, lookupReadyRequest, recordManagedUserQrPrint, replaceManagedUserQr, revokeManagedUserQr, submitPairedScan } = require("../controllers/qrController");
 const router = express.Router();
 router.use(authenticate);
 router.get("/me", getMyQr);
-router.post("/me/regenerate", regenerateMyQr);
+router.get("/users/:id", requireRoles("admin"), getManagedUserQr);
+router.post("/users/:id/issue", requireRoles("admin"), issueManagedUserQr);
+router.post("/users/:id/revoke", requireRoles("admin"), revokeManagedUserQr);
+router.post("/users/:id/replace", requireRoles("admin"), replaceManagedUserQr);
+router.post("/users/:id/print", requireRoles("admin"), recordManagedUserQrPrint);
 router.post("/lookup", requireRoles("professor", "admin"), lookupReadyRequest);
 router.post("/pairings", requireRoles("professor", "admin"), createScannerPairing);
 router.post("/pairings/join", requireRoles("professor", "admin"), joinScannerPairing);

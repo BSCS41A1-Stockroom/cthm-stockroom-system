@@ -36,18 +36,18 @@ function parseAccountQr(token) {
     : null;
 }
 
-function createClaimTicket({ requestId, userId, staffId, expiresAt }) {
-  const payload = `claim.v1.${requestId}.${userId}.${staffId}.${expiresAt}`;
+function createClaimTicket({ requestId, userId, staffId, qrVersion, expiresAt }) {
+  const payload = `claim.v1.${requestId}.${userId}.${staffId}.${qrVersion}.${expiresAt}`;
   return `${payload}.${signature(payload)}`;
 }
 
 function verifyClaimTicket(token, { requestId, staffId, now = Date.now() }) {
-  const match = /^claim\.v1\.([1-9]\d*)\.([0-9a-f-]{36})\.([0-9a-f-]{36})\.(\d+)\.([A-Za-z0-9_-]{43})$/i.exec(String(token ?? "").trim());
+  const match = /^claim\.v1\.([1-9]\d*)\.([0-9a-f-]{36})\.([0-9a-f-]{36})\.([1-9]\d*)\.(\d+)\.([A-Za-z0-9_-]{43})$/i.exec(String(token ?? "").trim());
   if (!match) return null;
-  const payload = `claim.v1.${match[1]}.${match[2]}.${match[3]}.${match[4]}`;
-  if (!safeEqual(match[5], signature(payload))) return null;
-  if (String(match[1]) !== String(requestId) || match[3] !== staffId || Number(match[4]) < now) return null;
-  return { requestId: Number(match[1]), userId: match[2], staffId: match[3], expiresAt: Number(match[4]) };
+  const payload = `claim.v1.${match[1]}.${match[2]}.${match[3]}.${match[4]}.${match[5]}`;
+  if (!safeEqual(match[6], signature(payload))) return null;
+  if (String(match[1]) !== String(requestId) || match[3] !== staffId || Number(match[5]) < now) return null;
+  return { requestId: Number(match[1]), userId: match[2], staffId: match[3], qrVersion: Number(match[4]), expiresAt: Number(match[5]) };
 }
 
 module.exports = { createAccountQr, createClaimTicket, parseAccountQr, verifyClaimTicket };

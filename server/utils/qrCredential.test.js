@@ -19,8 +19,9 @@ test("creates and verifies a QR without embedding personal account data", () => 
 
 test("claim tickets are bound to request, user, staff, and expiration", () => {
   const expiresAt = Date.now() + 60_000;
-  const token = createClaimTicket({ requestId: 42, userId: USER_ID, staffId: STAFF_ID, expiresAt });
+  const token = createClaimTicket({ requestId: 42, userId: USER_ID, staffId: STAFF_ID, qrVersion: 2, expiresAt });
   assert.equal(verifyClaimTicket(token, { requestId: 42, staffId: STAFF_ID }).userId, USER_ID);
+  assert.equal(verifyClaimTicket(token, { requestId: 42, staffId: STAFF_ID }).qrVersion, 2);
   assert.equal(verifyClaimTicket(token, { requestId: 43, staffId: STAFF_ID }), null);
   assert.equal(verifyClaimTicket(token, { requestId: 42, staffId: USER_ID }), null);
   assert.equal(verifyClaimTicket(token, { requestId: 42, staffId: STAFF_ID, now: expiresAt + 1 }), null);

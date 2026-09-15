@@ -24,28 +24,15 @@ export default function AccountQr() {
     return () => window.clearTimeout(timer);
   }, [loadQr]);
 
-  async function regenerate() {
-    if (!window.confirm("Regenerate your account QR? Your previous QR code will stop working immediately.")) return;
-    setLoading(true); setError("");
-    try {
-      const response = await authenticatedFetch("/api/qr/me/regenerate", { method: "POST" });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.message || "Unable to regenerate your QR code.");
-      setImage(await QRCode.toDataURL(result.token, { width: 360, margin: 2, errorCorrectionLevel: "M" }));
-    } catch (caught) { setError(caught.message); }
-    finally { setLoading(false); }
-  }
-
   return <div className="qr-page">
     <header><h1>My Account QR</h1><p>This is the account QR issued for your physical school ID.</p></header>
     <section className="qr-card">
       {loading && <p>Generating secure QR code...</p>}
       {error && <p className="form-error">{error}</p>}
       {image && !loading && <img src={image} alt="Your secure CTHM account QR code" />}
-      <p className="qr-warning">This QR should be printed and attached to your physical school ID. Do not share a copy with another person. Stockroom staff must verify the school ID before releasing items.</p>
+      <p className="qr-warning">This QR is issued by the stockroom for your physical school ID. Do not share a copy with another person. Contact an administrator if the printed code is lost, damaged, or copied.</p>
       <div className="qr-actions">
-        {image && <a href={image} download="cthm-account-qr.png">Download QR</a>}
-        <button type="button" onClick={regenerate} disabled={loading}>Regenerate QR</button>
+        {image && <a href={image} download="cthm-account-qr.png">Download Copy</a>}
       </div>
     </section>
   </div>;
