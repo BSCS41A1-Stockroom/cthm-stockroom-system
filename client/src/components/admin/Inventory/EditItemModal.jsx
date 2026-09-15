@@ -20,7 +20,8 @@ export default function EditItemModal({
         defective: item.defective,
         total_loss: item.total_loss,
         low_stock_threshold: item.low_stock_threshold ?? DEFAULT_LOW_STOCK_THRESHOLD,
-        remarks: item.remarks ?? ""
+        remarks: item.remarks ?? "",
+        tracking_type: item.tracking_type ?? "bulk"
     }));
 
     if (!open) return null;
@@ -179,6 +180,8 @@ export default function EditItemModal({
                                 onChange={handleChange}
                             />
                         </div>
+
+                        <div className="form-group"><label>Tracking Type</label><select name="tracking_type" value={form.tracking_type} onChange={handleChange}><option value="bulk">Bulk quantity</option><option value="serialized">Serialized assets</option></select><small>Tracking type is locked after stock or borrowing history exists.</small></div>
 
                         <div className="form-group">
                             <label>Low Stock Alert At</label>

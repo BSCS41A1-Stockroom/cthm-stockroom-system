@@ -14,7 +14,7 @@ const {
 const { writeAuditLog } = require("../utils/auditLog");
 const { notifyRoles, notifyUser } = require("../utils/notifications");
 const { loadInventoryCommitment, usableInventoryQuantity } = require("../utils/inventoryCommitments");
-const { verifyClaimTicket } = require("../utils/qrCredential");
+const { parseAssetQr, verifyClaimTicket } = require("../utils/qrCredential");
 
 const RESERVED_STATUSES = new Set(["Pending", "Validated", "Approved"]);
 const BORROWED_STATUSES = new Set(["Borrowed"]);
@@ -120,6 +120,12 @@ function normalizeReturn(body) {
       conditionNote: typeof (item?.conditionNote ?? item?.condition_note) === "string"
         ? (item.conditionNote ?? item.condition_note).trim() : "",
     })) : [],
+    assets: Array.isArray(source.assets) ? source.assets.map((asset) => ({
+      token: typeof asset?.token === "string" ? asset.token.trim() : "",
+      condition: typeof asset?.condition === "string" ? asset.condition.trim().toLowerCase() : "",
+      conditionNote: typeof (asset?.conditionNote ?? asset?.condition_note) === "string"
+        ? (asset.conditionNote ?? asset.condition_note).trim() : "",
+    })) : [],
   };
 }
 
@@ -147,6 +153,15 @@ function returnErrors(returnData) {
     total += item.goodQuantity + item.damagedQuantity + item.missingQuantity;
   }
   if (returnData.items.length && total <= 0) errors.push("At least one unit must be accounted for.");
+  const assetTokens = new Set();
+  for (const asset of returnData.assets) {
+    if (!asset.token) errors.push("Every serialized return must include its asset QR.");
+    if (assetTokens.has(asset.token)) errors.push("The same serialized asset QR appears more than once.");
+    assetTokens.add(asset.token);
+    if (!["good", "fair", "damaged"].includes(asset.condition)) errors.push("Serialized return condition must be good, fair, or damaged.");
+    if (asset.conditionNote.length > 500) errors.push("Serialized asset condition notes cannot exceed 500 characters.");
+    if (asset.condition === "damaged" && !asset.conditionNote) errors.push("A condition note is required for a damaged serialized asset.");
+  }
   return errors;
 }
 
@@ -536,6 +551,15 @@ async function listBorrowRequests(req, res, next) {
                   'name', inventory.item_name,
                   'inventoryId', bri.inventory_id,
                   'quantity', bri.quantity,
+                  'trackingType', inventory.tracking_type,
+                  'assets', (SELECT COALESCE(json_agg(json_build_object(
+                    'assetNumber', asset.asset_number, 'serialNumber', asset.serial_number,
+                    'status', asset.status, 'condition', asset.condition,
+                    'returnedAt', assignment.returned_at, 'returnCondition', assignment.return_condition
+                  ) ORDER BY asset.asset_number), '[]'::json)
+                    FROM borrowing_asset_assignments assignment
+                    JOIN inventory_assets asset ON asset.id=assignment.asset_id
+                    WHERE assignment.request_id=br.id AND assignment.inventory_id=bri.inventory_id),
                   'goodQuantity', COALESCE(returned.good_quantity, 0),
                   'damagedQuantity', COALESCE(returned.damaged_quantity, 0),
                   'missingQuantity', COALESCE(returned.missing_quantity, 0),
@@ -608,6 +632,12 @@ async function processBorrowingReturn(req, res, next) {
     const requestedResult = await client.query(
       `SELECT inventory_id, quantity FROM borrow_request_items WHERE request_id = $1 ORDER BY inventory_id FOR UPDATE`, [requestId]
     );
+    const trackingResult = await client.query(
+      `SELECT id, tracking_type FROM inventory WHERE id=ANY($1::bigint[]) ORDER BY id FOR UPDATE`,
+      [requestedResult.rows.map((item) => item.inventory_id)]
+    );
+    const trackingById = new Map(trackingResult.rows.map((item) => [String(item.id), item.tracking_type]));
+    for (const item of requestedResult.rows) item.tracking_type = trackingById.get(String(item.inventory_id)) ?? "bulk";
     const totalsResult = await client.query(
       `SELECT inventory_id, SUM(good_quantity + damaged_quantity + missing_quantity)::integer AS accounted
          FROM borrowing_return_items WHERE request_id = $1 GROUP BY inventory_id`, [requestId]
@@ -626,6 +656,40 @@ async function processBorrowingReturn(req, res, next) {
       if (accounted > outstanding) {
         await client.query("ROLLBACK");
         return res.status(409).json({ error: "RETURN_QUANTITY_EXCEEDED", message: `Only ${outstanding} unit(s) remain outstanding for inventory item '${id}'.` });
+      }
+    }
+
+    const parsedReturnAssets = returnData.assets.map((asset) => ({ ...asset, parsed: parseAssetQr(asset.token) }));
+    if (parsedReturnAssets.some((asset) => !asset.parsed)) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "INVALID_ASSET_QR", message: "One or more serialized asset QR codes are invalid." });
+    }
+    let returnedAssetRows = [];
+    if (parsedReturnAssets.length) {
+      const publicIds = parsedReturnAssets.map((entry) => entry.parsed.publicId);
+      if (new Set(publicIds).size !== publicIds.length) { await client.query("ROLLBACK"); return res.status(409).json({ error: "DUPLICATE_ASSET_SCAN", message: "The same serialized asset was scanned more than once." }); }
+      const assetResult = await client.query(
+        `SELECT asset.*, assignment.id AS assignment_id
+           FROM public.inventory_assets asset JOIN public.borrowing_asset_assignments assignment ON assignment.asset_id=asset.id
+          WHERE asset.qr_public_id=ANY($1::uuid[]) AND assignment.request_id=$2 AND assignment.returned_at IS NULL
+          ORDER BY asset.id FOR UPDATE OF asset, assignment`, [publicIds, requestId]
+      );
+      if (assetResult.rowCount !== parsedReturnAssets.length) { await client.query("ROLLBACK"); return res.status(409).json({ error: "ASSET_NOT_ASSIGNED", message: "A scanned asset is not an outstanding unit from this request." }); }
+      const submittedById = new Map(parsedReturnAssets.map((entry) => [entry.parsed.publicId.toLowerCase(), entry]));
+      returnedAssetRows = assetResult.rows.map((row) => ({ ...row, submitted: submittedById.get(String(row.qr_public_id).toLowerCase()) }));
+      if (returnedAssetRows.some((row) => row.qr_version !== row.submitted.parsed.version || row.status !== "borrowed" || String(row.current_borrow_request_id) !== String(requestId))) {
+        await client.query("ROLLBACK"); return res.status(409).json({ error: "ASSET_RETURN_STATE_INVALID", message: "A scanned asset QR is outdated or its assignment state changed." });
+      }
+    }
+    for (const requestedItem of requestedResult.rows.filter((item) => item.tracking_type === "serialized")) {
+      const submitted = submittedItems.find((item) => String(item.inventoryId) === String(requestedItem.inventory_id));
+      const assets = returnedAssetRows.filter((asset) => String(asset.inventory_id) === String(requestedItem.inventory_id));
+      const accounted = submitted ? submitted.goodQuantity + submitted.damagedQuantity + submitted.missingQuantity : 0;
+      const good = assets.filter((asset) => ["good", "fair"].includes(asset.submitted.condition)).length;
+      const damaged = assets.filter((asset) => asset.submitted.condition === "damaged").length;
+      if (accounted !== assets.length || (submitted?.missingQuantity ?? 0) || (submitted && (submitted.goodQuantity !== good || submitted.damagedQuantity !== damaged))) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: "SERIALIZED_RETURN_SCAN_MISMATCH", message: "Scan every returned serialized asset and make its condition match the return totals. Report missing serialized assets separately." });
       }
     }
 
@@ -649,6 +713,18 @@ async function processBorrowingReturn(req, res, next) {
       );
       if (!inventoryResult.rowCount) throw new Error(`Inventory counters are inconsistent for item '${item.inventoryId}'.`);
       previous.set(String(item.inventoryId), (previous.get(String(item.inventoryId)) ?? 0) + accounted);
+    }
+    for (const asset of returnedAssetRows) {
+      const damaged = asset.submitted.condition === "damaged";
+      await client.query(
+        `UPDATE public.borrowing_asset_assignments SET returned_by=$2, returned_at=now(), return_condition=$3, condition_note=$4 WHERE id=$1`,
+        [asset.assignment_id, req.user.id, asset.submitted.condition, asset.submitted.conditionNote || null]
+      );
+      await client.query(
+        `UPDATE public.inventory_assets SET status=$2, condition=$3, maintenance_note=$4,
+           current_borrow_request_id=NULL, current_borrower_user_id=NULL, updated_at=now() WHERE id=$1`,
+        [asset.id, damaged ? "maintenance" : "available", asset.submitted.condition, damaged ? asset.submitted.conditionNote : null]
+      );
     }
 
     const complete = requestedResult.rows.every((item) => (previous.get(String(item.inventory_id)) ?? 0) === Number(item.quantity));
@@ -764,6 +840,12 @@ async function updateBorrowRequestStatus(req, res, next) {
           message: "Scan the borrower's current account QR and confirm their identity before releasing items.",
         });
       }
+      const qrState = await client.query(`SELECT is_active, qr_status, qr_version, qr_revoked_at FROM public.profiles WHERE user_id=$1`, [request.user_id]);
+      const qrProfile = qrState.rows[0];
+      if (!qrProfile || !qrProfile.is_active || qrProfile.qr_status !== "active" || qrProfile.qr_revoked_at || qrProfile.qr_version !== claim.qrVersion) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: "QR_NO_LONGER_ACTIVE", message: "The borrower's QR was revoked, replaced, or deactivated. Scan the currently issued QR again." });
+      }
       const returnDate = request.return_date.toISOString?.().slice(0, 10) || String(request.return_date).slice(0, 10);
       const todayParts = new Intl.DateTimeFormat("en-CA", {
         timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit",
@@ -776,6 +858,40 @@ async function updateBorrowRequestStatus(req, res, next) {
       }
     }
 
+    const parsedReturnAssets = returnData.assets.map((asset) => ({ ...asset, parsed: parseAssetQr(asset.token) }));
+    if (parsedReturnAssets.some((asset) => !asset.parsed)) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "INVALID_ASSET_QR", message: "One or more serialized asset QR codes are invalid." });
+    }
+    let returnedAssetRows = [];
+    if (parsedReturnAssets.length) {
+      const publicIds = parsedReturnAssets.map((entry) => entry.parsed.publicId);
+      if (new Set(publicIds).size !== publicIds.length) { await client.query("ROLLBACK"); return res.status(409).json({ error: "DUPLICATE_ASSET_SCAN", message: "The same serialized asset was scanned more than once." }); }
+      const assetResult = await client.query(
+        `SELECT asset.*, assignment.id AS assignment_id
+           FROM public.inventory_assets asset JOIN public.borrowing_asset_assignments assignment ON assignment.asset_id=asset.id
+          WHERE asset.qr_public_id=ANY($1::uuid[]) AND assignment.request_id=$2 AND assignment.returned_at IS NULL
+          ORDER BY asset.id FOR UPDATE OF asset, assignment`, [publicIds, requestId]
+      );
+      if (assetResult.rowCount !== parsedReturnAssets.length) { await client.query("ROLLBACK"); return res.status(409).json({ error: "ASSET_NOT_ASSIGNED", message: "A scanned asset is not an outstanding unit from this request." }); }
+      const submittedById = new Map(parsedReturnAssets.map((entry) => [entry.parsed.publicId.toLowerCase(), entry]));
+      returnedAssetRows = assetResult.rows.map((row) => ({ ...row, submitted: submittedById.get(String(row.qr_public_id).toLowerCase()) }));
+      if (returnedAssetRows.some((row) => row.qr_version !== row.submitted.parsed.version || row.status !== "borrowed" || String(row.current_borrow_request_id) !== String(requestId))) {
+        await client.query("ROLLBACK"); return res.status(409).json({ error: "ASSET_RETURN_STATE_INVALID", message: "A scanned asset QR is outdated or its assignment state changed." });
+      }
+    }
+    for (const requestedItem of requestedResult.rows.filter((item) => item.tracking_type === "serialized")) {
+      const submitted = submittedItems.find((item) => String(item.inventoryId) === String(requestedItem.inventory_id));
+      const assets = returnedAssetRows.filter((asset) => String(asset.inventory_id) === String(requestedItem.inventory_id));
+      const accounted = submitted ? submitted.goodQuantity + submitted.damagedQuantity + submitted.missingQuantity : 0;
+      const good = assets.filter((asset) => ["good", "fair"].includes(asset.submitted.condition)).length;
+      const damaged = assets.filter((asset) => asset.submitted.condition === "damaged").length;
+      if (accounted !== assets.length || (submitted?.missingQuantity ?? 0) || (submitted && (submitted.goodQuantity !== good || submitted.damagedQuantity !== damaged))) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: "SERIALIZED_RETURN_SCAN_MISMATCH", message: "Scan every returned serialized asset and make its condition match the return totals. Report missing serialized assets separately." });
+      }
+    }
+
     const itemsResult = await client.query(
       `SELECT inventory_id, quantity
          FROM borrow_request_items
@@ -784,6 +900,28 @@ async function updateBorrowRequestStatus(req, res, next) {
         FOR UPDATE`,
       [requestId]
     );
+
+    let scannedAssets = [];
+    const consumedAssetIds = new Set();
+    if (nextStatus === "Borrowed") {
+      const tokens = Array.isArray(req.body?.assetTokens) ? req.body.assetTokens : [];
+      if (tokens.length > 500) { await client.query("ROLLBACK"); return res.status(422).json({ error: "TOO_MANY_ASSET_SCANS", message: "Too many serialized assets were submitted at once." }); }
+      const parsed = tokens.map(parseAssetQr);
+      if (parsed.some((entry) => !entry)) { await client.query("ROLLBACK"); return res.status(400).json({ error: "INVALID_ASSET_QR", message: "One or more serialized asset QR codes are invalid." }); }
+      const publicIds = parsed.map((entry) => entry.publicId);
+      if (new Set(publicIds).size !== publicIds.length) { await client.query("ROLLBACK"); return res.status(409).json({ error: "DUPLICATE_ASSET_SCAN", message: "The same serialized asset was scanned more than once." }); }
+      if (publicIds.length) {
+        const assetsResult = await client.query(
+          `SELECT * FROM public.inventory_assets WHERE qr_public_id=ANY($1::uuid[]) ORDER BY id FOR UPDATE`, [publicIds]
+        );
+        if (assetsResult.rowCount !== publicIds.length) { await client.query("ROLLBACK"); return res.status(404).json({ error: "ASSET_NOT_FOUND", message: "One or more scanned assets are unknown." }); }
+        const versionById = new Map(parsed.map((entry) => [entry.publicId.toLowerCase(), entry.version]));
+        if (assetsResult.rows.some((asset) => versionById.get(String(asset.qr_public_id).toLowerCase()) !== asset.qr_version)) {
+          await client.query("ROLLBACK"); return res.status(409).json({ error: "ASSET_QR_OUTDATED", message: "One or more asset QR codes have been replaced." });
+        }
+        scannedAssets = assetsResult.rows;
+      }
+    }
 
     for (const item of itemsResult.rows) {
       const lockedInventory = await client.query(`SELECT * FROM inventory WHERE id = $1 FOR UPDATE`, [item.inventory_id]);
@@ -798,6 +936,31 @@ async function updateBorrowRequestStatus(req, res, next) {
         if (usableInventoryQuantity(lockedInventory.rows[0]) < required) {
           await client.query("ROLLBACK");
           return res.status(409).json({ error: "INSUFFICIENT_INVENTORY_AT_RELEASE", message: `Inventory item '${item.inventory_id}' no longer has enough physical units for release.` });
+        }
+        if (lockedInventory.rows[0].tracking_type === "serialized") {
+          const matchingAssets = scannedAssets.filter((asset) => String(asset.inventory_id) === String(item.inventory_id));
+          if (matchingAssets.length !== Number(item.quantity)) {
+            await client.query("ROLLBACK");
+            return res.status(409).json({ error: "SERIALIZED_ASSET_COUNT_MISMATCH", message: `Scan exactly ${item.quantity} serialized asset(s) for '${lockedInventory.rows[0].item_name}'.` });
+          }
+          const unavailable = matchingAssets.find((asset) => asset.status !== "available" || !["good", "fair"].includes(asset.condition));
+          if (unavailable) {
+            await client.query("ROLLBACK");
+            return res.status(409).json({ error: "ASSET_NOT_AVAILABLE", message: `${unavailable.asset_number} is borrowed, under maintenance, retired, or not in releasable condition.` });
+          }
+          for (const asset of matchingAssets) {
+            consumedAssetIds.add(String(asset.id));
+            await client.query(
+              `INSERT INTO public.borrowing_asset_assignments (request_id, inventory_id, asset_id, released_by)
+               VALUES ($1,$2,$3,$4)`, [requestId, item.inventory_id, asset.id, req.user.id]
+            );
+            const assigned = await client.query(
+              `UPDATE public.inventory_assets SET status='borrowed', current_borrow_request_id=$1,
+                 current_borrower_user_id=$2, updated_at=now() WHERE id=$3 AND status='available' RETURNING id`,
+              [requestId, request.user_id, asset.id]
+            );
+            if (!assigned.rowCount) throw new Error(`Serialized asset '${asset.asset_number}' changed while it was being released.`);
+          }
         }
       }
       const delta = inventoryDeltas(request.status, nextStatus, Number(item.quantity));
@@ -852,6 +1015,11 @@ async function updateBorrowRequestStatus(req, res, next) {
     }
 
     if (nextStatus === "Borrowed") {
+      const extra = scannedAssets.find((asset) => !consumedAssetIds.has(String(asset.id)));
+      if (extra) { await client.query("ROLLBACK"); return res.status(409).json({ error: "ASSET_NOT_REQUESTED", message: `${extra.asset_number} does not belong to this borrowing request.` }); }
+    }
+
+    if (nextStatus === "Borrowed") {
       await client.query(
         `INSERT INTO calendar_events (title, event_date, event_type, description, borrow_request_id)
          VALUES ($1, (now() AT TIME ZONE 'Asia/Manila')::date, 'borrowing', $2, $3)
@@ -885,7 +1053,7 @@ async function updateBorrowRequestStatus(req, res, next) {
       entityType: "borrowing_request",
       entityId: requestId,
       oldValues: { status: request.status },
-      newValues: { status: nextStatus },
+      newValues: { status: nextStatus, serializedAssets: nextStatus === "Borrowed" ? scannedAssets.map((asset) => asset.asset_number) : [] },
     });
     await notifyUser(client, request.user_id, {
       type: `borrowing_${String(nextStatus).toLowerCase()}`,

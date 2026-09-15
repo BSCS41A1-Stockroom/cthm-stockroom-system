@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { authenticatedFetch } from "../../lib/api";
+import QRCode from "qrcode";
+import QrManagementModal from "../../components/admin/Users/QrManagementModal";
 import "../../styles/users.css";
 
 const EMPTY_FORM = {
@@ -20,6 +22,9 @@ export default function Users() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [qrUser, setQrUser] = useState(null);
+  const [selectedQrUsers, setSelectedQrUsers] = useState([]);
+  const [printCards, setPrintCards] = useState([]);
   const loadSequence = useRef(0);
 
   const load = useCallback(async () => {
@@ -102,6 +107,35 @@ export default function Users() {
     setSuccess("");
   }
 
+  function toggleQrUser(userId) {
+    setSelectedQrUsers((current) => current.includes(userId) ? current.filter((id) => id !== userId) : [...current, userId]);
+  }
+
+  async function printSelectedQrCodes() {
+    if (!selectedQrUsers.length || saving) return;
+    setSaving(true); setError("");
+    try {
+      const selected = users.filter((user) => selectedQrUsers.includes(user.user_id) && user.role === "student");
+      const records = await Promise.all(selected.map(async (user) => {
+        const response = await authenticatedFetch(`/api/qr/users/${user.user_id}`);
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.message || `Unable to load QR for ${user.full_name}.`);
+        if (!body.token) return null;
+        const printed = await authenticatedFetch(`/api/qr/users/${user.user_id}/print`, { method: "POST" });
+        const printedBody = await printed.json();
+        if (!printed.ok) throw new Error(printedBody.message || `Unable to prepare QR for ${user.full_name}.`);
+        return { ...printedBody, image: await QRCode.toDataURL(printedBody.token, { width: 360, margin: 2, errorCorrectionLevel: "M" }) };
+      }));
+      const printable = records.filter(Boolean);
+      if (!printable.length) throw new Error("The selected students do not have printable QR codes. Generate replacements for revoked codes first.");
+      setPrintCards(printable);
+      window.addEventListener("afterprint", () => setPrintCards([]), { once: true });
+      window.setTimeout(() => window.print(), 0);
+      await load();
+    } catch (requestError) { setError(requestError.message); }
+    finally { setSaving(false); }
+  }
+
   return (
     <div className="users-page">
       <header>
@@ -116,6 +150,7 @@ export default function Users() {
           placeholder="Search name, email, or student ID"
         />
         <button onClick={openAddUser}>Add User</button>
+        <button className="qr-batch-button" disabled={!selectedQrUsers.length || saving} onClick={printSelectedQrCodes}>Print Selected QR ({selectedQrUsers.length})</button>
       </div>
 
       {success && <p className="form-success" role="status">{success}</p>}
@@ -127,13 +162,14 @@ export default function Users() {
           <table>
             <thead>
               <tr>
-                <th>User</th><th>Role</th><th>Student ID</th><th>Status</th>
+                <th className="qr-select-column" aria-label="Select QR labels" /><th>User</th><th>Role</th><th>Student ID</th><th>Status</th><th>QR Status</th>
                 <th aria-label="Actions" />
               </tr>
             </thead>
             <tbody>
               {users.map((user) => (
                 <tr key={user.user_id}>
+                  <td>{user.role === "student" && <input type="checkbox" aria-label={`Select ${user.full_name} QR`} checked={selectedQrUsers.includes(user.user_id)} onChange={() => toggleQrUser(user.user_id)} />}</td>
                   <td><strong>{user.full_name}</strong><small>{user.email}</small></td>
                   <td>{user.role}</td>
                   <td>{user.student_id || "-"}</td>
@@ -142,7 +178,8 @@ export default function Users() {
                       {user.is_active ? "Active" : "Inactive"}
                     </span>
                   </td>
-                  <td><button onClick={() => edit(user)}>Manage</button></td>
+                  <td>{user.role === "student" ? <span className={`qr-status ${user.qr_status || "not_issued"}`}>{({ not_issued: "Not Issued", active: "Active", revoked: "Revoked", replacement_required: "Replacement Required" })[user.qr_status] || "Not Issued"}</span> : "-"}</td>
+                  <td><div className="user-row-actions"><button onClick={() => edit(user)}>Manage</button>{user.role === "student" && <button className="manage-qr-button" onClick={() => setQrUser(user)}>QR Code</button>}</div></td>
                 </tr>
               ))}
             </tbody>
@@ -176,6 +213,10 @@ export default function Users() {
           </form>
         </div>
       )}
+      {qrUser && <QrManagementModal user={qrUser} onClose={() => setQrUser(null)} onUpdated={load} />}
+      {printCards.length > 0 && <div className="physical-qr-print-sheet batch-print-sheet" aria-hidden="true">
+        {printCards.map((card) => <article className="physical-qr-label" key={card.userId}><div className="print-brand">CTHM Stockroom</div><img src={card.image} alt="" /><strong>{card.fullName}</strong><span>{card.studentId}</span><small>{card.issuedAt ? `Issued ${new Date(card.issuedAt).toLocaleDateString()}` : "Not yet issued"}</small></article>)}
+      </div>}
     </div>
   );
 }

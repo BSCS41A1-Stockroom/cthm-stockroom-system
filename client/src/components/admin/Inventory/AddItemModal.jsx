@@ -15,6 +15,7 @@ export default function AddItemModal({ open, onClose }) {
         total_loss: 0,
         low_stock_threshold: DEFAULT_LOW_STOCK_THRESHOLD,
         remarks: "",
+        tracking_type: "bulk",
     });
 
     if (!open) return null;
@@ -28,6 +29,7 @@ export default function AddItemModal({ open, onClose }) {
                 e.target.type === "number"
                     ? Number(value)
                     : value,
+            ...(name === "tracking_type" && value === "serialized" ? { quantity: 0, additional_qty: 0, replaces: 0, missing: 0, breakage: 0, defective: 0, total_loss: 0 } : {}),
         }));
     }
 
@@ -56,6 +58,7 @@ export default function AddItemModal({ open, onClose }) {
             total_loss: 0,
             low_stock_threshold: DEFAULT_LOW_STOCK_THRESHOLD,
             remarks: "",
+            tracking_type: "bulk",
         });
 
         onClose();
@@ -164,6 +167,8 @@ export default function AddItemModal({ open, onClose }) {
                                 onChange={handleChange}
                             />
                         </div>
+
+                        <div className="form-group"><label>Tracking Type</label><select name="tracking_type" value={form.tracking_type} onChange={handleChange}><option value="bulk">Bulk quantity</option><option value="serialized">Serialized assets</option></select><small>{form.tracking_type === "serialized" ? "Save first, then register each physical asset and print its QR." : "Manage interchangeable items by quantity."}</small></div>
 
                         <div className="form-group">
                             <label>Low Stock Alert At</label>

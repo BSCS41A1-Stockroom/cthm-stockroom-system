@@ -1,4 +1,4 @@
-import { FaCalendarTimes, FaEdit, FaTrash } from "react-icons/fa";
+import { FaBarcode, FaCalendarTimes, FaEdit, FaTrash } from "react-icons/fa";
 import { inventoryStockStatus, inventoryTotals } from "../../../utils/inventoryAvailability";
 
 export default function InventoryTable({
@@ -6,6 +6,7 @@ export default function InventoryTable({
     onEdit,
     onDelete,
     onAvailability,
+    onAssets,
 }) {
 
   if (!inventory || inventory.length === 0) {
@@ -24,6 +25,7 @@ export default function InventoryTable({
             <th>Tools / Particular Item</th>
             <th>Date of Purchase</th>
             <th>Qty</th>
+            <th>Tracking</th>
             <th>Additional Items Qty</th>
             <th>Replaces</th>
             <th>Total Inventory</th>
@@ -55,6 +57,7 @@ export default function InventoryTable({
                 <td>{item.purchase_date}</td>
 
                 <td>{item.quantity}</td>
+                <td>{item.tracking_type === "serialized" ? "Serialized" : "Bulk"}</td>
 
                 <td>{item.additional_qty}</td>
 
@@ -99,6 +102,7 @@ export default function InventoryTable({
                 </td>
 
                 <td className="actions">
+                  {item.tracking_type === "serialized" && <button className="asset-btn" onClick={() => onAssets(item)} title="Manage serialized assets" aria-label={`Manage assets for ${item.item_name}`}><FaBarcode /></button>}
                   <button
                       className="availability-btn"
                       onClick={() => onAvailability(item)}

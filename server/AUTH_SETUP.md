@@ -40,10 +40,12 @@ Legacy borrowing records have no authenticated owner and remain visible to profe
 
 ## Account QR claim setup
 
-Run `migrations/013_borrowing_calendar_deadlines.sql`, `migrations/014_account_qr_claim_flow.sql`, `migrations/015_phone_scanner_pairing.sql`, and then `migrations/016_qr_return_processing.sql` in the Supabase SQL editor. Generate `QR_SIGNING_SECRET` locally with `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` and add the output only to the backend environment. Never add this secret to a `VITE_` variable or expose it in browser code. Changing this secret invalidates every existing account QR code.
+Run `migrations/013_borrowing_calendar_deadlines.sql` through `migrations/017_physical_qr_issuance.sql` in numeric order in the Supabase SQL editor. Generate `QR_SIGNING_SECRET` locally with `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` and add the output only to the backend environment. Never add this secret to a `VITE_` variable or expose it in browser code. Changing this secret invalidates every existing account QR code.
 
 Phone-camera scanning requires HTTPS in production and camera permission from the browser. USB QR scanners are supported through the manual scanner field because most scanners behave like keyboards.
 
 For phone-to-PC scanning, both devices open the deployed HTTPS frontend and sign in with the same Admin or Professor account. The PC creates a five-minute pairing QR, and the phone scans that code to open the mobile scanner. Migration 015 enables Supabase Realtime for pairing-state updates; no USB connection is used or required.
 
 Migration 016 enables QR return-mode pairings, retry-safe return submissions, and database enforcement requiring a condition note whenever damaged or missing units are recorded.
+
+Migration 017 adds the physical QR issuance lifecycle. New and existing student QR codes begin as `Not Issued`; an Admin must print and mark each label as issued before the student can view or use it. Students cannot regenerate issued codes. Lost, copied, or damaged labels must be revoked or replaced from Admin > User Management.

@@ -42,7 +42,8 @@ async function listUsers(req, res, next) {
   const search = String(req.query.search ?? "").trim().slice(0, 100);
   try {
     const result = await pool.query(`SELECT profile.user_id, users.email, profile.full_name, profile.student_id,
-      profile.role, profile.is_active, profile.created_at, profile.updated_at
+      profile.role, profile.is_active, profile.qr_status, profile.qr_issued_at,
+      profile.qr_last_printed_at, profile.created_at, profile.updated_at
       FROM public.profiles profile JOIN auth.users users ON users.id = profile.user_id
       WHERE ($1 = '' OR profile.full_name ILIKE '%' || $1 || '%' OR users.email ILIKE '%' || $1 || '%'
         OR profile.student_id ILIKE '%' || $1 || '%') ORDER BY profile.full_name, profile.user_id LIMIT 200`, [search]);
@@ -95,6 +96,14 @@ async function updateUser(req, res, next) {
     }
     const result = await client.query(`UPDATE public.profiles SET full_name=$2, role=$3, student_id=$4, is_active=$5, updated_at=now()
       WHERE user_id=$1 RETURNING *`, [req.params.id, user.fullName, user.role, user.role === "student" ? user.studentId : null, user.isActive]);
+    if (current.role === "student" && user.role !== "student") {
+      await client.query(`UPDATE public.profiles SET qr_status='revoked', qr_version=qr_version+1,
+        qr_revoked_at=now(), qr_revocation_reason='Account role changed from Student', updated_at=now() WHERE user_id=$1`, [req.params.id]);
+    } else if (current.role !== "student" && user.role === "student") {
+      await client.query(`UPDATE public.profiles SET qr_status='not_issued', qr_public_id=gen_random_uuid(),
+        qr_version=qr_version+1, qr_issued_at=null, qr_issued_by=null, qr_revoked_at=null,
+        qr_revocation_reason=null, updated_at=now() WHERE user_id=$1`, [req.params.id]);
+    }
     await writeAuditLog(client, req.user, { action: "user_profile_updated", entityType: "user_profile", entityId: req.params.id, oldValues: current, newValues: result.rows[0] });
     await client.query("COMMIT"); return res.json({ user: result.rows[0] });
   } catch (error) {

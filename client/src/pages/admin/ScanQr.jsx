@@ -20,8 +20,12 @@ export default function ScanQr() {
   const [mode, setMode] = useState("claim");
   const [returnRequest, setReturnRequest] = useState(null);
   const [returnForm, setReturnForm] = useState(null);
+  const [assetTokens, setAssetTokens] = useState([]);
+  const [assetScanValue, setAssetScanValue] = useState("");
+  const [returnAssets, setReturnAssets] = useState([]);
 
   function selectReturnRequest(request) {
+    setReturnAssets([]);
     if (!request) { setReturnRequest(null); setReturnForm(null); return; }
     setReturnRequest(request);
     setReturnForm({ idempotencyKey: crypto.randomUUID(), remarks: "", items: request.items.map((item) => ({
@@ -74,6 +78,7 @@ export default function ScanQr() {
   async function lookup(token) {
     const normalized = String(token ?? "").trim();
     if (!normalized || scanLock.current) return;
+    if (normalized.startsWith("cthmasset.") && result) return result.mode === "return" ? lookupReturnAsset(normalized) : lookupAsset(normalized);
     scanLock.current = true;
     setBusy(true); setMessage(""); setResult(null); setVerified(false);
     try {
@@ -87,6 +92,43 @@ export default function ScanQr() {
       await stopCamera();
     } catch (error) { setMessage(error.message); }
     finally { scanLock.current = false; setBusy(false); }
+  }
+
+  async function lookupAsset(token) {
+    const normalized = String(token ?? "").trim();
+    if (!normalized || scanLock.current || !result?.request) return;
+    scanLock.current = true; setBusy(true); setMessage("");
+    try {
+      const response = await authenticatedFetch("/api/qr/assets/lookup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: normalized }) });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || "Unable to read this asset QR.");
+      const requested = result.request.items.find((item) => String(item.inventoryId) === String(body.asset.inventoryId) && item.trackingType === "serialized");
+      if (!requested) throw new Error(`${body.asset.assetNumber} is not a serialized item in this request.`);
+      if (body.asset.status !== "available" || !["good", "fair"].includes(body.asset.condition)) throw new Error(`${body.asset.assetNumber} is not available for release.`);
+      if (assetTokens.some((entry) => entry.asset.id === body.asset.id)) throw new Error(`${body.asset.assetNumber} was already scanned.`);
+      const count = assetTokens.filter((entry) => String(entry.asset.inventoryId) === String(requested.inventoryId)).length;
+      if (count >= Number(requested.quantity)) throw new Error(`All required units of ${requested.name} are already scanned.`);
+      setAssetTokens((current) => [...current, { token: normalized, asset: body.asset }]); setAssetScanValue("");
+      setMessage(`${body.asset.assetNumber} added to the release.`);
+    } catch (error) { setMessage(error.message); } finally { scanLock.current = false; setBusy(false); }
+  }
+
+  async function lookupReturnAsset(token) {
+    const normalized = String(token ?? "").trim();
+    if (!normalized || scanLock.current || !returnRequest) return;
+    scanLock.current = true; setBusy(true); setMessage("");
+    try {
+      const response = await authenticatedFetch("/api/qr/assets/lookup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: normalized }) });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || "Unable to read this asset QR.");
+      const requested = returnRequest.items.find((item) => String(item.inventoryId) === String(body.asset.inventoryId) && item.trackingType === "serialized");
+      if (!requested) throw new Error(`${body.asset.assetNumber} is not a serialized item in this return.`);
+      if (returnAssets.some((entry) => entry.asset.id === body.asset.id)) throw new Error(`${body.asset.assetNumber} was already scanned.`);
+      const count = returnAssets.filter((entry) => String(entry.asset.inventoryId) === String(requested.inventoryId)).length;
+      if (count >= Number(requested.outstandingQuantity)) throw new Error(`All outstanding units of ${requested.name} are already scanned.`);
+      setReturnAssets((current) => [...current, { token: normalized, asset: body.asset, condition: "good", conditionNote: "" }]); setAssetScanValue("");
+      setMessage(`${body.asset.assetNumber} added to the return.`);
+    } catch (error) { setMessage(error.message); } finally { scanLock.current = false; setBusy(false); }
   }
 
   async function startCamera() {
@@ -143,11 +185,11 @@ export default function ScanQr() {
     try {
       const response = await authenticatedFetch(`/api/borrowings/${result.request.id}/status`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "Borrowed", claimToken: result.claimToken, identityVerified: true }),
+        body: JSON.stringify({ status: "Borrowed", claimToken: result.claimToken, identityVerified: true, assetTokens: assetTokens.map((entry) => entry.token) }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.message || "Unable to release the items.");
-      setResult(null); setVerified(false); setMessage("Items released successfully. The borrowing deadline is now being tracked.");
+      setResult(null); setVerified(false); setAssetTokens([]); setMessage("Items released successfully. The borrowing deadline is now being tracked.");
     } catch (error) { setMessage(error.message); }
     finally { scanLock.current = false; setBusy(false); }
   }
@@ -156,13 +198,13 @@ export default function ScanQr() {
     if (nextMode === mode) return;
     await stopCamera();
     await closePairing();
-    setMode(nextMode); setResult(null); setVerified(false); setReturnRequest(null); setReturnForm(null); setMessage("");
+    setMode(nextMode); setResult(null); setVerified(false); setReturnRequest(null); setReturnForm(null); setAssetTokens([]); setMessage("");
   }
 
   async function submitReturn(event) {
     event.preventDefault();
     if (!returnRequest || !returnForm || scanLock.current) return;
-    const accounted = returnForm.items.reduce((sum, item) => sum + item.goodQuantity + item.damagedQuantity + item.missingQuantity, 0);
+    const accounted = returnForm.items.reduce((sum, item) => sum + item.goodQuantity + item.damagedQuantity + item.missingQuantity, 0) + returnAssets.length;
     const exceeded = returnForm.items.find((item) => item.goodQuantity + item.damagedQuantity + item.missingQuantity > item.outstandingQuantity);
     const missingNote = returnForm.items.find((item) => (item.damagedQuantity > 0 || item.missingQuantity > 0) && !item.conditionNote.trim());
     if (!accounted || exceeded || missingNote) {
@@ -173,12 +215,24 @@ export default function ScanQr() {
     }
     scanLock.current = true; setBusy(true); setMessage("");
     try {
+      const serializedCounts = new Map();
+      for (const asset of returnAssets) {
+        const key = String(asset.asset.inventoryId); const counts = serializedCounts.get(key) || { good: 0, damaged: 0 };
+        if (asset.condition === "damaged") counts.damaged += 1; else counts.good += 1;
+        serializedCounts.set(key, counts);
+      }
+      const submission = { ...returnForm, items: returnForm.items.map((item) => {
+        const requested = returnRequest.items.find((entry) => String(entry.inventoryId) === String(item.inventoryId));
+        if (requested?.trackingType !== "serialized") return item;
+        const counts = serializedCounts.get(String(item.inventoryId)) || { good: 0, damaged: 0 };
+        return { ...item, goodQuantity: counts.good, damagedQuantity: counts.damaged, missingQuantity: 0, conditionNote: counts.damaged ? "See individual serialized asset notes." : "" };
+      }), assets: returnAssets.map(({ token, condition, conditionNote }) => ({ token, condition, conditionNote })) };
       const response = await authenticatedFetch(`/api/borrowings/${returnRequest.id}/returns`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(returnForm),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(submission),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.reasons?.[0] || body.message || "Unable to record the return.");
-      setResult(null); setReturnRequest(null); setReturnForm(null);
+      setResult(null); setReturnRequest(null); setReturnForm(null); setReturnAssets([]);
       setMessage(body.complete ? "Return completed. All items are accounted for." : "Partial return recorded. Outstanding items remain.");
     } catch (error) { setMessage(error.message); }
     finally { scanLock.current = false; setBusy(false); }
@@ -223,9 +277,10 @@ export default function ScanQr() {
       <dl><div><dt>Borrower</dt><dd>{result.borrower.fullName}</dd></div><div><dt>Student ID</dt><dd>{result.borrower.studentId || "Not applicable"}</dd></div>
         <div><dt>Borrow date</dt><dd>{String(result.request.borrowDate).slice(0, 10)}</dd></div><div><dt>Deadline</dt><dd>{String(result.request.returnDate).slice(0, 10)}</dd></div></dl>
       <h3>Items to release</h3><ul>{result.request.items.map((item) => <li key={item.inventoryId}><span>{item.name}</span><strong>× {item.quantity}</strong></li>)}</ul>
+      {result.request.items.some((item) => item.trackingType === "serialized") && <div className="serialized-scan-panel"><h3>Scan Serialized Assets</h3><p>Scan every physical unit required by this request.</p><form onSubmit={(event) => { event.preventDefault(); lookupAsset(assetScanValue); }}><input autoComplete="off" value={assetScanValue} onChange={(event) => setAssetScanValue(event.target.value)} placeholder="Scan an asset QR" /><button disabled={busy || !assetScanValue.trim()}>Add Asset</button></form>{result.request.items.filter((item) => item.trackingType === "serialized").map((item) => { const scanned = assetTokens.filter((entry) => String(entry.asset.inventoryId) === String(item.inventoryId)); return <div className="serialized-requirement" key={item.inventoryId}><strong>{item.name}: {scanned.length}/{item.quantity}</strong>{scanned.map((entry) => <span key={entry.asset.id}>{entry.asset.assetNumber}<button type="button" onClick={() => setAssetTokens((current) => current.filter((value) => value.asset.id !== entry.asset.id))}>Remove</button></span>)}</div>; })}</div>}
       <p><strong>Purpose:</strong> {result.request.purpose}</p>
       <label className="identity-check"><input type="checkbox" checked={verified} onChange={(event) => setVerified(event.target.checked)} /> I compared the displayed borrower information with their school ID.</label>
-      <button type="button" className="release-button" disabled={!verified || busy} onClick={release}>{busy ? "Rechecking inventory..." : "Release Items"}</button>
+      <button type="button" className="release-button" disabled={!verified || busy || result.request.items.some((item) => item.trackingType === "serialized" && assetTokens.filter((entry) => String(entry.asset.inventoryId) === String(item.inventoryId)).length !== Number(item.quantity))} onClick={release}>{busy ? "Rechecking inventory..." : "Release Items"}</button>
     </section>}
     {result?.mode === "return" && <section className="claim-card return-scan-card">
       <h2>Process Return</h2>
@@ -238,11 +293,12 @@ export default function ScanQr() {
       </label>}
       {returnRequest && returnForm && <form className="qr-return-form" onSubmit={submitReturn}>
         <div className="return-summary"><span>BR-{String(returnRequest.id).padStart(3, "0")}</span><span>Due {String(returnRequest.returnDate).slice(0, 10)}</span></div>
+        {returnRequest.items.some((item) => item.trackingType === "serialized") && <div className="serialized-scan-panel"><h3>Scan Returned Assets</h3><div className="serialized-return-input"><input value={assetScanValue} onChange={(event) => setAssetScanValue(event.target.value)} placeholder="Scan an asset QR" /><button type="button" onClick={() => lookupReturnAsset(assetScanValue)} disabled={!assetScanValue.trim() || busy}>Add Asset</button></div>{returnAssets.map((entry, assetIndex) => <div className="serialized-return-row" key={entry.asset.id}><strong>{entry.asset.assetNumber}</strong><select value={entry.condition} onChange={(event) => setReturnAssets((current) => current.map((value, index) => index === assetIndex ? { ...value, condition: event.target.value } : value))}><option value="good">Good</option><option value="fair">Fair</option><option value="damaged">Damaged</option></select>{entry.condition === "damaged" && <input required maxLength="500" value={entry.conditionNote} placeholder="Damage details" onChange={(event) => setReturnAssets((current) => current.map((value, index) => index === assetIndex ? { ...value, conditionNote: event.target.value } : value))} />}<button type="button" onClick={() => setReturnAssets((current) => current.filter((_, index) => index !== assetIndex))}>Remove</button></div>)}</div>}
         {returnForm.items.map((item, index) => <section className="qr-return-item" key={item.inventoryId}>
           <div className="return-item-heading"><strong>{item.name}</strong><span>{item.outstandingQuantity} outstanding</span></div>
           <div className="return-fields">
             {[["goodQuantity", "Good"], ["damagedQuantity", "Damaged"], ["missingQuantity", "Missing"]].map(([field, label]) => <label key={field}>{label}
-              <input type="number" min="0" max={item.outstandingQuantity} value={item[field]} onChange={(event) => setReturnForm((current) => ({ ...current, items: current.items.map((entry, itemIndex) => itemIndex === index ? { ...entry, [field]: Number(event.target.value) } : entry) }))} />
+              <input type="number" min="0" max={item.outstandingQuantity} disabled={returnRequest.items.find((entry) => String(entry.inventoryId) === String(item.inventoryId))?.trackingType === "serialized"} value={item[field]} onChange={(event) => setReturnForm((current) => ({ ...current, items: current.items.map((entry, itemIndex) => itemIndex === index ? { ...entry, [field]: Number(event.target.value) } : entry) }))} />
             </label>)}
           </div>
           <label>Condition note {(item.damagedQuantity > 0 || item.missingQuantity > 0) && <span className="required-note">Required</span>}
