@@ -12,6 +12,7 @@
 .scanner-card form { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: end; margin-top: 20px; }
 .scanner-card label { display: grid; gap: 7px; color: #334155; font-weight: 600; }
 .scanner-card input { min-width: 0; padding: 11px; border: 1px solid #cbd5e1; border-radius: 8px; }
+.scanner-card select { padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; }
 .camera-reader:empty { display: none; }
 .camera-reader { max-width: 520px; margin: auto; overflow: hidden; border-radius: 12px; }
 .claim-card { margin-top: 20px; }
@@ -24,4 +25,11 @@
 .identity-check { display: flex; align-items: flex-start; gap: 9px; margin: 20px 0; line-height: 1.4; }
 .release-button:disabled, .scanner-card button:disabled { opacity: .55; cursor: not-allowed; }
 .qr-success { color: #047857; font-weight: 600; }
+.secondary-button { background: #475569 !important; }
+.pairing-panel { margin: 22px auto; max-width: 440px; padding: 18px; border-radius: 12px; background: #f8fafc; text-align: center; }
+.pairing-panel h2 { margin-top: 0; }
+.pairing-panel img { display: block; width: min(100%, 300px); margin: 14px auto; }
+.pairing-state { color: #1d4ed8; font-weight: 600; }
+.mobile-scanner-page { min-height: 100vh; max-width: 620px; margin: auto; padding: 24px 16px; background: #fff; }
+.mobile-scanner-page h1 { margin-bottom: 6px; }
 @media (max-width: 600px) { .scanner-card form { grid-template-columns: 1fr; } .claim-card dl { grid-template-columns: 1fr; } }

@@ -20,6 +20,7 @@ import Reports from "../pages/admin/Reports";
 import AuditLogs from "../pages/admin/AuditLogs";
 import Users from "../pages/admin/Users";
 import ScanQr from "../pages/admin/ScanQr";
+import MobileQrScanner from "../pages/admin/MobileQrScanner";
 import Login from "../pages/Login";
 import SetPassword from "../pages/SetPassword";
 import ProtectedRoute from "../auth/ProtectedRoute";
@@ -47,6 +48,7 @@ export default function AppRoutes() {
           ADMIN
       ========================= */}
       <Route element={<ProtectedRoute roles={["professor", "admin"]} />}>
+        <Route path="/admin/scan/mobile" element={<MobileQrScanner />} />
         <Route element={<AdminLayout />}>
           <Route path="/admin" element={<Dashboard />} />
           <Route path="/admin/requests" element={<Requests />} />
