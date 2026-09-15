@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { FaQrcode } from "react-icons/fa";
 import { useAuth } from "../../auth/useAuth";
 
 export default function ProfileMenu({ variant = "student" }) {
@@ -58,6 +60,12 @@ export default function ProfileMenu({ variant = "student" }) {
       {open && (
         <div className="profile-dropdown" role="menu">
           <div className="profile-dropdown-details"><strong>{name}</strong><span>{user?.email || profile?.student_id || role}</span></div>
+          {profile?.role === "student" && (
+            <Link className="profile-dropdown-link" role="menuitem" to="/my-qr" onClick={() => setOpen(false)}>
+              <FaQrcode aria-hidden="true" />
+              <span>My Account QR</span>
+            </Link>
+          )}
           <button type="button" className="profile-signout" role="menuitem" onClick={requestSignOut}>Sign out</button>
         </div>
       )}
