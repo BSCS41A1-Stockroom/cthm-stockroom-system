@@ -17,10 +17,11 @@ const {
 } = require("./borrowController");
 
 test("normalizes return quantities and rejects invalid return batches", () => {
-  const valid = normalizeReturn({ remarks: " Checked ", items: [{ inventory_id: 7, good_quantity: "2", damaged_quantity: 1, missing_quantity: 0 }] });
+  const valid = normalizeReturn({ remarks: " Checked ", items: [{ inventory_id: 7, good_quantity: "2", damaged_quantity: 1, missing_quantity: 0, condition_note: "Bent handle" }] });
   assert.equal(valid.remarks, "Checked");
   assert.equal(valid.items[0].goodQuantity, 2);
   assert.deepEqual(returnErrors(valid), []);
+  assert.equal(returnErrors(normalizeReturn({ items: [{ inventoryId: 7, damagedQuantity: 1 }] })).some((error) => error.includes("condition note")), true);
 
   const duplicate = normalizeReturn({ items: [
     { inventoryId: 7, goodQuantity: 1 }, { inventoryId: 7, missingQuantity: 1 },
@@ -48,7 +49,7 @@ test("processes a complete return and updates inventory condition counters atomi
   pool.connect = async () => client;
   const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
   try {
-    await processBorrowingReturn({ params: { id: "10" }, body: { items: [{ inventoryId: 7, goodQuantity: 1, damagedQuantity: 1 }] }, user: { id: "admin-user", role: "admin" } }, response, (error) => { throw error; });
+    await processBorrowingReturn({ params: { id: "10" }, body: { items: [{ inventoryId: 7, goodQuantity: 1, damagedQuantity: 1, conditionNote: "Handle damage" }] }, user: { id: "admin-user", role: "admin" } }, response, (error) => { throw error; });
   } finally {
     pool.connect = originalConnect;
   }
@@ -61,6 +62,29 @@ test("processes a complete return and updates inventory condition counters atomi
   assert.equal(completionEvent.params[4], 20);
   assert.ok(calls.some((call) => call.sql.includes("DELETE FROM calendar_events") && call.sql.includes("event_type = 'return_due'")));
   assert.equal(calls.at(-1).sql, "COMMIT");
+});
+
+test("returns the original result when an idempotent return submission is retried", async () => {
+  const calls = [];
+  const key = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+  const client = {
+    async query(sql) {
+      calls.push(sql);
+      if (sql.includes("SELECT * FROM borrow_requests")) return { rowCount: 1, rows: [{ id: 10, status: "Returned" }] };
+      if (sql.includes("WHERE returned.idempotency_key")) return { rowCount: 1, rows: [{ id: 20, request_id: 10, request_status: "Returned" }] };
+      return { rowCount: 1, rows: [] };
+    }, release() {},
+  };
+  const originalConnect = pool.connect; pool.connect = async () => client;
+  const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+  try {
+    await processBorrowingReturn({ params: { id: "10" }, body: { idempotencyKey: key, items: [{ inventoryId: 7, goodQuantity: 1 }] }, user: { id: "admin-user", role: "admin" } }, response, (error) => { throw error; });
+  } finally { pool.connect = originalConnect; }
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.duplicate, true);
+  assert.equal(response.body.complete, true);
+  assert.equal(calls.some((sql) => sql.includes("INSERT INTO borrowing_returns")), false);
+  assert.ok(calls.includes("ROLLBACK"));
 });
 
 test("uses the authenticated profile instead of client-supplied student identity", () => {
