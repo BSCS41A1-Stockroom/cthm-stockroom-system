@@ -12,6 +12,7 @@ const {
   processBorrowingReturn,
   returnErrors,
   serializeBorrowRequest,
+  updateBorrowRequestStatus,
   validatePolicyConstraints,
   withValidation,
 } = require("./borrowController");
@@ -28,6 +29,33 @@ test("normalizes return quantities and rejects invalid return batches", () => {
   ] });
   assert.equal(returnErrors(duplicate).some((error) => error.includes("appears more than once")), true);
   assert.equal(returnErrors(normalizeReturn({ items: [{ inventoryId: 7 }] })).includes("At least one unit must be accounted for."), true);
+});
+
+test("validates identified serialized missing-asset incident details", () => {
+  const valid = normalizeReturn({
+    items: [{ inventoryId: 7, missingQuantity: 1, conditionNote: "Asset not surrendered" }],
+    missingAssets: [{ assetId: 42, reason: "Borrower could not surrender the assigned unit." }],
+  });
+  assert.deepEqual(returnErrors(valid), []);
+  assert.equal(returnErrors(normalizeReturn({ items: [{ inventoryId: 7, missingQuantity: 1, conditionNote: "Missing" }], missingAssets: [{ assetId: 42, reason: "No" }] })).some((error) => error.includes("5 to 500")), true);
+});
+
+test("status approval does not execute serialized return processing", async () => {
+  const calls = [];
+  const client = { async query(sql) {
+    calls.push(sql);
+    if (sql.includes("SELECT * FROM borrow_requests")) return { rowCount: 1, rows: [{ id: 5, status: "Pending", user_id: "student", student_name: "Student", borrow_date: "2030-01-01", return_date: "2030-01-02" }] };
+    if (sql.includes("SELECT inventory_id, quantity")) return { rowCount: 0, rows: [] };
+    if (sql.includes("UPDATE borrow_requests")) return { rowCount: 1, rows: [{ id: 5, status: "Approved" }] };
+    return { rowCount: 1, rows: [] };
+  }, release() {} };
+  const originalConnect = pool.connect; pool.connect = async () => client;
+  const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+  try { await updateBorrowRequestStatus({ params: { id: "5" }, body: { status: "Approved" }, user: { id: "admin", role: "admin" } }, response, (error) => { throw error; }); }
+  finally { pool.connect = originalConnect; }
+  assert.equal(response.statusCode, 200);
+  assert.equal(calls.some((sql) => sql.includes("borrowing_asset_assignments")), false);
+  assert.equal(calls.at(-1), "COMMIT");
 });
 
 test("processes a complete return and updates inventory condition counters atomically", async () => {

@@ -55,6 +55,13 @@ async function findBorrowedRequests(userId, database = pool) {
               'quantity', item.quantity, 'trackingType', inventory.tracking_type,
               'accountedQuantity', COALESCE(returned.accounted, 0),
               'outstandingQuantity', GREATEST(item.quantity-COALESCE(returned.accounted, 0), 0)
+              ,'assets', (SELECT COALESCE(json_agg(json_build_object(
+                'id', asset.id, 'assetNumber', asset.asset_number, 'serialNumber', asset.serial_number
+              ) ORDER BY asset.asset_number), '[]'::json)
+                FROM public.borrowing_asset_assignments assignment
+                JOIN public.inventory_assets asset ON asset.id=assignment.asset_id
+                WHERE assignment.request_id=request.id AND assignment.inventory_id=item.inventory_id
+                  AND assignment.returned_at IS NULL)
             ) ORDER BY item.inventory_id) AS items
        FROM public.borrow_requests request
        JOIN public.borrow_request_items item ON item.request_id=request.id

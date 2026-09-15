@@ -126,6 +126,10 @@ function normalizeReturn(body) {
       conditionNote: typeof (asset?.conditionNote ?? asset?.condition_note) === "string"
         ? (asset.conditionNote ?? asset.condition_note).trim() : "",
     })) : [],
+    missingAssets: Array.isArray(source.missingAssets ?? source.missing_assets) ? (source.missingAssets ?? source.missing_assets).map((asset) => ({
+      assetId: asset?.assetId ?? asset?.asset_id,
+      reason: typeof asset?.reason === "string" ? asset.reason.trim() : "",
+    })) : [],
   };
 }
 
@@ -161,6 +165,14 @@ function returnErrors(returnData) {
     if (!["good", "fair", "damaged"].includes(asset.condition)) errors.push("Serialized return condition must be good, fair, or damaged.");
     if (asset.conditionNote.length > 500) errors.push("Serialized asset condition notes cannot exceed 500 characters.");
     if (asset.condition === "damaged" && !asset.conditionNote) errors.push("A condition note is required for a damaged serialized asset.");
+  }
+  const missingAssetIds = new Set();
+  for (const asset of returnData.missingAssets) {
+    const id = String(asset.assetId ?? "");
+    if (!/^[1-9]\d*$/.test(id)) errors.push("Every missing serialized asset must have a valid asset ID.");
+    if (missingAssetIds.has(id)) errors.push(`Serialized asset '${id}' is reported missing more than once.`);
+    missingAssetIds.add(id);
+    if (asset.reason.length < 5 || asset.reason.length > 500) errors.push(`Missing-asset reason for '${id}' must contain 5 to 500 characters.`);
   }
   return errors;
 }
@@ -681,15 +693,34 @@ async function processBorrowingReturn(req, res, next) {
         await client.query("ROLLBACK"); return res.status(409).json({ error: "ASSET_RETURN_STATE_INVALID", message: "A scanned asset QR is outdated or its assignment state changed." });
       }
     }
+    let missingAssetRows = [];
+    if (returnData.missingAssets.length) {
+      const missingIds = returnData.missingAssets.map((asset) => String(asset.assetId));
+      const missingResult = await client.query(
+        `SELECT asset.*, assignment.id AS assignment_id
+           FROM public.inventory_assets asset JOIN public.borrowing_asset_assignments assignment ON assignment.asset_id=asset.id
+          WHERE asset.id=ANY($1::bigint[]) AND assignment.request_id=$2 AND assignment.returned_at IS NULL
+          ORDER BY asset.id FOR UPDATE OF asset, assignment`, [missingIds, requestId]
+      );
+      if (missingResult.rowCount !== missingIds.length) { await client.query("ROLLBACK"); return res.status(409).json({ error: "MISSING_ASSET_NOT_OUTSTANDING", message: "A selected asset is not an outstanding unit from this request or was already reported." }); }
+      const reasonById = new Map(returnData.missingAssets.map((asset) => [String(asset.assetId), asset.reason]));
+      missingAssetRows = missingResult.rows.map((row) => ({ ...row, incidentReason: reasonById.get(String(row.id)) }));
+      if (missingAssetRows.some((row) => row.status !== "borrowed" || String(row.current_borrow_request_id) !== String(requestId))) {
+        await client.query("ROLLBACK"); return res.status(409).json({ error: "MISSING_ASSET_STATE_INVALID", message: "A selected asset is no longer assigned as borrowed for this request." });
+      }
+      const scannedIds = new Set(returnedAssetRows.map((asset) => String(asset.id)));
+      if (missingAssetRows.some((asset) => scannedIds.has(String(asset.id)))) { await client.query("ROLLBACK"); return res.status(409).json({ error: "ASSET_RETURN_CONFLICT", message: "An asset cannot be both scanned as returned and reported missing." }); }
+    }
     for (const requestedItem of requestedResult.rows.filter((item) => item.tracking_type === "serialized")) {
       const submitted = submittedItems.find((item) => String(item.inventoryId) === String(requestedItem.inventory_id));
       const assets = returnedAssetRows.filter((asset) => String(asset.inventory_id) === String(requestedItem.inventory_id));
+      const missingAssets = missingAssetRows.filter((asset) => String(asset.inventory_id) === String(requestedItem.inventory_id));
       const accounted = submitted ? submitted.goodQuantity + submitted.damagedQuantity + submitted.missingQuantity : 0;
       const good = assets.filter((asset) => ["good", "fair"].includes(asset.submitted.condition)).length;
       const damaged = assets.filter((asset) => asset.submitted.condition === "damaged").length;
-      if (accounted !== assets.length || (submitted?.missingQuantity ?? 0) || (submitted && (submitted.goodQuantity !== good || submitted.damagedQuantity !== damaged))) {
+      if (accounted !== assets.length + missingAssets.length || (submitted && (submitted.goodQuantity !== good || submitted.damagedQuantity !== damaged || submitted.missingQuantity !== missingAssets.length))) {
         await client.query("ROLLBACK");
-        return res.status(409).json({ error: "SERIALIZED_RETURN_SCAN_MISMATCH", message: "Scan every returned serialized asset and make its condition match the return totals. Report missing serialized assets separately." });
+        return res.status(409).json({ error: "SERIALIZED_RETURN_SCAN_MISMATCH", message: "Serialized return totals must match every scanned or explicitly reported missing asset." });
       }
     }
 
@@ -725,6 +756,28 @@ async function processBorrowingReturn(req, res, next) {
            current_borrow_request_id=NULL, current_borrower_user_id=NULL, updated_at=now() WHERE id=$1`,
         [asset.id, damaged ? "maintenance" : "available", asset.submitted.condition, damaged ? asset.submitted.conditionNote : null]
       );
+    }
+    for (const asset of missingAssetRows) {
+      await client.query(
+        `UPDATE public.borrowing_asset_assignments SET returned_by=$2, returned_at=now(), return_condition='missing', condition_note=$3 WHERE id=$1`,
+        [asset.assignment_id, req.user.id, asset.incidentReason]
+      );
+      await client.query(
+        `UPDATE public.inventory_assets SET status='missing', condition='missing', maintenance_note=$2,
+           current_borrow_request_id=NULL, current_borrower_user_id=NULL, updated_at=now() WHERE id=$1`, [asset.id, asset.incidentReason]
+      );
+      const incident = await client.query(
+        `INSERT INTO public.serialized_asset_incidents (request_id, assignment_id, asset_id, reason, reported_by)
+         VALUES ($1,$2,$3,$4,$5) RETURNING id`, [requestId, asset.assignment_id, asset.id, asset.incidentReason, req.user.id]
+      );
+      await writeAuditLog(client, req.user, { action: "serialized_asset_reported_missing", entityType: "serialized_asset_incident", entityId: incident.rows[0].id, newValues: { requestId, assetId: asset.id, assetNumber: asset.asset_number, reason: asset.incidentReason } });
+    }
+    if (missingAssetRows.length) {
+      await notifyRoles(client, ["admin"], {
+        type: "serialized_asset_missing", title: "Serialized asset reported missing",
+        message: `${missingAssetRows.map((asset) => asset.asset_number).join(", ")} reported missing from BR-${String(requestId).padStart(3, "0")}.`,
+        relatedPath: "/admin/inventory", entityType: "borrowing_request", entityId: requestId,
+      });
     }
 
     const complete = requestedResult.rows.every((item) => (previous.get(String(item.inventory_id)) ?? 0) === Number(item.quantity));
@@ -855,40 +908,6 @@ async function updateBorrowRequestStatus(req, res, next) {
       if (returnDate < todayKey) {
         await client.query("ROLLBACK");
         return res.status(409).json({ error: "CLAIM_WINDOW_EXPIRED", message: "This request has passed its return deadline and can no longer be released." });
-      }
-    }
-
-    const parsedReturnAssets = returnData.assets.map((asset) => ({ ...asset, parsed: parseAssetQr(asset.token) }));
-    if (parsedReturnAssets.some((asset) => !asset.parsed)) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ error: "INVALID_ASSET_QR", message: "One or more serialized asset QR codes are invalid." });
-    }
-    let returnedAssetRows = [];
-    if (parsedReturnAssets.length) {
-      const publicIds = parsedReturnAssets.map((entry) => entry.parsed.publicId);
-      if (new Set(publicIds).size !== publicIds.length) { await client.query("ROLLBACK"); return res.status(409).json({ error: "DUPLICATE_ASSET_SCAN", message: "The same serialized asset was scanned more than once." }); }
-      const assetResult = await client.query(
-        `SELECT asset.*, assignment.id AS assignment_id
-           FROM public.inventory_assets asset JOIN public.borrowing_asset_assignments assignment ON assignment.asset_id=asset.id
-          WHERE asset.qr_public_id=ANY($1::uuid[]) AND assignment.request_id=$2 AND assignment.returned_at IS NULL
-          ORDER BY asset.id FOR UPDATE OF asset, assignment`, [publicIds, requestId]
-      );
-      if (assetResult.rowCount !== parsedReturnAssets.length) { await client.query("ROLLBACK"); return res.status(409).json({ error: "ASSET_NOT_ASSIGNED", message: "A scanned asset is not an outstanding unit from this request." }); }
-      const submittedById = new Map(parsedReturnAssets.map((entry) => [entry.parsed.publicId.toLowerCase(), entry]));
-      returnedAssetRows = assetResult.rows.map((row) => ({ ...row, submitted: submittedById.get(String(row.qr_public_id).toLowerCase()) }));
-      if (returnedAssetRows.some((row) => row.qr_version !== row.submitted.parsed.version || row.status !== "borrowed" || String(row.current_borrow_request_id) !== String(requestId))) {
-        await client.query("ROLLBACK"); return res.status(409).json({ error: "ASSET_RETURN_STATE_INVALID", message: "A scanned asset QR is outdated or its assignment state changed." });
-      }
-    }
-    for (const requestedItem of requestedResult.rows.filter((item) => item.tracking_type === "serialized")) {
-      const submitted = submittedItems.find((item) => String(item.inventoryId) === String(requestedItem.inventory_id));
-      const assets = returnedAssetRows.filter((asset) => String(asset.inventory_id) === String(requestedItem.inventory_id));
-      const accounted = submitted ? submitted.goodQuantity + submitted.damagedQuantity + submitted.missingQuantity : 0;
-      const good = assets.filter((asset) => ["good", "fair"].includes(asset.submitted.condition)).length;
-      const damaged = assets.filter((asset) => asset.submitted.condition === "damaged").length;
-      if (accounted !== assets.length || (submitted?.missingQuantity ?? 0) || (submitted && (submitted.goodQuantity !== good || submitted.damagedQuantity !== damaged))) {
-        await client.query("ROLLBACK");
-        return res.status(409).json({ error: "SERIALIZED_RETURN_SCAN_MISMATCH", message: "Scan every returned serialized asset and make its condition match the return totals. Report missing serialized assets separately." });
       }
     }
 
