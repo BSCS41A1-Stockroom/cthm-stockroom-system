@@ -1,10 +1,15 @@
 "use strict";
 const express = require("express");
 const { authenticate, requireRoles } = require("../middleware/auth");
-const { getMyQr, lookupReadyRequest, regenerateMyQr } = require("../controllers/qrController");
+const { closeScannerPairing, createScannerPairing, getMyQr, getPairingResult, joinScannerPairing, lookupReadyRequest, regenerateMyQr, submitPairedScan } = require("../controllers/qrController");
 const router = express.Router();
 router.use(authenticate);
 router.get("/me", getMyQr);
 router.post("/me/regenerate", regenerateMyQr);
 router.post("/lookup", requireRoles("professor", "admin"), lookupReadyRequest);
+router.post("/pairings", requireRoles("professor", "admin"), createScannerPairing);
+router.post("/pairings/join", requireRoles("professor", "admin"), joinScannerPairing);
+router.post("/pairings/scan", requireRoles("professor", "admin"), submitPairedScan);
+router.get("/pairings/:id", requireRoles("professor", "admin"), getPairingResult);
+router.delete("/pairings/:id", requireRoles("professor", "admin"), closeScannerPairing);
 module.exports = router;

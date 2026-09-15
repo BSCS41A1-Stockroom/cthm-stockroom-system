@@ -11,10 +11,12 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState("");
+  const queryDestination = new URLSearchParams(location.search).get("next");
+  const safeDestination = (value) => typeof value === "string" && value.startsWith("/") && !value.startsWith("//") ? value : null;
 
   if (!loading && user && profile) {
     const fallback = profile.role === "student" ? "/" : "/admin";
-    return <Navigate to={location.state?.from || fallback} replace />;
+    return <Navigate to={safeDestination(location.state?.from) || safeDestination(queryDestination) || fallback} replace />;
   }
 
   async function handleSubmit(event) {
@@ -29,11 +31,14 @@ export default function Login() {
   async function handleMicrosoftSignIn() {
     setError("");
     setSubmitting("microsoft");
+    const destination = safeDestination(location.state?.from) || safeDestination(queryDestination);
+    const callback = new URL("/login", window.location.origin);
+    if (destination) callback.searchParams.set("next", destination);
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: "azure",
       options: {
         scopes: "email",
-        redirectTo: `${window.location.origin}/login`,
+        redirectTo: callback.toString(),
       },
     });
     if (signInError) {
