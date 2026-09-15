@@ -16,6 +16,7 @@ function assetResponse(row, includeToken = false) {
     condition: row.condition, status: row.status,
     currentBorrowRequestId: row.current_borrow_request_id,
     lastInspectedAt: row.last_inspected_at, maintenanceNote: row.maintenance_note,
+    incident: row.incident_id ? { id: row.incident_id, status: row.incident_status, reason: row.incident_reason, reportedAt: row.incident_reported_at } : null,
     createdAt: row.created_at, updatedAt: row.updated_at,
   };
   if (includeToken) asset.qrToken = createAssetQr(row.qr_public_id, row.qr_version);
@@ -26,8 +27,11 @@ async function listAssets(req, res, next) {
   if (!ID_PATTERN.test(req.params.inventoryId)) return res.status(400).json({ error: "INVALID_INVENTORY_ID", message: "Inventory ID is invalid." });
   try {
     const result = await pool.query(
-      `SELECT asset.*, inventory.item_name FROM public.inventory_assets asset
+      `SELECT asset.*, inventory.item_name, incident.id AS incident_id, incident.status AS incident_status,
+              incident.reason AS incident_reason, incident.reported_at AS incident_reported_at
+         FROM public.inventory_assets asset
        JOIN public.inventory inventory ON inventory.id=asset.inventory_id
+       LEFT JOIN public.serialized_asset_incidents incident ON incident.asset_id=asset.id AND incident.status='open'
        WHERE asset.inventory_id=$1 ORDER BY asset.asset_number`, [req.params.inventoryId]
     );
     return res.json({ assets: result.rows.map((row) => assetResponse(row, true)) });
@@ -91,6 +95,7 @@ async function updateAsset(req, res, next) {
     if (!currentResult.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "ASSET_NOT_FOUND", message: "Asset was not found." }); }
     const current = currentResult.rows[0];
     if (current.status === "borrowed") { await client.query("ROLLBACK"); return res.status(409).json({ error: "ASSET_CURRENTLY_BORROWED", message: "A borrowed asset cannot be edited or retired." }); }
+    if (current.status === "missing") { await client.query("ROLLBACK"); return res.status(409).json({ error: "ASSET_HAS_OPEN_INCIDENT", message: "A missing asset must be resolved through its incident record before it can change state." }); }
     if (current.status === "retired" && status !== "retired") { await client.query("ROLLBACK"); return res.status(409).json({ error: "ASSET_RETIRED", message: "A retired asset cannot be reactivated." }); }
     const retiring = current.status !== "retired" && status === "retired";
     const oldBreakage = current.status === "maintenance" && current.condition === "damaged" ? 1 : 0;
@@ -151,4 +156,46 @@ async function lookupAssetQr(req, res, next) {
   }
 }
 
-module.exports = { createAsset, listAssets, lookupAssetQr, updateAsset };
+async function resolveAssetIncident(req, res, next) {
+  if (!ID_PATTERN.test(req.params.inventoryId) || !ID_PATTERN.test(req.params.assetId) || !ID_PATTERN.test(req.params.incidentId)) return res.status(400).json({ error: "INVALID_INCIDENT_ID", message: "Asset or incident ID is invalid." });
+  const resolution = req.body?.resolution;
+  const note = typeof req.body?.note === "string" ? req.body.note.trim() : "";
+  if (!new Set(["recovered", "written_off"]).has(resolution) || note.length < 5 || note.length > 500) return res.status(422).json({ error: "INVALID_INCIDENT_RESOLUTION", message: "Choose recovered or written off and provide a 5 to 500 character resolution note." });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const inventoryResult = await client.query(`SELECT * FROM public.inventory WHERE id=$1 FOR UPDATE`, [req.params.inventoryId]);
+    const result = await client.query(
+      `SELECT incident.*, asset.asset_number, asset.status AS asset_status, request.user_id
+         FROM public.serialized_asset_incidents incident
+         JOIN public.inventory_assets asset ON asset.id=incident.asset_id
+         JOIN public.borrow_requests request ON request.id=incident.request_id
+        WHERE incident.id=$1 AND incident.asset_id=$2 AND asset.inventory_id=$3 FOR UPDATE OF incident, asset`,
+      [req.params.incidentId, req.params.assetId, req.params.inventoryId]
+    );
+    if (!inventoryResult.rowCount || !result.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "INCIDENT_NOT_FOUND", message: "The missing-asset incident was not found." }); }
+    const incident = result.rows[0];
+    if (incident.status !== "open" || incident.asset_status !== "missing") { await client.query("ROLLBACK"); return res.status(409).json({ error: "INCIDENT_ALREADY_RESOLVED", message: "This incident is no longer open." }); }
+    const writtenOff = resolution === "written_off";
+    const counterResult = await client.query(
+      `UPDATE public.inventory SET quantity=quantity-$2, missing=missing-1, updated_at=now()
+        WHERE id=$1 AND missing>=1 AND quantity-$2>=0 RETURNING id`, [req.params.inventoryId, writtenOff ? 1 : 0]
+    );
+    if (!counterResult.rowCount) throw new Error("Missing serialized asset counters are inconsistent.");
+    await client.query(
+      `UPDATE public.inventory_assets SET status=$2, condition=$3, maintenance_note=NULL,
+         last_inspected_at=CASE WHEN $2='available' THEN now() ELSE last_inspected_at END,
+         last_inspected_by=CASE WHEN $2='available' THEN $4 ELSE last_inspected_by END, updated_at=now() WHERE id=$1`,
+      [req.params.assetId, writtenOff ? "retired" : "available", writtenOff ? "retired" : "good", req.user.id]
+    );
+    const resolved = await client.query(
+      `UPDATE public.serialized_asset_incidents SET status=$2, resolved_by=$3, resolved_at=now(), resolution_note=$4
+        WHERE id=$1 RETURNING *`, [req.params.incidentId, resolution, req.user.id, note]
+    );
+    await writeAuditLog(client, req.user, { action: `serialized_asset_${resolution}`, entityType: "serialized_asset_incident", entityId: incident.id, oldValues: incident, newValues: resolved.rows[0] });
+    await client.query("COMMIT");
+    return res.json({ incident: resolved.rows[0] });
+  } catch (error) { await client.query("ROLLBACK"); return next(error); } finally { client.release(); }
+}
+
+module.exports = { createAsset, listAssets, lookupAssetQr, resolveAssetIncident, updateAsset };

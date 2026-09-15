@@ -23,9 +23,11 @@ export default function ScanQr() {
   const [assetTokens, setAssetTokens] = useState([]);
   const [assetScanValue, setAssetScanValue] = useState("");
   const [returnAssets, setReturnAssets] = useState([]);
+  const [missingAssets, setMissingAssets] = useState([]);
 
   function selectReturnRequest(request) {
     setReturnAssets([]);
+    setMissingAssets([]);
     if (!request) { setReturnRequest(null); setReturnForm(null); return; }
     setReturnRequest(request);
     setReturnForm({ idempotencyKey: crypto.randomUUID(), remarks: "", items: request.items.map((item) => ({
@@ -124,11 +126,24 @@ export default function ScanQr() {
       const requested = returnRequest.items.find((item) => String(item.inventoryId) === String(body.asset.inventoryId) && item.trackingType === "serialized");
       if (!requested) throw new Error(`${body.asset.assetNumber} is not a serialized item in this return.`);
       if (returnAssets.some((entry) => entry.asset.id === body.asset.id)) throw new Error(`${body.asset.assetNumber} was already scanned.`);
-      const count = returnAssets.filter((entry) => String(entry.asset.inventoryId) === String(requested.inventoryId)).length;
+      if (missingAssets.some((entry) => entry.assetId === body.asset.id)) throw new Error(`${body.asset.assetNumber} is currently marked as missing. Undo that report before scanning it as returned.`);
+      const count = returnAssets.filter((entry) => String(entry.asset.inventoryId) === String(requested.inventoryId)).length
+        + missingAssets.filter((entry) => String(entry.inventoryId) === String(requested.inventoryId)).length;
       if (count >= Number(requested.outstandingQuantity)) throw new Error(`All outstanding units of ${requested.name} are already scanned.`);
       setReturnAssets((current) => [...current, { token: normalized, asset: body.asset, condition: "good", conditionNote: "" }]); setAssetScanValue("");
       setMessage(`${body.asset.assetNumber} added to the return.`);
     } catch (error) { setMessage(error.message); } finally { scanLock.current = false; setBusy(false); }
+  }
+
+  function reportMissing(asset, inventoryId) {
+    if (returnAssets.some((entry) => entry.asset.id === asset.id)) { setMessage(`${asset.assetNumber} is already scanned as returned.`); return; }
+    if (missingAssets.some((entry) => entry.assetId === asset.id)) return;
+    const reason = window.prompt(`Explain why ${asset.assetNumber} is being reported missing:`)?.trim();
+    if (!reason) return;
+    if (reason.length < 5 || reason.length > 500) { setMessage("The missing-asset reason must contain 5 to 500 characters."); return; }
+    if (!window.confirm(`Report ${asset.assetNumber} as missing? This will create an audited incident.`)) return;
+    setMissingAssets((current) => [...current, { assetId: asset.id, assetNumber: asset.assetNumber, inventoryId, reason }]);
+    setMessage(`${asset.assetNumber} marked for missing-asset incident reporting.`);
   }
 
   async function startCamera() {
@@ -204,7 +219,7 @@ export default function ScanQr() {
   async function submitReturn(event) {
     event.preventDefault();
     if (!returnRequest || !returnForm || scanLock.current) return;
-    const accounted = returnForm.items.reduce((sum, item) => sum + item.goodQuantity + item.damagedQuantity + item.missingQuantity, 0) + returnAssets.length;
+    const accounted = returnForm.items.reduce((sum, item) => sum + item.goodQuantity + item.damagedQuantity + item.missingQuantity, 0) + returnAssets.length + missingAssets.length;
     const exceeded = returnForm.items.find((item) => item.goodQuantity + item.damagedQuantity + item.missingQuantity > item.outstandingQuantity);
     const missingNote = returnForm.items.find((item) => (item.damagedQuantity > 0 || item.missingQuantity > 0) && !item.conditionNote.trim());
     if (!accounted || exceeded || missingNote) {
@@ -221,18 +236,22 @@ export default function ScanQr() {
         if (asset.condition === "damaged") counts.damaged += 1; else counts.good += 1;
         serializedCounts.set(key, counts);
       }
+      for (const asset of missingAssets) {
+        const key = String(asset.inventoryId); const counts = serializedCounts.get(key) || { good: 0, damaged: 0, missing: 0 };
+        counts.missing = (counts.missing || 0) + 1; serializedCounts.set(key, counts);
+      }
       const submission = { ...returnForm, items: returnForm.items.map((item) => {
         const requested = returnRequest.items.find((entry) => String(entry.inventoryId) === String(item.inventoryId));
         if (requested?.trackingType !== "serialized") return item;
-        const counts = serializedCounts.get(String(item.inventoryId)) || { good: 0, damaged: 0 };
-        return { ...item, goodQuantity: counts.good, damagedQuantity: counts.damaged, missingQuantity: 0, conditionNote: counts.damaged ? "See individual serialized asset notes." : "" };
-      }), assets: returnAssets.map(({ token, condition, conditionNote }) => ({ token, condition, conditionNote })) };
+        const counts = serializedCounts.get(String(item.inventoryId)) || { good: 0, damaged: 0, missing: 0 };
+        return { ...item, goodQuantity: counts.good || 0, damagedQuantity: counts.damaged || 0, missingQuantity: counts.missing || 0, conditionNote: (counts.damaged || counts.missing) ? "See individual serialized asset incident/condition notes." : "" };
+      }), assets: returnAssets.map(({ token, condition, conditionNote }) => ({ token, condition, conditionNote })), missingAssets: missingAssets.map(({ assetId, reason }) => ({ assetId, reason })) };
       const response = await authenticatedFetch(`/api/borrowings/${returnRequest.id}/returns`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(submission),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.reasons?.[0] || body.message || "Unable to record the return.");
-      setResult(null); setReturnRequest(null); setReturnForm(null); setReturnAssets([]);
+      setResult(null); setReturnRequest(null); setReturnForm(null); setReturnAssets([]); setMissingAssets([]);
       setMessage(body.complete ? "Return completed. All items are accounted for." : "Partial return recorded. Outstanding items remain.");
     } catch (error) { setMessage(error.message); }
     finally { scanLock.current = false; setBusy(false); }
@@ -294,6 +313,7 @@ export default function ScanQr() {
       {returnRequest && returnForm && <form className="qr-return-form" onSubmit={submitReturn}>
         <div className="return-summary"><span>BR-{String(returnRequest.id).padStart(3, "0")}</span><span>Due {String(returnRequest.returnDate).slice(0, 10)}</span></div>
         {returnRequest.items.some((item) => item.trackingType === "serialized") && <div className="serialized-scan-panel"><h3>Scan Returned Assets</h3><div className="serialized-return-input"><input value={assetScanValue} onChange={(event) => setAssetScanValue(event.target.value)} placeholder="Scan an asset QR" /><button type="button" onClick={() => lookupReturnAsset(assetScanValue)} disabled={!assetScanValue.trim() || busy}>Add Asset</button></div>{returnAssets.map((entry, assetIndex) => <div className="serialized-return-row" key={entry.asset.id}><strong>{entry.asset.assetNumber}</strong><select value={entry.condition} onChange={(event) => setReturnAssets((current) => current.map((value, index) => index === assetIndex ? { ...value, condition: event.target.value } : value))}><option value="good">Good</option><option value="fair">Fair</option><option value="damaged">Damaged</option></select>{entry.condition === "damaged" && <input required maxLength="500" value={entry.conditionNote} placeholder="Damage details" onChange={(event) => setReturnAssets((current) => current.map((value, index) => index === assetIndex ? { ...value, conditionNote: event.target.value } : value))} />}<button type="button" onClick={() => setReturnAssets((current) => current.filter((_, index) => index !== assetIndex))}>Remove</button></div>)}</div>}
+        {returnRequest.items.filter((item) => item.trackingType === "serialized").map((item) => <div className="missing-asset-panel" key={`missing-${item.inventoryId}`}><h4>{item.name} assigned assets</h4>{(item.assets || []).map((asset) => { const returned = returnAssets.some((entry) => entry.asset.id === asset.id); const missing = missingAssets.find((entry) => entry.assetId === asset.id); return <div key={asset.id}><span>{asset.assetNumber}{asset.serialNumber ? ` · ${asset.serialNumber}` : ""}</span>{returned ? <em>Scanned for return</em> : missing ? <><em>Missing incident pending</em><button type="button" onClick={() => setMissingAssets((current) => current.filter((entry) => entry.assetId !== asset.id))}>Undo</button></> : <button type="button" className="danger-text" onClick={() => reportMissing(asset, item.inventoryId)}>Report Missing</button>}</div>; })}</div>)}
         {returnForm.items.map((item, index) => <section className="qr-return-item" key={item.inventoryId}>
           <div className="return-item-heading"><strong>{item.name}</strong><span>{item.outstandingQuantity} outstanding</span></div>
           <div className="return-fields">
