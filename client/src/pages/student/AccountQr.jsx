@@ -37,12 +37,12 @@ export default function AccountQr() {
   }
 
   return <div className="qr-page">
-    <header><h1>My Account QR</h1><p>Present this code to stockroom staff when claiming or returning equipment.</p></header>
+    <header><h1>My Account QR</h1><p>This is the account QR issued for your physical school ID.</p></header>
     <section className="qr-card">
       {loading && <p>Generating secure QR code...</p>}
       {error && <p className="form-error">{error}</p>}
       {image && !loading && <img src={image} alt="Your secure CTHM account QR code" />}
-      <p className="qr-warning">This code identifies your account. Do not share it. Staff must still verify your school ID before releasing items.</p>
+      <p className="qr-warning">This QR should be printed and attached to your physical school ID. Do not share a copy with another person. Stockroom staff must verify the school ID before releasing items.</p>
       <div className="qr-actions">
         {image && <a href={image} download="cthm-account-qr.png">Download QR</a>}
         <button type="button" onClick={regenerate} disabled={loading}>Regenerate QR</button>
