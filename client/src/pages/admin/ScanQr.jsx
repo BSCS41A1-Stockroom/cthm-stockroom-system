@@ -93,7 +93,10 @@ export default function ScanQr() {
       await instance.start(selected, { fps: 10, qrbox: { width: 240, height: 240 } }, (text) => lookup(text), () => {});
       setCameraActive(true);
     } catch (error) {
+      const current = scanner.current;
       scanner.current = null;
+      if (current?.isScanning) await current.stop().catch(() => {});
+      await current?.clear().catch(() => {});
       setMessage(error?.message || "Camera could not be started. Allow camera access or use the scanner input.");
     }
   }
@@ -135,7 +138,10 @@ export default function ScanQr() {
   return <div className="qr-page scan-page">
     <header><h1>Scan Account QR</h1><p>Scan a borrower’s account QR to locate a request that is ready for claim.</p></header>
     <section className="scanner-card">
-      <div id="account-qr-reader" className="camera-reader" />
+      <div className={`camera-frame desktop-camera-frame ${cameraActive ? "active" : ""}`}>
+        <div id="account-qr-reader" className="camera-reader" />
+        {!cameraActive && <div className="camera-placeholder"><div className="camera-icon" aria-hidden="true">▣</div><span>Select a camera option below to begin scanning</span></div>}
+      </div>
       {cameras.length > 1 && !cameraActive && <label>Camera
         <select value={cameraId} onChange={(event) => setCameraId(event.target.value)}>{cameras.map((camera) => <option key={camera.id} value={camera.id}>{camera.label || "Camera"}</option>)}</select>
       </label>}
