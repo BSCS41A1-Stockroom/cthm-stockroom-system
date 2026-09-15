@@ -1,0 +1,27 @@
+.qr-page { max-width: 920px; margin: 0 auto; }
+.qr-page > header { margin-bottom: 24px; }
+.qr-page > header h1 { margin: 0 0 6px; }
+.qr-page > header p { color: #64748b; margin: 0; }
+.qr-card, .scanner-card, .claim-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; box-shadow: 0 8px 24px rgba(15,23,42,.06); }
+.qr-card { max-width: 470px; text-align: center; }
+.qr-card img { display: block; width: min(100%, 360px); margin: auto; }
+.qr-warning { color: #475569; font-size: .92rem; line-height: 1.5; }
+.qr-actions, .scanner-actions { display: flex; justify-content: center; gap: 12px; margin-top: 16px; }
+.qr-actions a, .qr-actions button, .scanner-card button, .release-button { border: 0; border-radius: 9px; padding: 11px 16px; background: #2563eb; color: white; cursor: pointer; text-decoration: none; font: inherit; }
+.qr-actions button { background: #475569; }
+.scanner-card form { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: end; margin-top: 20px; }
+.scanner-card label { display: grid; gap: 7px; color: #334155; font-weight: 600; }
+.scanner-card input { min-width: 0; padding: 11px; border: 1px solid #cbd5e1; border-radius: 8px; }
+.camera-reader:empty { display: none; }
+.camera-reader { max-width: 520px; margin: auto; overflow: hidden; border-radius: 12px; }
+.claim-card { margin-top: 20px; }
+.claim-card dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.claim-card dl div { background: #f8fafc; padding: 12px; border-radius: 8px; }
+.claim-card dt { color: #64748b; font-size: .8rem; }
+.claim-card dd { margin: 4px 0 0; font-weight: 700; }
+.claim-card ul { padding: 0; list-style: none; }
+.claim-card li { display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 10px 0; }
+.identity-check { display: flex; align-items: flex-start; gap: 9px; margin: 20px 0; line-height: 1.4; }
+.release-button:disabled, .scanner-card button:disabled { opacity: .55; cursor: not-allowed; }
+.qr-success { color: #047857; font-weight: 600; }
+@media (max-width: 600px) { .scanner-card form { grid-template-columns: 1fr; } .claim-card dl { grid-template-columns: 1fr; } }

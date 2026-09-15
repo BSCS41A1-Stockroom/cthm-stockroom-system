@@ -5,7 +5,6 @@ import {
   FaCheck,
   FaTimes,
   FaUndo,
-  FaBoxOpen,
 } from "react-icons/fa";
 
 import "../../styles/requests.css";
@@ -214,9 +213,10 @@ export default function Requests() {
               <option>All</option>
               <option>Pending</option>
               <option>Validated</option>
-              <option>Approved</option>
+              <option value="Approved">Ready for Claim</option>
               <option>Borrowed</option>
               <option>Rejected</option>
+              <option>Expired</option>
               <option>Returned</option>
           </select>
 
@@ -277,7 +277,7 @@ export default function Requests() {
                   <span
                     className={`status-badge ${r.status.toLowerCase()}`}
                   >
-                    {r.status}{r.overdue ? " · Overdue" : ""}
+                    {r.status === "Approved" ? "Ready for Claim" : r.status}{r.overdue ? " · Overdue" : ""}
                   </span>
                 </td>
 
@@ -320,21 +320,6 @@ export default function Requests() {
                           <FaTimes />
                         </button>
                       </>
-                    )}
-
-                    {r.status === "Approved" && (
-                      <button
-                        className="return-btn"
-                        onClick={() =>
-                          updateStatus(
-                            r.id,
-                            "Borrowed"
-                          )
-                        }
-                        title="Mark as borrowed"
-                      >
-                        <FaBoxOpen />
-                      </button>
                     )}
 
                     {r.status === "Borrowed" && (

@@ -5,10 +5,11 @@ import { supabase } from "../../lib/supabase";
 
 const STATUS_META = {
   pending: { label: "Pending", className: "badge-pending" },
-  approved: { label: "Approved", className: "badge-approved" },
+  approved: { label: "Ready for Claim", className: "badge-approved" },
   borrowed: { label: "Borrowed", className: "badge-approved" },
   rejected: { label: "Rejected", className: "badge-rejected" },
   returned: { label: "Returned", className: "badge-returned" },
+  expired: { label: "Expired", className: "badge-rejected" },
 };
 
 function StatusBadge({ status }) {
@@ -98,7 +99,7 @@ export default function MyRequests() {
           </div>
 
           <div className="status-tabs">
-            {["all", "pending", "approved", "borrowed", "rejected", "returned"].map((s) => (
+            {["all", "pending", "approved", "borrowed", "rejected", "expired", "returned"].map((s) => (
               <button
                 key={s}
                 type="button"

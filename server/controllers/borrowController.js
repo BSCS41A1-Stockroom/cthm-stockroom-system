@@ -14,6 +14,7 @@ const {
 const { writeAuditLog } = require("../utils/auditLog");
 const { notifyRoles, notifyUser } = require("../utils/notifications");
 const { loadInventoryCommitment, usableInventoryQuantity } = require("../utils/inventoryCommitments");
+const { verifyClaimTicket } = require("../utils/qrCredential");
 
 const RESERVED_STATUSES = new Set(["Pending", "Validated", "Approved"]);
 const BORROWED_STATUSES = new Set(["Borrowed"]);
@@ -721,6 +722,36 @@ async function updateBorrowRequestStatus(req, res, next) {
       });
     }
 
+    if (nextStatus === "Borrowed") {
+      let claim;
+      try {
+        claim = verifyClaimTicket(req.body?.claimToken, { requestId, staffId: req.user.id });
+      } catch (error) {
+        await client.query("ROLLBACK");
+        if (error.code === "QR_NOT_CONFIGURED") {
+          return res.status(503).json({ error: error.code, message: error.message });
+        }
+        throw error;
+      }
+      if (!claim || claim.userId !== request.user_id || req.body?.identityVerified !== true) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({
+          error: "VERIFIED_QR_REQUIRED",
+          message: "Scan the borrower's current account QR and confirm their identity before releasing items.",
+        });
+      }
+      const returnDate = request.return_date.toISOString?.().slice(0, 10) || String(request.return_date).slice(0, 10);
+      const todayParts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit",
+      }).formatToParts(new Date());
+      const today = Object.fromEntries(todayParts.map((part) => [part.type, part.value]));
+      const todayKey = `${today.year}-${today.month}-${today.day}`;
+      if (returnDate < todayKey) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: "CLAIM_WINDOW_EXPIRED", message: "This request has passed its return deadline and can no longer be released." });
+      }
+    }
+
     const itemsResult = await client.query(
       `SELECT inventory_id, quantity
          FROM borrow_request_items
@@ -764,10 +795,16 @@ async function updateBorrowRequestStatus(req, res, next) {
 
     const updatedResult = await client.query(
       `UPDATE borrow_requests
-          SET status = $1, updated_at = now()
+          SET status = $1,
+              approved_by = CASE WHEN $1='Approved' THEN $3 ELSE approved_by END,
+              approved_at = CASE WHEN $1='Approved' THEN now() ELSE approved_at END,
+              released_by = CASE WHEN $1='Borrowed' THEN $3 ELSE released_by END,
+              released_at = CASE WHEN $1='Borrowed' THEN now() ELSE released_at END,
+              borrower_identity_verified = CASE WHEN $1='Borrowed' THEN true ELSE borrower_identity_verified END,
+              updated_at = now()
         WHERE id = $2
       RETURNING *`,
-      [nextStatus, requestId]
+      [nextStatus, requestId, req.user.id]
     );
 
     if (nextStatus === "Approved") {
@@ -828,8 +865,10 @@ async function updateBorrowRequestStatus(req, res, next) {
     });
     await notifyUser(client, request.user_id, {
       type: `borrowing_${String(nextStatus).toLowerCase()}`,
-      title: `Borrowing request ${String(nextStatus).toLowerCase()}`,
-      message: `Your borrowing request BR-${String(requestId).padStart(3, "0")} is now ${String(nextStatus).toLowerCase()}.`,
+      title: nextStatus === "Approved" ? "Borrowing request ready for claim" : `Borrowing request ${String(nextStatus).toLowerCase()}`,
+      message: nextStatus === "Approved"
+        ? `Your borrowing request BR-${String(requestId).padStart(3, "0")} is approved and ready for claim.`
+        : `Your borrowing request BR-${String(requestId).padStart(3, "0")} is now ${String(nextStatus).toLowerCase()}.`,
       relatedPath: "/my-requests",
       entityType: "borrowing_request",
       entityId: requestId,

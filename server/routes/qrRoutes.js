@@ -1,0 +1,10 @@
+"use strict";
+const express = require("express");
+const { authenticate, requireRoles } = require("../middleware/auth");
+const { getMyQr, lookupReadyRequest, regenerateMyQr } = require("../controllers/qrController");
+const router = express.Router();
+router.use(authenticate);
+router.get("/me", getMyQr);
+router.post("/me/regenerate", regenerateMyQr);
+router.post("/lookup", requireRoles("professor", "admin"), lookupReadyRequest);
+module.exports = router;
