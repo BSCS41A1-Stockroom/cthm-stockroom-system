@@ -77,7 +77,7 @@ export default function Requests() {
   function openReturn(request) {
     setReturnError("");
     setReturnRequest(request);
-    setReturnForm({ remarks: "", items: request.items.map((item) => ({
+    setReturnForm({ idempotencyKey: crypto.randomUUID(), remarks: "", items: request.items.map((item) => ({
       inventoryId: item.inventoryId, name: item.name,
       outstandingQuantity: Number(item.outstandingQuantity ?? item.quantity),
       goodQuantity: 0, damagedQuantity: 0, missingQuantity: 0, conditionNote: "",
@@ -88,8 +88,11 @@ export default function Requests() {
     event.preventDefault();
     const accounted = returnForm.items.reduce((sum, item) => sum + item.goodQuantity + item.damagedQuantity + item.missingQuantity, 0);
     const exceeded = returnForm.items.find((item) => item.goodQuantity + item.damagedQuantity + item.missingQuantity > item.outstandingQuantity);
-    if (accounted <= 0 || exceeded) {
-      setReturnError(exceeded ? `Entered quantities exceed the outstanding units for ${exceeded.name}.` : "Enter at least one returned, damaged, or missing unit.");
+    const missingNote = returnForm.items.find((item) => (item.damagedQuantity > 0 || item.missingQuantity > 0) && !item.conditionNote.trim());
+    if (accounted <= 0 || exceeded || missingNote) {
+      setReturnError(exceeded ? `Entered quantities exceed the outstanding units for ${exceeded.name}.`
+        : missingNote ? `Add a condition note for damaged or missing units of ${missingNote.name}.`
+          : "Enter at least one returned, damaged, or missing unit.");
       return;
     }
     setReturning(true);

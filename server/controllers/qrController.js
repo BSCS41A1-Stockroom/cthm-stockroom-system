@@ -46,6 +46,30 @@ async function findReadyRequest(userId, database = pool) {
   return requests.rows[0];
 }
 
+async function findBorrowedRequests(userId, database = pool) {
+  const result = await database.query(
+    `SELECT request.id, request.borrow_date, request.return_date, request.purpose,
+            json_agg(json_build_object(
+              'inventoryId', item.inventory_id, 'name', inventory.item_name,
+              'quantity', item.quantity,
+              'accountedQuantity', COALESCE(returned.accounted, 0),
+              'outstandingQuantity', GREATEST(item.quantity-COALESCE(returned.accounted, 0), 0)
+            ) ORDER BY item.inventory_id) AS items
+       FROM public.borrow_requests request
+       JOIN public.borrow_request_items item ON item.request_id=request.id
+       JOIN public.inventory inventory ON inventory.id=item.inventory_id
+       LEFT JOIN (
+         SELECT request_id, inventory_id,
+                SUM(good_quantity+damaged_quantity+missing_quantity)::integer AS accounted
+           FROM public.borrowing_return_items GROUP BY request_id, inventory_id
+       ) returned ON returned.request_id=request.id AND returned.inventory_id=item.inventory_id
+      WHERE request.user_id=$1 AND request.status='Borrowed'
+      GROUP BY request.id ORDER BY request.return_date, request.id LIMIT 20`, [userId]
+  );
+  if (!result.rowCount) { const error = new Error("This account has no outstanding borrowed transaction."); error.code = "NO_ACTIVE_BORROWING"; throw error; }
+  return result.rows;
+}
+
 function claimResponse(profile, request, staffId) {
   const expiresAt = Date.now() + 5 * 60 * 1000;
   return {
@@ -90,14 +114,21 @@ async function regenerateMyQr(req, res, next) {
 }
 
 async function lookupReadyRequest(req, res, next) {
+  const mode = req.body?.mode ?? "claim";
+  if (!["claim", "return"].includes(mode)) return res.status(422).json({ error: "INVALID_SCAN_MODE", message: "Scan mode must be claim or return." });
   try {
     const profile = await findActiveProfileFromQr(req.body?.token);
+    if (mode === "return") {
+      const requests = await findBorrowedRequests(profile.user_id);
+      await writeAuditLog(pool, req.user, { action: "return_qr_lookup_succeeded", entityType: "user_profile", entityId: profile.user_id });
+      return res.json({ mode: "return", borrower: { fullName: profile.full_name, studentId: profile.student_id, role: profile.role }, requests });
+    }
     const request = await findReadyRequest(profile.user_id);
     await writeAuditLog(pool, req.user, { action: "account_qr_lookup_succeeded", entityType: "user_profile", entityId: profile.user_id });
     return res.json(claimResponse(profile, request, req.user.id));
   } catch (error) {
     if (error.code === "QR_NOT_CONFIGURED") return res.status(503).json({ error: error.code, message: error.message });
-    const statuses = { INVALID_QR: 400, QR_NOT_ACTIVE: 404, NO_READY_REQUEST: 404, MULTIPLE_READY_REQUESTS: 409 };
+    const statuses = { INVALID_QR: 400, QR_NOT_ACTIVE: 404, NO_READY_REQUEST: 404, NO_ACTIVE_BORROWING: 404, MULTIPLE_READY_REQUESTS: 409 };
     if (statuses[error.code]) return res.status(statuses[error.code]).json({ error: error.code, message: error.message });
     return next(error);
   }
@@ -105,15 +136,17 @@ async function lookupReadyRequest(req, res, next) {
 
 async function createScannerPairing(req, res, next) {
   const secret = crypto.randomBytes(32).toString("base64url");
+  const mode = req.body?.mode ?? "claim";
+  if (!["claim", "return"].includes(mode)) return res.status(422).json({ error: "INVALID_SCAN_MODE", message: "Scan mode must be claim or return." });
   try {
     await pool.query(`DELETE FROM public.qr_scanner_sessions WHERE expires_at < now() - interval '1 day'`);
     const result = await pool.query(
-      `INSERT INTO public.qr_scanner_sessions (staff_user_id, secret_hash, expires_at)
-       VALUES ($1,$2,now()+interval '5 minutes') RETURNING id, expires_at`, [req.user.id, hashPairSecret(secret)]
+      `INSERT INTO public.qr_scanner_sessions (staff_user_id, secret_hash, scan_mode, expires_at)
+       VALUES ($1,$2,$3,now()+interval '5 minutes') RETURNING id, scan_mode, expires_at`, [req.user.id, hashPairSecret(secret), mode]
     );
     const session = result.rows[0];
     await writeAuditLog(pool, req.user, { action: "phone_scanner_pairing_created", entityType: "qr_scanner_session", entityId: session.id });
-    return res.status(201).json({ id: session.id, pairToken: `pair.v1.${session.id}.${secret}`, expiresAt: session.expires_at });
+    return res.status(201).json({ id: session.id, mode: session.scan_mode, pairToken: `pair.v1.${session.id}.${secret}`, expiresAt: session.expires_at });
   } catch (error) { return next(error); }
 }
 
@@ -138,7 +171,8 @@ async function submitPairedScan(req, res, next) {
       return res.status(409).json({ error: "PAIRING_ALREADY_USED", message: "This pairing has already received a scan." });
     }
     const profile = await findActiveProfileFromQr(req.body?.accountToken, client);
-    await findReadyRequest(profile.user_id, client);
+    if (session.scan_mode === "return") await findBorrowedRequests(profile.user_id, client);
+    else await findReadyRequest(profile.user_id, client);
     await client.query(
       `UPDATE public.qr_scanner_sessions SET status='scanned', scanned_user_id=$2,
               scan_sequence=scan_sequence+1, updated_at=now() WHERE id=$1`, [pair.id, profile.user_id]
@@ -148,7 +182,7 @@ async function submitPairedScan(req, res, next) {
     return res.json({ message: "QR scanned successfully. Continue on the paired PC." });
   } catch (error) {
     await client.query("ROLLBACK");
-    const statuses = { INVALID_QR: 400, QR_NOT_ACTIVE: 404, NO_READY_REQUEST: 404, MULTIPLE_READY_REQUESTS: 409 };
+    const statuses = { INVALID_QR: 400, QR_NOT_ACTIVE: 404, NO_READY_REQUEST: 404, NO_ACTIVE_BORROWING: 404, MULTIPLE_READY_REQUESTS: 409 };
     if (error.code === "QR_NOT_CONFIGURED") return res.status(503).json({ error: error.code, message: error.message });
     if (statuses[error.code]) return res.status(statuses[error.code]).json({ error: error.code, message: error.message });
     return next(error);
@@ -183,10 +217,14 @@ async function getPairingResult(req, res, next) {
     if (session.status === "closed" || new Date(session.expires_at).getTime() <= Date.now()) return res.status(410).json({ error: "PAIRING_EXPIRED", message: "Scanner pairing expired." });
     if (session.status !== "scanned" || !session.scanned_user_id) return res.json({ status: session.status, expiresAt: session.expires_at });
     if (!session.is_active) return res.status(404).json({ error: "ACCOUNT_INACTIVE", message: "The scanned account is inactive." });
+    if (session.scan_mode === "return") {
+      const requests = await findBorrowedRequests(session.scanned_user_id);
+      return res.json({ mode: "return", borrower: { fullName: session.full_name, studentId: session.student_id, role: session.role }, requests });
+    }
     const request = await findReadyRequest(session.scanned_user_id);
     return res.json(claimResponse({ user_id: session.scanned_user_id, full_name: session.full_name, student_id: session.student_id, role: session.role }, request, req.user.id));
   } catch (error) {
-    const statuses = { NO_READY_REQUEST: 404, MULTIPLE_READY_REQUESTS: 409 };
+    const statuses = { NO_READY_REQUEST: 404, NO_ACTIVE_BORROWING: 404, MULTIPLE_READY_REQUESTS: 409 };
     if (error.code === "QR_NOT_CONFIGURED") return res.status(503).json({ error: error.code, message: error.message });
     if (statuses[error.code]) return res.status(statuses[error.code]).json({ error: error.code, message: error.message });
     return next(error);

@@ -86,6 +86,33 @@
   gap: 22px;
 }
 
+.scan-mode-tabs {
+  display: inline-flex;
+  gap: 4px;
+  margin: 0 0 18px;
+  padding: 4px;
+  border: 1px solid #dbe3ef;
+  border-radius: 11px;
+  background: #eef2f7;
+}
+
+.scan-mode-tabs button {
+  padding: 9px 18px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.scan-mode-tabs button.active {
+  background: #fff;
+  color: #1d4ed8;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, .1);
+}
+
 .scanner-card form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -379,6 +406,83 @@
   width: min(100%, 280px);
 }
 
+.return-request-select,
+.qr-return-form > label,
+.qr-return-item > label {
+  display: grid;
+  gap: 7px;
+  color: #334155;
+  font-weight: 650;
+}
+
+.return-request-select select,
+.qr-return-form input,
+.qr-return-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+}
+
+.qr-return-form {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.return-summary,
+.return-item-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.return-summary {
+  padding: 12px 14px;
+  border-radius: 9px;
+  background: #eff6ff;
+  color: #1e40af;
+  font-weight: 700;
+}
+
+.qr-return-item {
+  display: grid;
+  gap: 13px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 11px;
+  background: #f8fafc;
+}
+
+.return-item-heading span {
+  color: #64748b;
+  font-size: .9rem;
+}
+
+.return-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.return-fields label {
+  display: grid;
+  gap: 6px;
+  color: #475569;
+  font-size: .85rem;
+  font-weight: 650;
+}
+
+.required-note {
+  margin-left: 5px;
+  color: #b91c1c;
+  font-size: .75rem;
+}
+
 @media (max-width: 650px) {
   .qr-card,
   .scanner-card,
@@ -404,5 +508,15 @@
 
   .camera-frame .camera-reader {
     min-height: 276px;
+  }
+
+  .scan-mode-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .return-fields {
+    grid-template-columns: 1fr;
   }
 }

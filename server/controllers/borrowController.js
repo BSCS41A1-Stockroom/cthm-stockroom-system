@@ -110,6 +110,8 @@ function normalizeReturn(body) {
     : typeof value === "string" && /^\d+$/.test(value.trim()) ? Number(value) : Number.NaN;
   return {
     remarks: typeof source.remarks === "string" ? source.remarks.trim() : "",
+    idempotencyKey: typeof (source.idempotencyKey ?? source.idempotency_key) === "string"
+      ? (source.idempotencyKey ?? source.idempotency_key).trim() : "",
     items: Array.isArray(source.items) ? source.items.map((item) => ({
       inventoryId: item?.inventoryId ?? item?.inventory_id,
       goodQuantity: integer(item?.goodQuantity ?? item?.good_quantity ?? 0),
@@ -123,6 +125,9 @@ function normalizeReturn(body) {
 
 function returnErrors(returnData) {
   const errors = [];
+  if (returnData.idempotencyKey && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(returnData.idempotencyKey)) {
+    errors.push("Return submission identifier is invalid.");
+  }
   if (returnData.remarks.length > 1000) errors.push("Return remarks cannot exceed 1000 characters.");
   if (!returnData.items.length) errors.push("At least one returned item is required.");
   const ids = new Set();
@@ -136,6 +141,9 @@ function returnErrors(returnData) {
       if (!Number.isSafeInteger(quantity) || quantity < 0) errors.push(`${label} quantity for item '${id}' must be a non-negative whole number.`);
     }
     if (item.conditionNote.length > 500) errors.push(`Condition note for item '${id}' cannot exceed 500 characters.`);
+    if ((item.damagedQuantity > 0 || item.missingQuantity > 0) && !item.conditionNote) {
+      errors.push(`A condition note is required for damaged or missing inventory item '${id}'.`);
+    }
     total += item.goodQuantity + item.damagedQuantity + item.missingQuantity;
   }
   if (returnData.items.length && total <= 0) errors.push("At least one unit must be accounted for.");
@@ -575,6 +583,22 @@ async function processBorrowingReturn(req, res, next) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "REQUEST_NOT_FOUND", message: "Borrowing request was not found." });
     }
+    if (returnData.idempotencyKey) {
+      const duplicateResult = await client.query(
+        `SELECT returned.*, request.status AS request_status
+           FROM borrowing_returns returned
+           JOIN borrow_requests request ON request.id=returned.request_id
+          WHERE returned.idempotency_key=$1`, [returnData.idempotencyKey]
+      );
+      if (duplicateResult.rowCount) {
+        await client.query("ROLLBACK");
+        const existing = duplicateResult.rows[0];
+        if (String(existing.request_id) !== String(requestId)) {
+          return res.status(409).json({ error: "RETURN_IDENTIFIER_REUSED", message: "This return submission identifier belongs to another request." });
+        }
+        return res.json({ return: existing, request: { id: Number(requestId), status: existing.request_status }, complete: existing.request_status === "Returned", duplicate: true });
+      }
+    }
     const request = requestResult.rows[0];
     if (request.status !== "Borrowed") {
       await client.query("ROLLBACK");
@@ -606,8 +630,8 @@ async function processBorrowingReturn(req, res, next) {
     }
 
     const returnResult = await client.query(
-      `INSERT INTO borrowing_returns (request_id, processed_by, remarks) VALUES ($1, $2, $3) RETURNING *`,
-      [requestId, req.user.id, returnData.remarks || null]
+      `INSERT INTO borrowing_returns (request_id, processed_by, remarks, idempotency_key) VALUES ($1, $2, $3, $4) RETURNING *`,
+      [requestId, req.user.id, returnData.remarks || null, returnData.idempotencyKey || null]
     );
     for (const item of submittedItems) {
       const accounted = item.goodQuantity + item.damagedQuantity + item.missingQuantity;
