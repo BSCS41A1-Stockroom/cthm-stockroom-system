@@ -4,6 +4,7 @@ import {
   FaBoxOpen,
   FaCalendarAlt,
   FaClipboardList,
+  FaQrcode,
 } from "react-icons/fa";
 
 export default function Sidebar({
@@ -48,6 +49,10 @@ export default function Sidebar({
           <NavLink to="/my-requests">
             <FaClipboardList />
             {!sidebarCollapsed && <span>My Requests</span>}
+          </NavLink>
+          <NavLink to="/my-qr">
+            <FaQrcode />
+            {!sidebarCollapsed && <span>My QR</span>}
           </NavLink>
         </nav>
       </aside>

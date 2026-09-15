@@ -2,7 +2,30 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { authorizedCronRequest, processUpcomingDeadlines, processOverdueBorrowings } = require("./overdueController");
+const { authorizedCronRequest, processExpiredClaims, processUpcomingDeadlines, processOverdueBorrowings } = require("./overdueController");
+
+test("expires stale ready requests and releases every reservation atomically", async () => {
+  const calls = [];
+  const client = {
+    async query(sql, values) {
+      calls.push({ sql, values });
+      if (sql.includes("pg_try_advisory_xact_lock")) return { rows: [{ acquired: true }] };
+      if (sql.includes("WHERE status='Approved'")) return { rowCount: 1, rows: [{ id: 8, user_id: "student-user" }] };
+      if (sql.includes("FROM public.borrow_request_items")) return { rowCount: 2, rows: [{ inventory_id: 2, quantity: 3 }, { inventory_id: 4, quantity: 1 }] };
+      if (sql.includes("UPDATE public.inventory")) return { rowCount: 1, rows: [{ id: values[1] }] };
+      if (sql.includes("INSERT INTO public.notifications")) return { rowCount: 1, rows: [{ id: 10 }] };
+      return { rowCount: 1, rows: [] };
+    },
+    release() { calls.push({ sql: "RELEASE" }); },
+  };
+  assert.deepEqual(await processExpiredClaims({ connect: async () => client }), {
+    processed: 1, notificationsCreated: 1, skipped: false,
+  });
+  assert.equal(calls.filter((call) => call.sql.includes("UPDATE public.inventory")).length, 2);
+  assert.ok(calls.some((call) => call.sql.includes("SET status='Expired'")));
+  assert.ok(calls.some((call) => call.values?.includes("borrowing_claim_expired")));
+  assert.ok(calls.some((call) => call.sql === "COMMIT"));
+});
 
 test("creates one early warning per due-date threshold and only for outstanding borrowed items", async () => {
   const calls = [];

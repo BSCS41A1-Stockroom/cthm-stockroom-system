@@ -7,6 +7,7 @@ import {
     FaChartBar,
     FaHistory,
     FaUsersCog,
+    FaQrcode,
 } from "react-icons/fa";
 import { useAuth } from "../../auth/useAuth";
 
@@ -43,6 +44,7 @@ export default function Sidebar({
             icon: <FaChartBar />,
             label: "Reports",
         },
+        { path: "/admin/scan", icon: <FaQrcode />, label: "Scan Account QR" },
         {
             path: "/admin/activity-logs",
             icon: <FaHistory />,

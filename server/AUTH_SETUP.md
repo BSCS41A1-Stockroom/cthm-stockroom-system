@@ -29,6 +29,7 @@ DATABASE_URL=YOUR_SUPABASE_POSTGRES_CONNECTION_STRING
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_ANON_KEY=YOUR_ANON_KEY
 CLIENT_URL=https://YOUR_FRONTEND.example.com
+QR_SIGNING_SECRET=GENERATE_A_RANDOM_SECRET_WITH_AT_LEAST_32_CHARACTERS
 ```
 
 `CLIENT_URL` accepts a comma-separated list when both preview and production frontend origins are required. Never expose the database password or Supabase service-role key in the frontend.
@@ -36,3 +37,9 @@ CLIENT_URL=https://YOUR_FRONTEND.example.com
 For account invitations, the first `CLIENT_URL` origin is used as the password-setup redirect. Add `https://YOUR_FRONTEND_DOMAIN/set-password` (and `http://localhost:5173/set-password` for local testing) to Supabase Authentication > URL Configuration > Redirect URLs. Configure Supabase Authentication > Security and Protection > Password Security with a minimum length of 8 and required uppercase, lowercase, digit, and symbol characters. The app's invitation form additionally limits passwords to 16 characters; Supabase's built-in password settings do not offer a maximum-length control, so this upper bound is not a global server-side rule for other Supabase password flows.
 
 Legacy borrowing records have no authenticated owner and remain visible to professors/admins. If students must see legacy records, link their `borrow_requests.user_id` values to the correct `profiles.user_id` after verifying ownership.
+
+## Account QR claim setup
+
+Run `migrations/013_borrowing_calendar_deadlines.sql`, then `migrations/014_account_qr_claim_flow.sql` in the Supabase SQL editor. Generate `QR_SIGNING_SECRET` locally with `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` and add the output only to the backend environment. Never add this secret to a `VITE_` variable or expose it in browser code. Changing this secret invalidates every existing account QR code.
+
+Phone-camera scanning requires HTTPS in production and camera permission from the browser. USB QR scanners are supported through the manual scanner field because most scanners behave like keyboards.
