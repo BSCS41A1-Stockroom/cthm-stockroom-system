@@ -2,6 +2,7 @@
 const express = require("express");
 const { authenticate, requireRoles } = require("../middleware/auth");
 const { closeScannerPairing, createScannerPairing, getManagedUserQr, getMyQr, getPairingResult, issueManagedUserQr, joinScannerPairing, lookupReadyRequest, recordManagedUserQrPrint, replaceManagedUserQr, revokeManagedUserQr, submitPairedScan } = require("../controllers/qrController");
+const { lookupAssetQr } = require("../controllers/assetController");
 const router = express.Router();
 router.use(authenticate);
 router.get("/me", getMyQr);
@@ -11,6 +12,7 @@ router.post("/users/:id/revoke", requireRoles("admin"), revokeManagedUserQr);
 router.post("/users/:id/replace", requireRoles("admin"), replaceManagedUserQr);
 router.post("/users/:id/print", requireRoles("admin"), recordManagedUserQrPrint);
 router.post("/lookup", requireRoles("professor", "admin"), lookupReadyRequest);
+router.post("/assets/lookup", requireRoles("professor", "admin"), lookupAssetQr);
 router.post("/pairings", requireRoles("professor", "admin"), createScannerPairing);
 router.post("/pairings/join", requireRoles("professor", "admin"), joinScannerPairing);
 router.post("/pairings/scan", requireRoles("professor", "admin"), submitPairedScan);

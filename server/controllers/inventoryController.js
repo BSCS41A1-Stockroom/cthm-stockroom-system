@@ -15,6 +15,7 @@ function normalizeInventory(body = {}) {
     item_name: typeof body.item_name === "string" ? body.item_name.trim() : "",
     purchase_date: body.purchase_date || null,
     remarks: typeof body.remarks === "string" ? body.remarks.trim() : "",
+    tracking_type: body.tracking_type === "serialized" ? "serialized" : "bulk",
   };
   for (const field of INVENTORY_NUMBER_FIELDS) item[field] = Number(body[field] ?? 0);
   return item;
@@ -45,6 +46,9 @@ async function saveInventory(req, res, next) {
   const errors = inventoryErrors(item);
   if (errors.length) return res.status(422).json({ error: "INVALID_INVENTORY", reasons: errors });
   const inventoryId = req.params.inventoryId ?? null;
+  if (inventoryId == null && item.tracking_type === "serialized" && INVENTORY_NUMBER_FIELDS.some((field) => field !== "low_stock_threshold" && item[field] !== 0)) {
+    return res.status(422).json({ error: "INVALID_SERIALIZED_INVENTORY", reasons: ["Serialized inventory starts at zero; add each physical asset after saving the classification."] });
+  }
   if (inventoryId != null && !validInventoryId(inventoryId)) return res.status(400).json({ error: "INVALID_INVENTORY_ID", message: "Inventory ID is invalid." });
   const client = await pool.connect();
   try {
@@ -54,6 +58,18 @@ async function saveInventory(req, res, next) {
       const current = await client.query("SELECT * FROM public.inventory WHERE id = $1 FOR UPDATE", [inventoryId]);
       if (!current.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "INVENTORY_NOT_FOUND", message: "Inventory item was not found." }); }
       previous = current.rows[0];
+      if (previous.tracking_type === "serialized" && INVENTORY_NUMBER_FIELDS.some((field) => field !== "low_stock_threshold" && Number(previous[field] ?? 0) !== item[field])) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: "SERIALIZED_COUNTERS_MANAGED", message: "Serialized quantities and loss counters are managed through the physical asset records." });
+      }
+      if (previous.tracking_type !== item.tracking_type) {
+        const assetCount = await client.query("SELECT count(*)::integer AS count FROM public.inventory_assets WHERE inventory_id=$1", [inventoryId]);
+        const hasStock = INVENTORY_NUMBER_FIELDS.some((field) => field !== "low_stock_threshold" && Number(previous[field] ?? 0) !== 0);
+        if (hasStock || Number(assetCount.rows[0].count) > 0) {
+          await client.query("ROLLBACK");
+          return res.status(409).json({ error: "TRACKING_TYPE_LOCKED", message: "Tracking type can only be changed while the classification has no stock, assets, losses, or active counters." });
+        }
+      }
       const commitment = await loadInventoryCommitment(client, inventoryId);
       if (!commitment.valid) { await client.query("ROLLBACK"); return res.status(409).json({ error: "INVALID_COMMITMENT_DATA", message: "Existing borrowing commitments are inconsistent. Inventory was not changed." }); }
       if (usableInventoryQuantity(item) < commitment.requiredCapacity) {
@@ -62,14 +78,14 @@ async function saveInventory(req, res, next) {
       }
     }
     const values = [item.item_name, item.purchase_date, item.quantity, item.additional_qty, item.replaces,
-      item.missing, item.breakage, item.defective, item.total_loss, item.low_stock_threshold, item.remarks];
+      item.missing, item.breakage, item.defective, item.total_loss, item.low_stock_threshold, item.remarks, item.tracking_type];
     const result = inventoryId == null
       ? await client.query(`INSERT INTO public.inventory
-          (item_name, purchase_date, quantity, additional_qty, replaces, missing, breakage, defective, total_loss, low_stock_threshold, remarks)
-         VALUES ($1, $2::date, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`, values)
+          (item_name, purchase_date, quantity, additional_qty, replaces, missing, breakage, defective, total_loss, low_stock_threshold, remarks, tracking_type)
+         VALUES ($1, $2::date, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`, values)
       : await client.query(`UPDATE public.inventory SET item_name=$1, purchase_date=$2::date, quantity=$3,
           additional_qty=$4, replaces=$5, missing=$6, breakage=$7, defective=$8, total_loss=$9,
-          low_stock_threshold=$10, remarks=$11, updated_at=now() WHERE id=$12 RETURNING *`, [...values, inventoryId]);
+          low_stock_threshold=$10, remarks=$11, tracking_type=$12, updated_at=now() WHERE id=$13 RETURNING *`, [...values, inventoryId]);
     await writeAuditLog(client, req.user, {
       action: inventoryId == null ? "inventory_created" : "inventory_updated",
       entityType: "inventory", entityId: result.rows[0].id, oldValues: previous, newValues: result.rows[0],
@@ -92,6 +108,8 @@ async function deleteInventory(req, res, next) {
     if (!current.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "INVENTORY_NOT_FOUND", message: "Inventory item was not found." }); }
     const references = await client.query("SELECT 1 FROM public.borrow_request_items WHERE inventory_id = $1 LIMIT 1", [req.params.inventoryId]);
     if (references.rowCount) { await client.query("ROLLBACK"); return res.status(409).json({ error: "INVENTORY_HAS_HISTORY", message: "Items with borrowing history cannot be deleted. Mark the item unavailable instead." }); }
+    const assets = await client.query("SELECT 1 FROM public.inventory_assets WHERE inventory_id = $1 LIMIT 1", [req.params.inventoryId]);
+    if (assets.rowCount) { await client.query("ROLLBACK"); return res.status(409).json({ error: "INVENTORY_HAS_ASSETS", message: "A serialized classification with physical asset records cannot be deleted. Retire its assets instead." }); }
     await client.query("DELETE FROM public.inventory WHERE id = $1", [req.params.inventoryId]);
     await writeAuditLog(client, req.user, { action: "inventory_deleted", entityType: "inventory", entityId: req.params.inventoryId, oldValues: current.rows[0] });
     await client.query("COMMIT");

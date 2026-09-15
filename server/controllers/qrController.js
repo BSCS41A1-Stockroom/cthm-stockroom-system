@@ -35,7 +35,7 @@ async function findActiveProfileFromQr(token, database = pool) {
 async function findReadyRequest(userId, database = pool) {
   const requests = await database.query(
     `SELECT request.id, request.borrow_date, request.return_date, request.purpose,
-            json_agg(json_build_object('inventoryId', item.inventory_id, 'name', inventory.item_name, 'quantity', item.quantity) ORDER BY item.inventory_id) AS items
+            json_agg(json_build_object('inventoryId', item.inventory_id, 'name', inventory.item_name, 'quantity', item.quantity, 'trackingType', inventory.tracking_type) ORDER BY item.inventory_id) AS items
        FROM public.borrow_requests request
        JOIN public.borrow_request_items item ON item.request_id=request.id
        JOIN public.inventory inventory ON inventory.id=item.inventory_id
@@ -52,7 +52,7 @@ async function findBorrowedRequests(userId, database = pool) {
     `SELECT request.id, request.borrow_date, request.return_date, request.purpose,
             json_agg(json_build_object(
               'inventoryId', item.inventory_id, 'name', inventory.item_name,
-              'quantity', item.quantity,
+              'quantity', item.quantity, 'trackingType', inventory.tracking_type,
               'accountedQuantity', COALESCE(returned.accounted, 0),
               'outstandingQuantity', GREATEST(item.quantity-COALESCE(returned.accounted, 0), 0)
             ) ORDER BY item.inventory_id) AS items

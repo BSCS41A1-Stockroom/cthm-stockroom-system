@@ -36,6 +36,20 @@ function parseAccountQr(token) {
     : null;
 }
 
+function createAssetQr(publicId, version) {
+  const payload = `cthmasset.v1.${publicId}.${version}`;
+  return `${payload}.${signature(payload)}`;
+}
+
+function parseAssetQr(token) {
+  const match = /^cthmasset\.v1\.([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.([1-9]\d*)\.([A-Za-z0-9_-]{43})$/i.exec(String(token ?? "").trim());
+  if (!match) return null;
+  const payload = `cthmasset.v1.${match[1]}.${match[2]}`;
+  return safeEqual(match[3], signature(payload))
+    ? { publicId: match[1], version: Number(match[2]) }
+    : null;
+}
+
 function createClaimTicket({ requestId, userId, staffId, qrVersion, expiresAt }) {
   const payload = `claim.v1.${requestId}.${userId}.${staffId}.${qrVersion}.${expiresAt}`;
   return `${payload}.${signature(payload)}`;
@@ -50,4 +64,4 @@ function verifyClaimTicket(token, { requestId, staffId, now = Date.now() }) {
   return { requestId: Number(match[1]), userId: match[2], staffId: match[3], qrVersion: Number(match[4]), expiresAt: Number(match[5]) };
 }
 
-module.exports = { createAccountQr, createClaimTicket, parseAccountQr, verifyClaimTicket };
+module.exports = { createAccountQr, createAssetQr, createClaimTicket, parseAccountQr, parseAssetQr, verifyClaimTicket };

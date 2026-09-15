@@ -9,6 +9,7 @@ import AddItemModal from "../../components/admin/Inventory/AddItemModal";
 import EditItemModal from "../../components/admin/Inventory/EditItemModal";
 import DeleteModal from "../../components/admin/Inventory/DeleteModal";
 import UnavailabilityModal from "../../components/admin/Inventory/UnavailabilityModal";
+import AssetModal from "../../components/admin/Inventory/AssetModal";
 import { inventoryStockStatus } from "../../utils/inventoryAvailability";
 
 export default function Inventory() {
@@ -25,6 +26,7 @@ export default function Inventory() {
 
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [availabilityItem, setAvailabilityItem] = useState(null);
+    const [assetItem, setAssetItem] = useState(null);
 
     useEffect(() => {
         loadInventory();
@@ -79,6 +81,7 @@ export default function Inventory() {
                         setDeleteOpen(true);
                     }}
                     onAvailability={setAvailabilityItem}
+                    onAssets={setAssetItem}
                 />
             </div>
 
@@ -113,6 +116,7 @@ export default function Inventory() {
                     onClose={() => setAvailabilityItem(null)}
                 />
             )}
+            {assetItem && <AssetModal item={assetItem} onClose={() => setAssetItem(null)} onChanged={loadInventory} />}
 
         </div>
     );
