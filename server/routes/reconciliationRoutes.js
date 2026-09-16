@@ -1,0 +1,13 @@
+"use strict";
+const express = require("express");
+const { authenticate, requireRoles } = require("../middleware/auth");
+const { cancelReconciliation, completeReconciliation, createReconciliation, getActiveReconciliation, recordBulkCount, scanReconciliationAsset } = require("../controllers/reconciliationController");
+const router = express.Router();
+router.use(authenticate, requireRoles("admin"));
+router.get("/active", getActiveReconciliation);
+router.post("/", createReconciliation);
+router.put("/:id/counts/:inventoryId", recordBulkCount);
+router.post("/:id/assets/scan", scanReconciliationAsset);
+router.post("/:id/complete", completeReconciliation);
+router.delete("/:id", cancelReconciliation);
+module.exports = router;
