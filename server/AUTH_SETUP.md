@@ -49,6 +49,7 @@ Run `022_preventive_maintenance.sql` to enable recurring inspections, inspection
 Run `023_global_qr_uniqueness.sql` to enforce one database-wide identity namespace for all account and asset QR codes. It safely registers existing codes and automatically retries cryptographic UUID generation if a collision is detected, including concurrent account/asset creation and replacement.
 
 Run `024_transaction_receipts.sql` to enable immutable claim and return receipts, public verification codes, and exact serialized-asset return linkage.
+Run `025_accountability_cases.sql` to enable damage and loss accountability cases, student case visibility, resolution tracking, and unresolved-case borrowing restrictions.
 
 Phone-camera scanning requires HTTPS in production and camera permission from the browser. USB QR scanners are supported through the manual scanner field because most scanners behave like keyboards.
 

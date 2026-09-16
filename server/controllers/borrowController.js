@@ -207,6 +207,7 @@ function validatePolicyConstraints({
   policy = {},
   now = new Date(),
   outstandingBorrowingId = null,
+  accountabilityCaseNumber = null,
 }) {
   const reservedByInventoryId = new Map(existingBorrowings.map((entry) => [
     String(entry.inventoryId),
@@ -262,9 +263,16 @@ function validatePolicyConstraints({
       message: `Student has an outstanding borrowing (request '${outstandingBorrowingId}'). All borrowed items must be returned before submitting another request.`,
     });
   }
+  if (accountabilityCaseNumber) {
+    reasons.push({
+      code: "UNRESOLVED_ACCOUNTABILITY",
+      constraint: "accountability",
+      message: `Resolve accountability case '${accountabilityCaseNumber}' with the stockroom before submitting another request.`,
+    });
+  }
 
   return Object.freeze({
-    valid: result.valid && outstandingBorrowingId == null,
+    valid: result.valid && outstandingBorrowingId == null && !accountabilityCaseNumber,
     checkedConstraints: result.checkedConstraints,
     reasons: Object.freeze(reasons),
   });
@@ -283,6 +291,12 @@ async function loadValidationContext(client, request, userId = null) {
     `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
     [userId ? `user:${userId}` : `student:${request.studentId.trim().toLowerCase()}`]
   );
+
+  const accountabilityResult = userId ? await client.query(
+    `SELECT case_number FROM public.accountability_cases
+      WHERE user_id=$1::uuid AND status IN ('open','under_review')
+      ORDER BY created_at,id LIMIT 1`, [userId]
+  ) : { rows: [] };
 
   const inventoryResult = await client.query(
     `SELECT inventory.id, inventory.item_name, inventory.quantity, inventory.additional_qty, inventory.replaces, inventory.missing,
@@ -402,6 +416,7 @@ async function loadValidationContext(client, request, userId = null) {
     existingRequests: [...requestsById.values()],
     inventoryAvailability,
     outstandingBorrowingId: outstandingResult.rows[0]?.id ?? null,
+    accountabilityCaseNumber: accountabilityResult.rows[0]?.case_number ?? null,
   };
 }
 
@@ -434,6 +449,7 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
       policy: validationOptions.policy,
       now: validationOptions.now,
       outstandingBorrowingId: context.outstandingBorrowingId,
+      accountabilityCaseNumber: context.accountabilityCaseNumber,
     });
     const conflicts = detectBorrowingConflicts({
       request,
@@ -753,6 +769,21 @@ async function processBorrowingReturn(req, res, next) {
         [accounted, item.damagedQuantity, item.missingQuantity, item.inventoryId]
       );
       if (!inventoryResult.rowCount) throw new Error(`Inventory counters are inconsistent for item '${item.inventoryId}'.`);
+      for (const [incidentType, affectedQuantity] of [["damaged", item.damagedQuantity], ["missing", item.missingQuantity]]) {
+        if (affectedQuantity <= 0) continue;
+        const accountability = await client.query(
+          `INSERT INTO public.accountability_cases
+            (request_id,return_id,inventory_id,user_id,incident_type,affected_quantity,description,evidence_notes,opened_by)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$7,$8)
+           ON CONFLICT (return_id,inventory_id,incident_type) WHERE return_id IS NOT NULL DO NOTHING
+           RETURNING id,case_number`,
+          [requestId,returnResult.rows[0].id,item.inventoryId,request.user_id,incidentType,affectedQuantity,item.conditionNote,req.user.id]
+        );
+        if (accountability.rowCount) {
+          await writeAuditLog(client,req.user,{ action:"accountability_case_created",entityType:"accountability_case",entityId:accountability.rows[0].id,newValues:{caseNumber:accountability.rows[0].case_number,requestId,incidentType,affectedQuantity} });
+          await notifyUser(client,request.user_id,{ type:"accountability_created",title:"Accountability case opened",message:`${accountability.rows[0].case_number} was opened for ${affectedQuantity} ${incidentType} unit(s). Review the case details and coordinate with the stockroom.`,relatedPath:"/my-accountability",entityType:"accountability_case",entityId:accountability.rows[0].id });
+        }
+      }
       previous.set(String(item.inventoryId), (previous.get(String(item.inventoryId)) ?? 0) + accounted);
     }
     for (const asset of returnedAssetRows) {

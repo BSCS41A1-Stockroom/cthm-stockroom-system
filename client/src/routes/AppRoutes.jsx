@@ -10,6 +10,7 @@ import Borrowing from "../pages/student/Borrowing";
 import Calendar from "../pages/student/Calendar";
 import MyRequests from "../pages/student/MyRequests";
 import AccountQr from "../pages/student/AccountQr";
+import Accountability from "../pages/Accountability";
 
 // Admin Pages
 import Dashboard from "../pages/admin/Dashboard";
@@ -44,6 +45,7 @@ export default function AppRoutes() {
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/my-requests" element={<MyRequests />} />
           <Route path="/my-qr" element={<AccountQr />} />
+          <Route path="/my-accountability" element={<Accountability />} />
         </Route>
       </Route>
 
@@ -58,6 +60,7 @@ export default function AppRoutes() {
           <Route path="/admin/calendar" element={<AdminCalendar />} />
           <Route path="/admin/reports" element={<Reports />} />
           <Route path="/admin/scan" element={<ScanQr />} />
+          <Route path="/admin/accountability" element={<Accountability />} />
           <Route element={<ProtectedRoute roles={["admin"]} />}>
             <Route path="/admin/inventory" element={<Inventory />} />
             <Route path="/admin/activity-logs" element={<AuditLogs />} />

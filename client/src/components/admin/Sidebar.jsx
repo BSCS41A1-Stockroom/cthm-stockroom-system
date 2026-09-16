@@ -8,6 +8,7 @@ import {
     FaHistory,
     FaUsersCog,
     FaQrcode,
+    FaShieldAlt,
 } from "react-icons/fa";
 import { useAuth } from "../../auth/useAuth";
 
@@ -45,6 +46,7 @@ export default function Sidebar({
             label: "Reports",
         },
         { path: "/admin/scan", icon: <FaQrcode />, label: "Scan Account QR" },
+        { path: "/admin/accountability", icon: <FaShieldAlt />, label: "Accountability" },
         {
             path: "/admin/activity-logs",
             icon: <FaHistory />,
