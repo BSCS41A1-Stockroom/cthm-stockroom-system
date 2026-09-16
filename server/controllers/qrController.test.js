@@ -65,11 +65,12 @@ test("accepts one paired scan for the same staff account and stores no raw QR to
 
 test("return-mode QR lookup returns only outstanding borrowed transactions", async (context) => {
   const originalQuery = pool.query;
+  let borrowedSql = "";
   context.after(() => { pool.query = originalQuery; });
   const publicId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
   pool.query = async (sql) => {
     if (sql.includes("FROM public.profiles WHERE qr_public_id")) return { rowCount: 1, rows: [{ user_id: STUDENT_ID, full_name: "Student", student_id: "2026-001", role: "student", is_active: true, qr_version: 1, qr_revoked_at: null, qr_status: "active" }] };
-    if (sql.includes("request.status='Borrowed'")) return { rowCount: 1, rows: [{ id: 14, return_date: "2026-09-20", items: [{ inventoryId: 2, quantity: 3, accountedQuantity: 1, outstandingQuantity: 2 }] }] };
+    if (sql.includes("request.status='Borrowed'")) { borrowedSql = sql; return { rowCount: 1, rows: [{ id: 14, return_date: "2026-09-20", items: [{ inventoryId: 2, quantity: 3, accountedQuantity: 1, outstandingQuantity: 2 }] }] }; }
     return { rowCount: 1, rows: [] };
   };
   const res = responseRecorder();
@@ -77,6 +78,7 @@ test("return-mode QR lookup returns only outstanding borrowed transactions", asy
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.mode, "return");
   assert.equal(res.body.requests[0].items[0].outstandingQuantity, 2);
+  assert.match(borrowedSql, /HAVING bool_or\(item\.quantity > COALESCE\(returned\.accounted, 0\)\)/);
 });
 
 test("students cannot retrieve a physical QR before an admin issues it", async (context) => {
