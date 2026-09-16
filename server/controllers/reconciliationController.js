@@ -152,12 +152,14 @@ async function completeReconciliation(req, res, next) {
           const changed = await client.query(`UPDATE public.inventory SET missing=missing+1, breakage=breakage+$2, defective=defective+$3, updated_at=now() WHERE id=$1 AND breakage+$2>=0 AND defective+$3>=0 RETURNING *`, [asset.inventory_id, breakage, defective]);
           inventoryById.set(String(asset.inventory_id), changed.rows[0]);
           await client.query(`UPDATE public.inventory_assets SET status='missing', condition='missing', maintenance_note=$2, updated_at=now() WHERE id=$1`, [asset.asset_id, `Not located during reconciliation ${session.id}: ${reason}`]);
+          await client.query(`UPDATE public.asset_maintenance_records SET status='completed', repair_notes=COALESCE(repair_notes || E'\n','') || $2, completed_by=$3, completed_at=now(), updated_at=now() WHERE asset_id=$1 AND status IN ('under_inspection','under_repair')`, [asset.asset_id, `Asset transferred to missing-asset investigation during reconciliation ${session.id}.`, req.user.id]);
         } else if (asset.discrepancy_type === "unexpected" && asset.status === "missing") {
           const maintenance = ["damaged", "under_inspection"].includes(asset.observed_condition);
           const changed = await client.query(`UPDATE public.inventory SET missing=missing-1, breakage=breakage+$2, defective=defective+$3, updated_at=now() WHERE id=$1 AND missing>0 RETURNING *`, [asset.inventory_id, asset.observed_condition === "damaged" ? 1 : 0, asset.observed_condition === "under_inspection" ? 1 : 0]);
           if (!changed.rowCount) throw new Error("Missing asset counters are inconsistent.");
           inventoryById.set(String(asset.inventory_id), changed.rows[0]);
           await client.query(`UPDATE public.inventory_assets SET status=$2, condition=$3, maintenance_note=NULL, updated_at=now() WHERE id=$1`, [asset.asset_id, maintenance ? "maintenance" : "available", asset.observed_condition]);
+          if (maintenance) await client.query(`INSERT INTO public.asset_maintenance_records (asset_id,inventory_id,source,status,problem_description,opened_by) SELECT $1,$2,'reconciliation','under_inspection',$3,$4 WHERE NOT EXISTS (SELECT 1 FROM public.asset_maintenance_records WHERE asset_id=$1 AND status IN ('under_inspection','under_repair'))`, [asset.asset_id, asset.inventory_id, `Condition recorded as ${asset.observed_condition} during reconciliation ${session.id}.`, req.user.id]);
         } else if (asset.discrepancy_type === "condition_mismatch") {
           const oldBreakage = asset.status === "maintenance" && asset.condition === "damaged" ? 1 : 0;
           const oldDefective = asset.status === "maintenance" && asset.condition === "under_inspection" ? 1 : 0;
@@ -171,6 +173,11 @@ async function completeReconciliation(req, res, next) {
           if (!changed.rowCount) throw new Error("Serialized condition counters are inconsistent.");
           inventoryById.set(String(asset.inventory_id), changed.rows[0]);
           await client.query(`UPDATE public.inventory_assets SET condition=$2, status=CASE WHEN $2 IN ('damaged','under_inspection') THEN 'maintenance' ELSE 'available' END, updated_at=now() WHERE id=$1`, [asset.asset_id, asset.observed_condition]);
+          if (newBreakage || newDefective) {
+            await client.query(`INSERT INTO public.asset_maintenance_records (asset_id,inventory_id,source,status,problem_description,opened_by) SELECT $1,$2,'reconciliation','under_inspection',$3,$4 WHERE NOT EXISTS (SELECT 1 FROM public.asset_maintenance_records WHERE asset_id=$1 AND status IN ('under_inspection','under_repair'))`, [asset.asset_id, asset.inventory_id, `Condition changed to ${asset.observed_condition} during reconciliation ${session.id}.`, req.user.id]);
+          } else if (oldBreakage || oldDefective) {
+            await client.query(`UPDATE public.asset_maintenance_records SET status='completed', repair_notes=COALESCE(repair_notes || E'\n','') || $2, completed_by=$3, completed_at=now(), updated_at=now() WHERE asset_id=$1 AND status IN ('under_inspection','under_repair')`, [asset.asset_id, `Returned to service through reconciliation ${session.id}: ${reason}`, req.user.id]);
+          }
         }
       }
     }

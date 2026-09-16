@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { authenticatedFetch } from "../../../lib/api";
+import MaintenancePanel from "./MaintenancePanel";
 
 export default function AssetModal({ item, onClose, onChanged }) {
   const [assets, setAssets] = useState([]);
@@ -8,6 +9,7 @@ export default function AssetModal({ item, onClose, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [qr, setQr] = useState(null);
+  const [maintenanceAsset, setMaintenanceAsset] = useState(null);
 
   async function load() {
     const response = await authenticatedFetch(`/api/inventory/${item.id}/assets`);
@@ -79,19 +81,21 @@ export default function AssetModal({ item, onClose, onChanged }) {
   return <div className="modal-overlay"><div className="modal asset-modal">
     <div className="modal-header"><div><h2>Serialized Assets</h2><p>{item.item_name}</p></div><button onClick={onClose} aria-label="Close">×</button></div>
     <div className="modal-body asset-modal-body">
+      {maintenanceAsset ? <MaintenancePanel item={item} asset={maintenanceAsset} onBack={() => setMaintenanceAsset(null)} onChanged={async () => { await load(); onChanged?.(); }} /> : <>
       <form className="asset-add-form" onSubmit={add}><label>Manufacturer serial number (optional)<input maxLength="120" value={serialNumber} onChange={(event) => setSerialNumber(event.target.value)} /></label><button className="save-btn" disabled={busy}>Add Physical Asset</button></form>
       {error && <p className="availability-error">{error}</p>}
       <div className="asset-list">{assets.length === 0 ? <p>No physical assets registered yet.</p> : assets.map((asset) => <article key={asset.id} className="asset-row">
         <div><strong>{asset.assetNumber}</strong><span>Serial: {asset.serialNumber || "Not provided"}</span><span>{asset.status} · {asset.condition}</span>{asset.incident && <span className="asset-incident-reason">Incident: {asset.incident.reason}</span>}</div>
         <div className="asset-actions"><button onClick={() => showQr(asset)}>View / Print QR</button>
           {asset.status !== "borrowed" && asset.status !== "retired" && asset.status !== "missing" && (asset.status === "maintenance"
-            ? <button onClick={() => change(asset, "available", "good")}>Return to Service</button>
+            ? <button className="maintenance-manage" onClick={() => setMaintenanceAsset(asset)}>Manage Maintenance</button>
             : <button onClick={() => change(asset, "maintenance", "under_inspection")}>Send to Inspection</button>)}
-          {asset.status !== "borrowed" && asset.status !== "retired" && asset.status !== "missing" && <button className="danger-text" onClick={() => change(asset, "retired", "retired")}>Retire</button>}
+          {asset.status === "available" && <button className="danger-text" onClick={() => change(asset, "retired", "retired")}>Retire</button>}
           {asset.status === "missing" && asset.incident && <><button onClick={() => resolveIncident(asset, "recovered")}>Mark Recovered</button><button className="danger-text" onClick={() => resolveIncident(asset, "written_off")}>Write Off</button></>}
         </div>
       </article>)}</div>
       {qr && <div className="asset-qr-card"><h3>{qr.asset.assetNumber}</h3><img src={qr.image} alt={`QR code for ${qr.asset.assetNumber}`} /><p>{item.item_name}</p><button onClick={() => window.print()}>Print QR Label</button><button onClick={() => setQr(null)}>Close QR</button></div>}
+      </>}
     </div>
     <div className="modal-footer"><button className="cancel-btn" onClick={onClose}>Done</button></div>
   </div></div>;

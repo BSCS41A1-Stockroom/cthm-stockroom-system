@@ -152,8 +152,8 @@ function returnErrors(returnData) {
       if (!Number.isSafeInteger(quantity) || quantity < 0) errors.push(`${label} quantity for item '${id}' must be a non-negative whole number.`);
     }
     if (item.conditionNote.length > 500) errors.push(`Condition note for item '${id}' cannot exceed 500 characters.`);
-    if ((item.damagedQuantity > 0 || item.missingQuantity > 0) && !item.conditionNote) {
-      errors.push(`A condition note is required for damaged or missing inventory item '${id}'.`);
+    if ((item.damagedQuantity > 0 || item.missingQuantity > 0) && item.conditionNote.length < 5) {
+      errors.push(`A condition note of at least 5 characters is required for damaged or missing inventory item '${id}'.`);
     }
     total += item.goodQuantity + item.damagedQuantity + item.missingQuantity;
   }
@@ -165,7 +165,7 @@ function returnErrors(returnData) {
     assetTokens.add(asset.token);
     if (!["good", "fair", "damaged"].includes(asset.condition)) errors.push("Serialized return condition must be good, fair, or damaged.");
     if (asset.conditionNote.length > 500) errors.push("Serialized asset condition notes cannot exceed 500 characters.");
-    if (asset.condition === "damaged" && !asset.conditionNote) errors.push("A condition note is required for a damaged serialized asset.");
+    if (asset.condition === "damaged" && asset.conditionNote.length < 5) errors.push("A condition note of at least 5 characters is required for a damaged serialized asset.");
   }
   const missingAssetIds = new Set();
   for (const asset of returnData.missingAssets) {
@@ -761,6 +761,15 @@ async function processBorrowingReturn(req, res, next) {
            current_borrow_request_id=NULL, current_borrower_user_id=NULL, updated_at=now() WHERE id=$1`,
         [asset.id, damaged ? "maintenance" : "available", asset.submitted.condition, damaged ? asset.submitted.conditionNote : null]
       );
+      if (damaged) {
+        await client.query(
+          `INSERT INTO public.asset_maintenance_records
+            (asset_id, inventory_id, source, status, problem_description, opened_by)
+           SELECT $1,$2,'damaged_return','under_inspection',$3,$4
+           WHERE NOT EXISTS (SELECT 1 FROM public.asset_maintenance_records WHERE asset_id=$1 AND status IN ('under_inspection','under_repair'))`,
+          [asset.id, asset.inventory_id, asset.submitted.conditionNote, req.user.id]
+        );
+      }
     }
     for (const asset of missingAssetRows) {
       await client.query(

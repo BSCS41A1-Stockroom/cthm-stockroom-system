@@ -88,10 +88,10 @@ export default function Requests() {
     event.preventDefault();
     const accounted = returnForm.items.reduce((sum, item) => sum + item.goodQuantity + item.damagedQuantity + item.missingQuantity, 0);
     const exceeded = returnForm.items.find((item) => item.goodQuantity + item.damagedQuantity + item.missingQuantity > item.outstandingQuantity);
-    const missingNote = returnForm.items.find((item) => (item.damagedQuantity > 0 || item.missingQuantity > 0) && !item.conditionNote.trim());
+    const missingNote = returnForm.items.find((item) => (item.damagedQuantity > 0 || item.missingQuantity > 0) && item.conditionNote.trim().length < 5);
     if (accounted <= 0 || exceeded || missingNote) {
       setReturnError(exceeded ? `Entered quantities exceed the outstanding units for ${exceeded.name}.`
-        : missingNote ? `Add a condition note for damaged or missing units of ${missingNote.name}.`
+        : missingNote ? `Add a condition note of at least 5 characters for damaged or missing units of ${missingNote.name}.`
           : "Enter at least one returned, damaged, or missing unit.");
       return;
     }
@@ -466,7 +466,7 @@ export default function Requests() {
                         onChange={(event) => setReturnForm((current) => ({ ...current, items: current.items.map((entry, itemIndex) => itemIndex === index ? { ...entry, [field]: Number(event.target.value) } : entry) }))}/></label>
                     ))}
                   </div>
-                  <label>Condition note<input maxLength="500" value={item.conditionNote} placeholder="Optional condition details"
+                  <label>Condition note<input minLength={(item.damagedQuantity > 0 || item.missingQuantity > 0) ? 5 : undefined} required={item.damagedQuantity > 0 || item.missingQuantity > 0} maxLength="500" value={item.conditionNote} placeholder="Optional condition details"
                     onChange={(event) => setReturnForm((current) => ({ ...current, items: current.items.map((entry, itemIndex) => itemIndex === index ? { ...entry, conditionNote: event.target.value } : entry) }))}/></label>
                 </section>
               ))}

@@ -42,6 +42,8 @@ Legacy borrowing records have no authenticated owner and remain visible to profe
 
 Run `migrations/013_borrowing_calendar_deadlines.sql` through `migrations/017_physical_qr_issuance.sql` in numeric order in the Supabase SQL editor. Generate `QR_SIGNING_SECRET` locally with `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` and add the output only to the backend environment. Never add this secret to a `VITE_` variable or expose it in browser code. Changing this secret invalidates every existing account QR code.
 
+Run migrations `018_serialized_asset_tracking.sql` through `021_asset_maintenance_tracking.sql` in numeric order to enable serialized assets, incident handling, physical counts, and audited maintenance/repair cases. Migration 021 must be applied before deploying the maintenance UI and API.
+
 Phone-camera scanning requires HTTPS in production and camera permission from the browser. USB QR scanners are supported through the manual scanner field because most scanners behave like keyboards.
 
 For phone-to-PC scanning, both devices open the deployed HTTPS frontend and sign in with the same Admin or Professor account. The PC creates a five-minute pairing QR, and the phone scans that code to open the mobile scanner. Migration 015 enables Supabase Realtime for pairing-state updates; no USB connection is used or required.
