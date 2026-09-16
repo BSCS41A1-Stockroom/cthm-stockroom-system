@@ -23,6 +23,7 @@ import ScanQr from "../pages/admin/ScanQr";
 import MobileQrScanner from "../pages/admin/MobileQrScanner";
 import Login from "../pages/Login";
 import SetPassword from "../pages/SetPassword";
+import VerifyReceipt from "../pages/VerifyReceipt";
 import ProtectedRoute from "../auth/ProtectedRoute";
 
 export default function AppRoutes() {
@@ -30,6 +31,8 @@ export default function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/set-password" element={<SetPassword />} />
+      <Route path="/verify-receipt" element={<VerifyReceipt />} />
+      <Route path="/verify-receipt/:code" element={<VerifyReceipt />} />
 
       {/* =========================
           STUDENT

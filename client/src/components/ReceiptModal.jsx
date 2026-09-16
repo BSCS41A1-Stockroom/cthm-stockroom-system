@@ -1,9 +1,27 @@
 import { useEffect, useState } from "react";
-import { FaPrint, FaReceipt, FaTimes } from "react-icons/fa";
+import QRCode from "qrcode";
+import { FaExternalLinkAlt, FaPrint, FaReceipt, FaTimes } from "react-icons/fa";
 import { authenticatedFetch } from "../lib/api";
 import "../styles/receipts.css";
+import "../styles/receipt-verification.css";
 
 const dateTime = (value) => value ? new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "—";
+
+function VerificationBlock({ code }) {
+  const [qrImage, setQrImage] = useState("");
+  const verificationUrl = `${window.location.origin}/verify-receipt/${code}`;
+  useEffect(() => {
+    let active = true;
+    QRCode.toDataURL(verificationUrl, { width: 180, margin: 1, errorCorrectionLevel: "M" })
+      .then((image) => { if (active) setQrImage(image); })
+      .catch(() => { if (active) setQrImage(""); });
+    return () => { active = false; };
+  }, [verificationUrl]);
+  return <div className="receipt-verification">
+    {qrImage && <img src={qrImage} alt="Receipt verification QR code" />}
+    <div><span>Verification code</span><code>{code}</code><a href={verificationUrl} target="_blank" rel="noreferrer">Verify authenticity <FaExternalLinkAlt /></a></div>
+  </div>;
+}
 
 export default function ReceiptModal({ requestId, onClose }) {
   const [receipts, setReceipts] = useState([]);
@@ -27,7 +45,7 @@ export default function ReceiptModal({ requestId, onClose }) {
         <div className="receipt-purpose"><span>Purpose</span><p>{details.purpose || "—"}</p></div>
         <table><thead><tr><th>Item</th><th>Details</th></tr></thead><tbody>{(details.items || []).map((item) => <tr key={item.inventoryId}><td><strong>{item.name}</strong></td><td>{selected.receipt_type === "claim" ? `${item.quantity} unit(s)` : `${item.goodQuantity} good · ${item.damagedQuantity} damaged · ${item.missingQuantity} missing`}{item.conditionNote && <small>{item.conditionNote}</small>}{(item.assets || []).map((asset) => <small key={asset.assetNumber}>{asset.assetNumber}{asset.serialNumber ? ` · ${asset.serialNumber}` : ""}{asset.condition ? ` · ${asset.condition}` : ""}</small>)}</td></tr>)}</tbody></table>
         {details.remarks && <div className="receipt-purpose"><span>Remarks</span><p>{details.remarks}</p></div>}
-        <footer><div><span>Verification code</span><code>{selected.verification_code}</code><small>Verify at /api/receipts/verify/{selected.verification_code}</small></div><p>This system-generated record is immutable.</p></footer>
+        <footer><VerificationBlock code={selected.verification_code} /><p>This system-generated record is immutable.</p></footer>
       </article>}
       <div className="receipt-actions"><button onClick={() => window.print()}><FaPrint /> Print Receipt</button></div></>}
   </section></div>;
