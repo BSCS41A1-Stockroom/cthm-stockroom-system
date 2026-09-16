@@ -169,20 +169,21 @@ async function processUpcomingDeadlines(databasePool = pool) {
   }
 }
 
-async function processExpiredClaims(databasePool = pool) {
+async function processExpiredRequests(databasePool = pool) {
   const client = await databasePool.connect();
   try {
     await client.query("BEGIN");
     const lock = await client.query(
-      "SELECT pg_try_advisory_xact_lock(hashtextextended('claim-expiration', 0)) AS acquired"
+      "SELECT pg_try_advisory_xact_lock(hashtextextended('request-expiration', 0)) AS acquired"
     );
     if (!lock.rows[0]?.acquired) {
       await client.query("ROLLBACK");
       return { processed: 0, notificationsCreated: 0, skipped: true };
     }
     const expired = await client.query(
-      `SELECT id, user_id FROM public.borrow_requests
-        WHERE status='Approved' AND return_date < (now() AT TIME ZONE 'Asia/Manila')::date
+      `SELECT id, user_id, status FROM public.borrow_requests
+        WHERE status IN ('Pending','Validated','Approved')
+          AND borrow_date < (now() AT TIME ZONE 'Asia/Manila')::date
         ORDER BY id FOR UPDATE`
     );
     let notificationsCreated = 0;
@@ -203,13 +204,13 @@ async function processExpiredClaims(databasePool = pool) {
         const notice = await client.query(
           `INSERT INTO public.notifications
             (recipient_user_id, type, title, message, related_path, entity_type, entity_id, notification_key)
-           VALUES ($1, 'borrowing_expired', 'Ready request expired', $2, '/my-requests', 'borrowing_request', $3, $4)
+           VALUES ($1, 'borrowing_expired', 'Borrowing request expired', $2, '/my-requests', 'borrowing_request', $3, $4)
            ON CONFLICT (notification_key) WHERE notification_key IS NOT NULL DO NOTHING RETURNING id`,
-          [request.user_id, `BR-${String(request.id).padStart(3, "0")} was not claimed before its return deadline. Its reservation has been released.`, String(request.id), `claim-expired:${request.id}:${request.user_id}`]
+          [request.user_id, `BR-${String(request.id).padStart(3, "0")} was not completed before its scheduled borrowing date passed. Its reservation has been released.`, String(request.id), `request-expired:${request.id}:${request.user_id}`]
         );
         notificationsCreated += notice.rowCount;
       }
-      await writeAuditLog(client, null, { action: "borrowing_claim_expired", entityType: "borrowing_request", entityId: request.id, oldValues: { status: "Approved" }, newValues: { status: "Expired" }, metadata: { source: "scheduled_job" } });
+      await writeAuditLog(client, null, { action: "borrowing_request_expired", entityType: "borrowing_request", entityId: request.id, oldValues: { status: request.status }, newValues: { status: "Expired" }, metadata: { source: "automatic_cleanup" } });
     }
     await client.query("COMMIT");
     return { processed: expired.rowCount, notificationsCreated, skipped: false };
@@ -219,18 +220,20 @@ async function processExpiredClaims(databasePool = pool) {
   } finally { client.release(); }
 }
 
+const processExpiredClaims = processExpiredRequests;
+
 async function runOverdueMonitoring(req, res, next) {
   if (!authorizedCronRequest(req.get("authorization"))) {
     return res.status(401).json({ error: "INVALID_CRON_AUTHORIZATION", message: "Scheduled job authorization is invalid." });
   }
   try {
-    const expiredClaims = await processExpiredClaims();
+    const expiredRequests = await processExpiredRequests();
     const upcoming = await processUpcomingDeadlines();
     const overdue = await processOverdueBorrowings();
-    return res.json({ expiredClaims, upcoming, overdue });
+    return res.json({ expiredRequests, upcoming, overdue });
   } catch (error) {
     return next(error);
   }
 }
 
-module.exports = { authorizedCronRequest, processExpiredClaims, processUpcomingDeadlines, processOverdueBorrowings, runOverdueMonitoring };
+module.exports = { authorizedCronRequest, processExpiredClaims, processExpiredRequests, processUpcomingDeadlines, processOverdueBorrowings, runOverdueMonitoring };

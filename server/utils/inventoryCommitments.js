@@ -28,6 +28,7 @@ async function loadInventoryCommitment(client, inventoryId, excludeRequestId = n
         WHERE item.inventory_id = $1
           AND ($2::bigint IS NULL OR request.id <> $2::bigint)
           AND request.status IN ('Pending', 'Validated', 'Approved', 'Borrowed')
+          AND (request.status = 'Borrowed' OR request.borrow_date >= (now() AT TIME ZONE 'Asia/Manila')::date)
      ), candidate_dates AS (
        SELECT DISTINCT borrow_date AS date FROM commitments WHERE status <> 'Borrowed'
      )

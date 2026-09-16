@@ -15,6 +15,7 @@ const { writeAuditLog } = require("../utils/auditLog");
 const { notifyRoles, notifyUser } = require("../utils/notifications");
 const { loadInventoryCommitment, usableInventoryQuantity } = require("../utils/inventoryCommitments");
 const { parseAssetQr, verifyClaimTicket } = require("../utils/qrCredential");
+const { processExpiredRequests } = require("./overdueController");
 
 const RESERVED_STATUSES = new Set(["Pending", "Validated", "Approved"]);
 const BORROWED_STATUSES = new Set(["Borrowed"]);
@@ -325,7 +326,8 @@ async function loadValidationContext(client, request, userId = null) {
        FROM public.borrow_requests request
       WHERE (($1::uuid IS NOT NULL AND request.user_id = $1::uuid)
         OR (request.user_id IS NULL AND lower(trim(request.student_id)) = $2))
-        AND request.status IN ('Approved', 'Borrowed')
+        AND (request.status = 'Borrowed' OR (request.status = 'Approved'
+          AND request.borrow_date >= (now() AT TIME ZONE 'Asia/Manila')::date))
       ORDER BY request.id
       LIMIT 1`,
     [userId, request.studentId.trim().toLowerCase()]
@@ -339,6 +341,7 @@ async function loadValidationContext(client, request, userId = null) {
       WHERE (($1::uuid IS NOT NULL AND br.user_id = $1::uuid)
         OR (br.user_id IS NULL AND lower(trim(br.student_id)) = $2))
         AND br.status = ANY($3::text[])
+        AND (br.status = 'Borrowed' OR br.borrow_date >= (now() AT TIME ZONE 'Asia/Manila')::date)
       ORDER BY br.id, bri.inventory_id`,
     [userId, request.studentId.trim().toLowerCase(), ACTIVE_BORROWING_STATUSES]
   );
@@ -539,6 +542,7 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
 
 async function validateBorrowRequest(req, res, next) {
   try {
+    await processExpiredRequests();
     const result = await withValidation(
       authenticatedStudentRequest(req.body, req.user),
       false,
@@ -553,6 +557,7 @@ async function validateBorrowRequest(req, res, next) {
 
 async function listBorrowRequests(req, res, next) {
   try {
+    await processExpiredRequests();
     const studentOnly = req.user.role === "student";
     const result = await pool.query(
       `SELECT br.id, br.student_name, br.student_id, br.borrow_date,
@@ -834,6 +839,7 @@ async function processBorrowingReturn(req, res, next) {
 
 async function createBorrowRequest(req, res, next) {
   try {
+    await processExpiredRequests();
     const result = await withValidation(
       authenticatedStudentRequest(req.body, req.user),
       true,
@@ -855,6 +861,7 @@ async function updateBorrowRequestStatus(req, res, next) {
   const client = await pool.connect();
 
   try {
+    await processExpiredRequests();
     await client.query("BEGIN");
     const requestResult = await client.query(
       `SELECT * FROM borrow_requests WHERE id = $1 FOR UPDATE`,
