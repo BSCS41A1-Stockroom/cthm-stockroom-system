@@ -70,6 +70,25 @@ async function processOverdueBorrowings(databasePool = pool) {
       notificationsCreated += staffNotices.rowCount;
 
       if (!request.overdue_detected_at) {
+        const cases = await client.query(
+          `INSERT INTO public.accountability_cases
+            (request_id,inventory_id,user_id,incident_type,affected_quantity,description,evidence_notes)
+           SELECT request.id,item.inventory_id,request.user_id,'overdue',
+                  GREATEST(item.quantity-COALESCE(returned.accounted,0),1),
+                  $2,$3
+             FROM public.borrow_requests request
+             JOIN public.borrow_request_items item ON item.request_id=request.id
+             LEFT JOIN (SELECT request_id,inventory_id,SUM(good_quantity+damaged_quantity+missing_quantity)::integer accounted
+                          FROM public.borrowing_return_items GROUP BY request_id,inventory_id) returned
+                    ON returned.request_id=request.id AND returned.inventory_id=item.inventory_id
+            WHERE request.id=$1 AND item.quantity>COALESCE(returned.accounted,0)
+           ON CONFLICT (request_id,inventory_id,incident_type) WHERE incident_type='overdue' DO NOTHING
+           RETURNING id,case_number`,
+          [request.id,`${requestCode} passed its required return date with items still outstanding.`,`${request.days_overdue} day(s) overdue when first detected.`]
+        );
+        for (const accountability of cases.rows) {
+          await writeAuditLog(client,null,{ action:"accountability_case_created",entityType:"accountability_case",entityId:accountability.id,newValues:{caseNumber:accountability.case_number,requestId:request.id,incidentType:"overdue"},metadata:{source:"scheduled_job"} });
+        }
         await writeAuditLog(client, null, {
           action: "borrowing_overdue_detected",
           entityType: "borrowing_request",

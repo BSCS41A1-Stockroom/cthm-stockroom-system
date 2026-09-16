@@ -5,6 +5,7 @@ import {
   FaCalendarAlt,
   FaClipboardList,
   FaQrcode,
+  FaShieldAlt,
 } from "react-icons/fa";
 
 export default function Sidebar({
@@ -53,6 +54,10 @@ export default function Sidebar({
           <NavLink to="/my-qr">
             <FaQrcode />
             {!sidebarCollapsed && <span>My QR</span>}
+          </NavLink>
+          <NavLink to="/my-accountability">
+            <FaShieldAlt />
+            {!sidebarCollapsed && <span>Accountability</span>}
           </NavLink>
         </nav>
       </aside>

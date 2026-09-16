@@ -67,6 +67,7 @@ test("processes a complete return and updates inventory condition counters atomi
       if (sql.includes("SELECT inventory_id, quantity FROM borrow_request_items")) return { rows: [{ inventory_id: 7, quantity: 2 }] };
       if (sql.includes("SUM(good_quantity")) return { rows: [] };
       if (sql.includes("INSERT INTO borrowing_returns")) return { rows: [{ id: 20, request_id: 10 }] };
+      if (sql.includes("INSERT INTO public.accountability_cases")) return { rowCount: 1, rows: [{ id: 25, case_number: "AC-2030-00000001" }] };
       if (sql.includes("INSERT INTO public.transaction_receipts")) return { rowCount: 1, rows: [{ id: 30, receipt_number: "RCT-2030-00000001", receipt_type: "return" }] };
       if (sql.includes("UPDATE inventory")) return { rowCount: 1, rows: [{ id: 7 }] };
       if (sql.includes("UPDATE borrow_requests SET status")) return { rows: [{ id: 10, status: "Returned" }] };
@@ -363,6 +364,13 @@ test("runs all eight borrowing-policy constraints for a valid request", () => {
   assert.equal(validation.valid, true);
   assert.deepEqual(validation.checkedConstraints, ALL_POLICY_CONSTRAINTS);
   assert.deepEqual(validation.reasons, []);
+});
+
+test("blocks a policy-valid request while an accountability case is unresolved", () => {
+  const validation = validatePolicyConstraints({ ...policyFixture(), accountabilityCaseNumber: "AC-2030-00000001" });
+  assert.equal(validation.valid, false);
+  assert.equal(validation.reasons.at(-1).code, "UNRESOLVED_ACCOUNTABILITY");
+  assert.match(validation.reasons.at(-1).message, /AC-2030-00000001/);
 });
 
 test("maps every borrowing-policy violation to a stable API reason code", () => {

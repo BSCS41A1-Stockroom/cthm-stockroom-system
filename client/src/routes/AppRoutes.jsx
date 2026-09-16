@@ -10,6 +10,7 @@ import Borrowing from "../pages/student/Borrowing";
 import Calendar from "../pages/student/Calendar";
 import MyRequests from "../pages/student/MyRequests";
 import AccountQr from "../pages/student/AccountQr";
+import Accountability from "../pages/Accountability";
 
 // Admin Pages
 import Dashboard from "../pages/admin/Dashboard";
@@ -23,6 +24,7 @@ import ScanQr from "../pages/admin/ScanQr";
 import MobileQrScanner from "../pages/admin/MobileQrScanner";
 import Login from "../pages/Login";
 import SetPassword from "../pages/SetPassword";
+import VerifyReceipt from "../pages/VerifyReceipt";
 import ProtectedRoute from "../auth/ProtectedRoute";
 
 export default function AppRoutes() {
@@ -30,6 +32,8 @@ export default function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/set-password" element={<SetPassword />} />
+      <Route path="/verify-receipt" element={<VerifyReceipt />} />
+      <Route path="/verify-receipt/:code" element={<VerifyReceipt />} />
 
       {/* =========================
           STUDENT
@@ -41,6 +45,7 @@ export default function AppRoutes() {
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/my-requests" element={<MyRequests />} />
           <Route path="/my-qr" element={<AccountQr />} />
+          <Route path="/my-accountability" element={<Accountability />} />
         </Route>
       </Route>
 
@@ -55,6 +60,7 @@ export default function AppRoutes() {
           <Route path="/admin/calendar" element={<AdminCalendar />} />
           <Route path="/admin/reports" element={<Reports />} />
           <Route path="/admin/scan" element={<ScanQr />} />
+          <Route path="/admin/accountability" element={<Accountability />} />
           <Route element={<ProtectedRoute roles={["admin"]} />}>
             <Route path="/admin/inventory" element={<Inventory />} />
             <Route path="/admin/activity-logs" element={<AuditLogs />} />

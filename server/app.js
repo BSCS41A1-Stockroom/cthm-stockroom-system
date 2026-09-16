@@ -13,6 +13,7 @@ const announcementRoutes = require("./routes/announcementRoutes");
 const qrRoutes = require("./routes/qrRoutes");
 const reconciliationRoutes = require("./routes/reconciliationRoutes");
 const receiptRoutes = require("./routes/receiptRoutes");
+const accountabilityRoutes = require("./routes/accountabilityRoutes");
 
 const app = express();
 
@@ -53,6 +54,7 @@ app.use("/api/announcements", announcementRoutes);
 app.use("/api/qr", qrRoutes);
 app.use("/api/reconciliations", reconciliationRoutes);
 app.use("/api/receipts", receiptRoutes);
+app.use("/api/accountability", accountabilityRoutes);
 
 app.use((error, req, res, next) => {
   console.error(error);
