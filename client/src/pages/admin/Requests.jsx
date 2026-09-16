@@ -10,6 +10,7 @@ import {
 import "../../styles/requests.css";
 import { supabase } from "../../lib/supabase";
 import { authenticatedFetch } from "../../lib/api";
+import ReceiptModal from "../../components/ReceiptModal";
 
 function formatDate(date) {
   if (!date) return "-";
@@ -31,6 +32,7 @@ export default function Requests() {
   const [returnForm, setReturnForm] = useState({ items: [], remarks: "" });
   const [returning, setReturning] = useState(false);
   const [returnError, setReturnError] = useState("");
+  const [receiptRequestId, setReceiptRequestId] = useState(null);
   const loadSequence = useRef(0);
   const ITEMS_PER_PAGE = 8;
 
@@ -434,6 +436,8 @@ export default function Requests() {
 
             <div className="modal-actions">
 
+              {["Borrowed", "Returned"].includes(selected.status) && <button className="approve-btn" onClick={() => setReceiptRequestId(selected.databaseId)}>View Receipts</button>}
+
               <button
                 onClick={() =>
                   setSelected(null)
@@ -449,6 +453,8 @@ export default function Requests() {
         </div>
 
       )}
+
+      {receiptRequestId && <ReceiptModal requestId={receiptRequestId} onClose={() => setReceiptRequestId(null)} />}
 
       {returnRequest && (
         <div className="modal-overlay" onClick={() => !returning && setReturnRequest(null)}>

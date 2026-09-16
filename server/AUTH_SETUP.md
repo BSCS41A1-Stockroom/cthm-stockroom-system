@@ -48,6 +48,8 @@ Run `022_preventive_maintenance.sql` to enable recurring inspections, inspection
 
 Run `023_global_qr_uniqueness.sql` to enforce one database-wide identity namespace for all account and asset QR codes. It safely registers existing codes and automatically retries cryptographic UUID generation if a collision is detected, including concurrent account/asset creation and replacement.
 
+Run `024_transaction_receipts.sql` to enable immutable claim and return receipts, public verification codes, and exact serialized-asset return linkage.
+
 Phone-camera scanning requires HTTPS in production and camera permission from the browser. USB QR scanners are supported through the manual scanner field because most scanners behave like keyboards.
 
 For phone-to-PC scanning, both devices open the deployed HTTPS frontend and sign in with the same Admin or Professor account. The PC creates a five-minute pairing QR, and the phone scans that code to open the mobile scanner. Migration 015 enables Supabase Realtime for pairing-state updates; no USB connection is used or required.

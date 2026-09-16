@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import "./MyRequests.css";
 import { authenticatedFetch } from "../../lib/api";
 import { supabase } from "../../lib/supabase";
+import ReceiptModal from "../../components/ReceiptModal";
 
 const STATUS_META = {
   pending: { label: "Pending", className: "badge-pending" },
@@ -32,6 +33,7 @@ export default function MyRequests() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeRequest, setActiveRequest] = useState(null);
+  const [receiptRequestId, setReceiptRequestId] = useState(null);
 
   useEffect(() => {
     fetchRequests();
@@ -231,9 +233,11 @@ export default function MyRequests() {
               <p>{activeRequest.purpose || "—"}</p>
             </div>
             {activeRequest.actualReturnedAt && <div className="modal-section"><h3>Completed return</h3><p>{new Date(activeRequest.actualReturnedAt).toLocaleString()}</p></div>}
+            {["borrowed", "returned"].includes(activeRequest.status) && <button type="button" className="view-btn" onClick={() => setReceiptRequestId(activeRequest.id)}>View Receipts</button>}
           </div>
         </div>
       )}
+      {receiptRequestId && <ReceiptModal requestId={receiptRequestId} onClose={() => setReceiptRequestId(null)} />}
     </div>
   );
 }
