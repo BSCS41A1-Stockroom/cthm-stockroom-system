@@ -1,4 +1,4 @@
-import { FaPlus, FaSearch } from "react-icons/fa";
+import { FaClipboardCheck, FaPlus, FaSearch } from "react-icons/fa";
 
 export default function InventoryToolbar({
   onAdd,
@@ -6,6 +6,7 @@ export default function InventoryToolbar({
   setSearch,
   status,
   setStatus,
+  onReconcile,
 }) {
   return (
     <>
@@ -15,10 +16,10 @@ export default function InventoryToolbar({
           <p>Manage stockroom items and their availability.</p>
         </div>
 
-        <button className="inventory-add" onClick={onAdd}>
+        <div className="inventory-header-actions"><button className="inventory-reconcile" onClick={onReconcile}><FaClipboardCheck /><span>Physical Count</span></button><button className="inventory-add" onClick={onAdd}>
           <FaPlus />
           <span>Add New Item</span>
-        </button>
+        </button></div>
       </div>
 
       <div className="inventory-toolbar">
