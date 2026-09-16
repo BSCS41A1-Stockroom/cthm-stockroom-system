@@ -864,6 +864,22 @@
     background: #1d4ed8;
 }
 
+.modal-actions .modal-secondary-btn{
+    border:1px solid #d1d5db;
+    background:#ffffff;
+    color:#475569;
+}
+
+.modal-actions .modal-secondary-btn:hover{background:#f8fafc;color:#111827}
+
+.modal-actions .modal-receipt-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    min-width:132px;
+}
+
 
 /* ======================================================
    SCROLLBAR
