@@ -35,6 +35,15 @@ test("asset QR credentials use a distinct signed namespace", () => {
   assert.equal(parseAssetQr(`${token.slice(0, -1)}x`), null);
 });
 
+test("account and asset QR tokens can never be identical even with the same public ID", () => {
+  const publicId = "11111111-1111-4111-8111-111111111111";
+  const account = createAccountQr(publicId, 1);
+  const asset = createAssetQr(publicId, 1);
+  assert.notEqual(account, asset);
+  assert.equal(parseAccountQr(asset), null);
+  assert.equal(parseAssetQr(account), null);
+});
+
 test("refuses to operate without a sufficiently strong signing secret", () => {
   const original = process.env.QR_SIGNING_SECRET;
   process.env.QR_SIGNING_SECRET = "short";

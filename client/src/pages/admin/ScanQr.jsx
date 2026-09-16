@@ -3,6 +3,7 @@ import { authenticatedFetch } from "../../lib/api";
 import { supabase } from "../../lib/supabase";
 import QRCode from "qrcode";
 import { FaCamera, FaCheckCircle, FaMobileAlt, FaQrcode, FaTimes, FaUsb } from "react-icons/fa";
+import { pairedTransactionReady } from "../../utils/qrPairing";
 import "../../styles/qr.css";
 
 export default function ScanQr() {
@@ -72,14 +73,17 @@ export default function ScanQr() {
         if (!active) return;
         const body = await response.json();
         if (!response.ok) throw new Error(body.message || "Unable to receive the phone scan.");
-        if (!body.request) {
+        if (!pairedTransactionReady(body)) {
           setPairing((current) => current?.id === pairing.id ? { ...current, status: body.status } : current);
           return;
         }
         if (active) {
           received = true;
           setResult(body); setVerified(false); setMessage("Account QR received from the paired phone.");
-          if (body.mode === "return" && body.requests.length === 1) selectReturnRequest(body.requests[0]);
+          if (body.mode === "return") {
+            setMode("return");
+            if (body.requests.length === 1) selectReturnRequest(body.requests[0]);
+          }
           authenticatedFetch(`/api/qr/pairings/${pairing.id}`, { method: "DELETE" }).catch(() => {});
           setPairing(null); setPairingImage("");
         }
