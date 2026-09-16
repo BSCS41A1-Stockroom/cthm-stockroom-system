@@ -2,6 +2,23 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { authenticatedFetch } from "../../../lib/api";
 import MaintenancePanel from "./MaintenancePanel";
+import InspectionPanel from "./InspectionPanel";
+
+function inspectionLabel(asset) {
+  if (!asset.inspectionIntervalDays) return null;
+  const next = String(asset.nextInspectionDate || "").slice(0, 10);
+  if (!next) return "Inspection schedule pending";
+  const today = new Date();
+  const localToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  return `${next <= localToday ? "Inspection due" : "Next inspection"}: ${next}`;
+}
+
+function inspectionIsDue(asset) {
+  const next = String(asset.nextInspectionDate || "").slice(0, 10);
+  const today = new Date();
+  const localToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  return Boolean(next && next <= localToday);
+}
 
 export default function AssetModal({ item, onClose, onChanged }) {
   const [assets, setAssets] = useState([]);
@@ -10,6 +27,7 @@ export default function AssetModal({ item, onClose, onChanged }) {
   const [error, setError] = useState("");
   const [qr, setQr] = useState(null);
   const [maintenanceAsset, setMaintenanceAsset] = useState(null);
+  const [inspectionAsset, setInspectionAsset] = useState(null);
 
   async function load() {
     const response = await authenticatedFetch(`/api/inventory/${item.id}/assets`);
@@ -81,12 +99,13 @@ export default function AssetModal({ item, onClose, onChanged }) {
   return <div className="modal-overlay"><div className="modal asset-modal">
     <div className="modal-header"><div><h2>Serialized Assets</h2><p>{item.item_name}</p></div><button onClick={onClose} aria-label="Close">×</button></div>
     <div className="modal-body asset-modal-body">
-      {maintenanceAsset ? <MaintenancePanel item={item} asset={maintenanceAsset} onBack={() => setMaintenanceAsset(null)} onChanged={async () => { await load(); onChanged?.(); }} /> : <>
+      {maintenanceAsset ? <MaintenancePanel item={item} asset={maintenanceAsset} onBack={() => setMaintenanceAsset(null)} onChanged={async () => { await load(); onChanged?.(); }} /> : inspectionAsset ? <InspectionPanel item={item} asset={inspectionAsset} onBack={() => setInspectionAsset(null)} onChanged={async () => { await load(); onChanged?.(); }} onMaintenance={() => { setInspectionAsset(null); load(); }} /> : <>
       <form className="asset-add-form" onSubmit={add}><label>Manufacturer serial number (optional)<input maxLength="120" value={serialNumber} onChange={(event) => setSerialNumber(event.target.value)} /></label><button className="save-btn" disabled={busy}>Add Physical Asset</button></form>
       {error && <p className="availability-error">{error}</p>}
       <div className="asset-list">{assets.length === 0 ? <p>No physical assets registered yet.</p> : assets.map((asset) => <article key={asset.id} className="asset-row">
-        <div><strong>{asset.assetNumber}</strong><span>Serial: {asset.serialNumber || "Not provided"}</span><span>{asset.status} · {asset.condition}</span>{asset.incident && <span className="asset-incident-reason">Incident: {asset.incident.reason}</span>}</div>
+        <div><strong>{asset.assetNumber}</strong><span>Serial: {asset.serialNumber || "Not provided"}</span><span>{asset.status} · {asset.condition}</span>{inspectionLabel(asset) && <span className={inspectionIsDue(asset) ? "asset-inspection-due" : "asset-inspection-date"}>{inspectionLabel(asset)}</span>}{asset.incident && <span className="asset-incident-reason">Incident: {asset.incident.reason}</span>}</div>
         <div className="asset-actions"><button onClick={() => showQr(asset)}>View / Print QR</button>
+          {asset.status !== "retired" && asset.status !== "missing" && <button onClick={() => setInspectionAsset(asset)}>Inspections</button>}
           {asset.status !== "borrowed" && asset.status !== "retired" && asset.status !== "missing" && (asset.status === "maintenance"
             ? <button className="maintenance-manage" onClick={() => setMaintenanceAsset(asset)}>Manage Maintenance</button>
             : <button onClick={() => change(asset, "maintenance", "under_inspection")}>Send to Inspection</button>)}

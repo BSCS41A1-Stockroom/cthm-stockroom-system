@@ -222,6 +222,42 @@ async function processExpiredRequests(databasePool = pool) {
 
 const processExpiredClaims = processExpiredRequests;
 
+async function processInspectionAlerts(databasePool = pool) {
+  const client = await databasePool.connect();
+  try {
+    await client.query("BEGIN");
+    const lock = await client.query("SELECT pg_try_advisory_xact_lock(hashtextextended('preventive-inspection-alerts', 0)) AS acquired");
+    if (!lock.rows[0]?.acquired) { await client.query("ROLLBACK"); return { processed: 0, notificationsCreated: 0, skipped: true }; }
+    const due = await client.query(
+      `SELECT asset.id, asset.asset_number, inventory.item_name, asset.next_inspection_date::text,
+              (asset.next_inspection_date-(now() AT TIME ZONE 'Asia/Manila')::date)::integer AS days_remaining,
+              (now() AT TIME ZONE 'Asia/Manila')::date::text AS notification_date
+         FROM public.inventory_assets asset JOIN public.inventory inventory ON inventory.id=asset.inventory_id
+        WHERE asset.status='available' AND asset.next_inspection_date IS NOT NULL
+          AND asset.next_inspection_date <= (now() AT TIME ZONE 'Asia/Manila')::date+7
+        ORDER BY asset.next_inspection_date, asset.id`
+    );
+    let notificationsCreated = 0;
+    for (const asset of due.rows) {
+      if (asset.days_remaining > 0 && ![1, 3, 7].includes(asset.days_remaining)) continue;
+      const overdue = asset.days_remaining < 0;
+      const title = overdue ? "Equipment inspection overdue" : asset.days_remaining === 0 ? "Equipment inspection due today" : "Equipment inspection approaching";
+      const timing = overdue ? `${Math.abs(asset.days_remaining)} day(s) overdue` : asset.days_remaining === 0 ? "due today" : `due in ${asset.days_remaining} day(s)`;
+      const notices = await client.query(
+        `INSERT INTO public.notifications (recipient_user_id,type,title,message,related_path,entity_type,entity_id,notification_key)
+         SELECT profile.user_id,'asset_inspection_due',$1,$2,'/admin/inventory','inventory_asset',$3,
+                'inspection:' || $3 || ':' || $4 || ':' || profile.user_id
+           FROM public.profiles profile WHERE profile.role='admin' AND profile.is_active=true
+         ON CONFLICT (notification_key) WHERE notification_key IS NOT NULL DO NOTHING RETURNING id`,
+        [title, `${asset.asset_number} (${asset.item_name}) is ${timing}. It cannot be issued once due.`, String(asset.id), asset.notification_date]
+      );
+      notificationsCreated += notices.rowCount;
+    }
+    await client.query("COMMIT");
+    return { processed: due.rowCount, notificationsCreated, skipped: false };
+  } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
+}
+
 async function runOverdueMonitoring(req, res, next) {
   if (!authorizedCronRequest(req.get("authorization"))) {
     return res.status(401).json({ error: "INVALID_CRON_AUTHORIZATION", message: "Scheduled job authorization is invalid." });
@@ -230,10 +266,11 @@ async function runOverdueMonitoring(req, res, next) {
     const expiredRequests = await processExpiredRequests();
     const upcoming = await processUpcomingDeadlines();
     const overdue = await processOverdueBorrowings();
-    return res.json({ expiredRequests, upcoming, overdue });
+    const inspections = await processInspectionAlerts();
+    return res.json({ expiredRequests, upcoming, overdue, inspections });
   } catch (error) {
     return next(error);
   }
 }
 
-module.exports = { authorizedCronRequest, processExpiredClaims, processExpiredRequests, processUpcomingDeadlines, processOverdueBorrowings, runOverdueMonitoring };
+module.exports = { authorizedCronRequest, processExpiredClaims, processExpiredRequests, processInspectionAlerts, processUpcomingDeadlines, processOverdueBorrowings, runOverdueMonitoring };

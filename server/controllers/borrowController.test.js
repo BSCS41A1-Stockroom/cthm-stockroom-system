@@ -287,6 +287,9 @@ test("loads conflict context under an immutable authenticated-user advisory lock
   assert.equal(calls[0].params[0], "user:00000000-0000-4000-8000-000000000001");
   assert.match(calls.find((call) => call.sql.includes("COALESCE(SUM")).sql, /::bigint/);
   assert.match(calls.find((call) => call.sql.includes("COALESCE(SUM")).sql, /has_invalid_quantity/);
+  const inventorySql = calls.find((call) => call.sql.includes("FROM inventory"));
+  assert.match(inventorySql.sql, /next_inspection_date <= \$2::date/);
+  assert.equal(inventorySql.params[1], "2026-08-12");
   assert.deepEqual(context.existingBorrowings, [{ inventoryId: 7, quantity: 2 }]);
   assert.deepEqual(context.existingRequests[0].items, [
     { inventoryId: 7, quantity: 1 },

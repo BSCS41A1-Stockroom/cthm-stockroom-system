@@ -44,6 +44,8 @@ Run `migrations/013_borrowing_calendar_deadlines.sql` through `migrations/017_ph
 
 Run migrations `018_serialized_asset_tracking.sql` through `021_asset_maintenance_tracking.sql` in numeric order to enable serialized assets, incident handling, physical counts, and audited maintenance/repair cases. Migration 021 must be applied before deploying the maintenance UI and API.
 
+Run `022_preventive_maintenance.sql` to enable recurring inspections, inspection history, due-date enforcement, and preventive-maintenance alerts. The existing daily `/api/jobs/overdue` Vercel cron also processes inspection reminders.
+
 Phone-camera scanning requires HTTPS in production and camera permission from the browser. USB QR scanners are supported through the manual scanner field because most scanners behave like keyboards.
 
 For phone-to-PC scanning, both devices open the deployed HTTPS frontend and sign in with the same Admin or Professor account. The PC creates a five-minute pairing QR, and the phone scans that code to open the mobile scanner. Migration 015 enables Supabase Realtime for pairing-state updates; no USB connection is used or required.

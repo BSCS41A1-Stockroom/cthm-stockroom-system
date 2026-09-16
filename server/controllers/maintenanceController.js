@@ -101,7 +101,9 @@ async function updateAssetMaintenance(req, res, next) {
       await client.query(
         `UPDATE public.inventory_assets SET status=$2, condition=$3, maintenance_note=NULL,
            last_inspected_at=CASE WHEN $2='available' THEN now() ELSE last_inspected_at END,
-           last_inspected_by=CASE WHEN $2='available' THEN $4 ELSE last_inspected_by END, updated_at=now() WHERE id=$1`,
+           last_inspected_by=CASE WHEN $2='available' THEN $4 ELSE last_inspected_by END,
+           next_inspection_date=CASE WHEN $2='available' AND inspection_interval_days IS NOT NULL THEN (now() AT TIME ZONE 'Asia/Manila')::date+inspection_interval_days ELSE NULL END,
+           updated_at=now() WHERE id=$1`,
         [req.params.assetId, retiring ? "retired" : "available", retiring ? "retired" : "good", req.user.id]
       );
     } else {

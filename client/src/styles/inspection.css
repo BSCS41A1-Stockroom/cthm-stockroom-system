@@ -1,0 +1,8 @@
+.inspection-panel{display:grid;gap:18px}
+.inspection-schedule{display:grid;grid-template-columns:1fr 180px auto;align-items:end;gap:14px;padding:16px;border:1px solid #e2e8f0;border-radius:10px;background:#fff}
+.inspection-schedule p,.inspection-panel .maintenance-form>div>p{margin:4px 0 0;color:#64748b;font-size:13px}
+.inspection-schedule label{display:grid;gap:6px;color:#334155;font-size:13px;font-weight:600}
+.inspection-schedule input{padding:10px 11px;border:1px solid #cbd5e1;border-radius:8px}
+.inspection-panel .maintenance-history{max-height:260px;overflow:auto}
+.asset-row .asset-inspection-date{color:#1d4ed8;font-weight:600}.asset-row .asset-inspection-due{color:#b91c1c;font-weight:700}
+@media(max-width:700px){.inspection-schedule{grid-template-columns:1fr}.inspection-schedule button{width:100%}}

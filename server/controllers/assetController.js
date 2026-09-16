@@ -16,6 +16,7 @@ function assetResponse(row, includeToken = false) {
     condition: row.condition, status: row.status,
     currentBorrowRequestId: row.current_borrow_request_id,
     lastInspectedAt: row.last_inspected_at, maintenanceNote: row.maintenance_note,
+    inspectionIntervalDays: row.inspection_interval_days, nextInspectionDate: row.next_inspection_date,
     incident: row.incident_id ? { id: row.incident_id, status: row.incident_status, reason: row.incident_reason, reportedAt: row.incident_reported_at } : null,
     createdAt: row.created_at, updatedAt: row.updated_at,
   };

@@ -11,6 +11,7 @@ const {
 } = require("../controllers/inventoryController");
 const { createAsset, listAssets, resolveAssetIncident, updateAsset } = require("../controllers/assetController");
 const { listAssetMaintenance, updateAssetMaintenance } = require("../controllers/maintenanceController");
+const { configureInspection, listInspections, recordInspection } = require("../controllers/inspectionController");
 
 const router = express.Router();
 router.use(authenticate, requireRoles("admin"));
@@ -23,6 +24,9 @@ router.post("/:inventoryId/assets", createAsset);
 router.patch("/:inventoryId/assets/:assetId", updateAsset);
 router.get("/:inventoryId/assets/:assetId/maintenance", listAssetMaintenance);
 router.patch("/:inventoryId/assets/:assetId/maintenance/:maintenanceId", updateAssetMaintenance);
+router.get("/:inventoryId/assets/:assetId/inspections", listInspections);
+router.patch("/:inventoryId/assets/:assetId/inspection-settings", configureInspection);
+router.post("/:inventoryId/assets/:assetId/inspections", recordInspection);
 router.post("/:inventoryId/assets/:assetId/incidents/:incidentId/resolve", resolveAssetIncident);
 
 router.get("/:inventoryId/unavailability", listUnavailability);
