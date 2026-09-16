@@ -12,6 +12,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState("");
   const queryDestination = new URLSearchParams(location.search).get("next");
+  const sessionExpired = new URLSearchParams(location.search).get("reason") === "session-expired";
   const safeDestination = (value) => typeof value === "string" && value.startsWith("/") && !value.startsWith("//") ? value : null;
 
   if (!loading && user && profile) {
@@ -69,7 +70,7 @@ export default function Login() {
         <label htmlFor="password">Password</label>
         <input id="password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} />
 
-        {error && <div className="login-error" role="alert">{error}</div>}
+        {(error || sessionExpired) && <div className="login-error" role="alert">{error || "Your session expired and was signed out securely. Please sign in again."}</div>}
         <button type="submit" disabled={Boolean(submitting)}>{submitting === "password" ? "Signing in..." : "Sign in"}</button>
       </form>
     </main>
