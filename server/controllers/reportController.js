@@ -78,6 +78,9 @@ async function reportSummary(req, res, next) {
            COALESCE((SELECT SUM(quantity) FROM ranged_items WHERE status = 'Borrowed'), 0) AS borrowed_units,
            COALESCE((SELECT SUM(good_quantity + damaged_quantity) FROM ranged_return_items), 0) AS returned_units,
            (SELECT available_units FROM inventory_totals) AS available_inventory_units,
+           (SELECT COUNT(*) FROM asset_maintenance_records WHERE status IN ('under_inspection','under_repair')) AS open_maintenance_cases,
+           (SELECT COUNT(*) FROM asset_maintenance_records WHERE status IN ('under_inspection','under_repair') AND due_date < (now() AT TIME ZONE 'Asia/Manila')::date) AS overdue_maintenance_cases,
+           (SELECT COALESCE(SUM(cost),0) FROM asset_maintenance_records WHERE (opened_at AT TIME ZONE 'Asia/Manila')::date BETWEEN $1::date AND $2::date) AS maintenance_cost,
            COALESCE((
              SELECT SUM(good_quantity + damaged_quantity + missing_quantity)
                FROM borrowing_return_items returned_items

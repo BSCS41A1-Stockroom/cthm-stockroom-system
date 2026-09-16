@@ -82,6 +82,7 @@ async function updateAsset(req, res, next) {
   if (!STATUSES.has(status) || !CONDITIONS.has(condition) || note.length > 1000 || serialNumber.length > 120) {
     return res.status(422).json({ error: "INVALID_ASSET", message: "Asset status, condition, serial number, or note is invalid." });
   }
+  if (status === "maintenance" && note.length < 5) return res.status(422).json({ error: "MAINTENANCE_NOTE_REQUIRED", message: "Describe the inspection or maintenance reason using at least 5 characters." });
   if ((status === "retired") !== (condition === "retired")) return res.status(422).json({ error: "INVALID_ASSET_STATE", message: "Retired assets must use both retired status and condition." });
   if ((status === "available" && !["good", "fair"].includes(condition)) || (status === "maintenance" && !["damaged", "under_inspection"].includes(condition))) {
     return res.status(422).json({ error: "INVALID_ASSET_STATE", message: "Available assets must be good/fair; maintenance assets must be damaged/under inspection." });
@@ -97,6 +98,10 @@ async function updateAsset(req, res, next) {
     if (current.status === "borrowed") { await client.query("ROLLBACK"); return res.status(409).json({ error: "ASSET_CURRENTLY_BORROWED", message: "A borrowed asset cannot be edited or retired." }); }
     if (current.status === "missing") { await client.query("ROLLBACK"); return res.status(409).json({ error: "ASSET_HAS_OPEN_INCIDENT", message: "A missing asset must be resolved through its incident record before it can change state." }); }
     if (current.status === "retired" && status !== "retired") { await client.query("ROLLBACK"); return res.status(409).json({ error: "ASSET_RETIRED", message: "A retired asset cannot be reactivated." }); }
+    if (current.status === "maintenance" && status !== "maintenance") {
+      const activeMaintenance = await client.query(`SELECT id FROM public.asset_maintenance_records WHERE asset_id=$1 AND status IN ('under_inspection','under_repair') LIMIT 1`, [current.id]);
+      if (activeMaintenance.rowCount) { await client.query("ROLLBACK"); return res.status(409).json({ error: "ACTIVE_MAINTENANCE", message: "Complete or retire this asset through its active maintenance record." }); }
+    }
     const retiring = current.status !== "retired" && status === "retired";
     const oldBreakage = current.status === "maintenance" && current.condition === "damaged" ? 1 : 0;
     const oldDefective = current.status === "maintenance" && current.condition !== "damaged" ? 1 : 0;
@@ -129,6 +134,14 @@ async function updateAsset(req, res, next) {
        WHERE id=$1 AND inventory_id=$2 RETURNING *`,
       [req.params.assetId, req.params.inventoryId, serialNumber || null, status, condition, note || null, req.body?.inspected === true, req.user.id]
     );
+    if (status === "maintenance" && current.status !== "maintenance") {
+      await client.query(
+        `INSERT INTO public.asset_maintenance_records
+          (asset_id, inventory_id, source, status, problem_description, assigned_to, opened_by)
+         VALUES ($1,$2,'manual','under_inspection',$3,$4,$4)`,
+        [current.id, req.params.inventoryId, note, req.user.id]
+      );
+    }
     await writeAuditLog(client, req.user, { action: retiring ? "inventory_asset_retired" : "inventory_asset_updated", entityType: "inventory_asset", entityId: current.id, oldValues: current, newValues: updated.rows[0] });
     await client.query("COMMIT");
     return res.json({ asset: assetResponse(updated.rows[0], true) });
