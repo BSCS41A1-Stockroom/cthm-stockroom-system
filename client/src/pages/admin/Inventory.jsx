@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 import "../../styles/inventory.css";
+import "../../styles/inspection.css";
 
 import InventoryToolbar from "../../components/admin/Inventory/InventoryToolbar";
 import InventoryTable from "../../components/admin/Inventory/InventoryTable";

@@ -284,13 +284,17 @@ async function loadValidationContext(client, request, userId = null) {
   );
 
   const inventoryResult = await client.query(
-    `SELECT id, item_name, quantity, additional_qty, replaces, missing,
-            breakage, defective, total_loss
+    `SELECT inventory.id, inventory.item_name, inventory.quantity, inventory.additional_qty, inventory.replaces, inventory.missing,
+            inventory.breakage,
+            inventory.defective + CASE WHEN inventory.tracking_type='serialized' THEN
+              (SELECT count(*)::integer FROM public.inventory_assets asset WHERE asset.inventory_id=inventory.id AND asset.status='available' AND asset.next_inspection_date IS NOT NULL AND asset.next_inspection_date <= $2::date)
+              ELSE 0 END AS defective,
+            inventory.total_loss
       FROM inventory
-      WHERE id::text = ANY($1::text[])
-      ORDER BY id
+      WHERE inventory.id::text = ANY($1::text[])
+      ORDER BY inventory.id
       FOR UPDATE`,
-    [inventoryIds]
+    [inventoryIds, request.returnDate]
   );
 
   const reservationsResult = await client.query(
@@ -891,6 +895,8 @@ async function updateBorrowRequestStatus(req, res, next) {
       });
     }
 
+    let releaseDateKey = null;
+    let releaseReturnDate = null;
     if (nextStatus === "Borrowed") {
       let claim;
       try {
@@ -916,12 +922,13 @@ async function updateBorrowRequestStatus(req, res, next) {
         return res.status(409).json({ error: "QR_NO_LONGER_ACTIVE", message: "The borrower's QR was revoked, replaced, or deactivated. Scan the currently issued QR again." });
       }
       const returnDate = request.return_date.toISOString?.().slice(0, 10) || String(request.return_date).slice(0, 10);
+      releaseReturnDate = returnDate;
       const todayParts = new Intl.DateTimeFormat("en-CA", {
         timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit",
       }).formatToParts(new Date());
       const today = Object.fromEntries(todayParts.map((part) => [part.type, part.value]));
-      const todayKey = `${today.year}-${today.month}-${today.day}`;
-      if (returnDate < todayKey) {
+      releaseDateKey = `${today.year}-${today.month}-${today.day}`;
+      if (returnDate < releaseDateKey) {
         await client.query("ROLLBACK");
         return res.status(409).json({ error: "CLAIM_WINDOW_EXPIRED", message: "This request has passed its return deadline and can no longer be released." });
       }
@@ -978,10 +985,10 @@ async function updateBorrowRequestStatus(req, res, next) {
             await client.query("ROLLBACK");
             return res.status(409).json({ error: "SERIALIZED_ASSET_COUNT_MISMATCH", message: `Scan exactly ${item.quantity} serialized asset(s) for '${lockedInventory.rows[0].item_name}'.` });
           }
-          const unavailable = matchingAssets.find((asset) => asset.status !== "available" || !["good", "fair"].includes(asset.condition));
+          const unavailable = matchingAssets.find((asset) => asset.status !== "available" || !["good", "fair"].includes(asset.condition) || (asset.next_inspection_date && String(asset.next_inspection_date).slice(0, 10) <= releaseReturnDate));
           if (unavailable) {
             await client.query("ROLLBACK");
-            return res.status(409).json({ error: "ASSET_NOT_AVAILABLE", message: `${unavailable.asset_number} is borrowed, under maintenance, retired, or not in releasable condition.` });
+            return res.status(409).json({ error: "ASSET_NOT_AVAILABLE", message: `${unavailable.asset_number} is borrowed, under maintenance, retired, due for inspection, or not in releasable condition.` });
           }
           for (const asset of matchingAssets) {
             consumedAssetIds.add(String(asset.id));
@@ -991,8 +998,9 @@ async function updateBorrowRequestStatus(req, res, next) {
             );
             const assigned = await client.query(
               `UPDATE public.inventory_assets SET status='borrowed', current_borrow_request_id=$1,
-                 current_borrower_user_id=$2, updated_at=now() WHERE id=$3 AND status='available' RETURNING id`,
-              [requestId, request.user_id, asset.id]
+                 current_borrower_user_id=$2, updated_at=now() WHERE id=$3 AND status='available'
+                 AND (next_inspection_date IS NULL OR next_inspection_date > $4::date) RETURNING id`,
+              [requestId, request.user_id, asset.id, releaseReturnDate]
             );
             if (!assigned.rowCount) throw new Error(`Serialized asset '${asset.asset_number}' changed while it was being released.`);
           }

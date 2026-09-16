@@ -4,7 +4,7 @@ import {
   FaUsers,
   FaUndo
 } from "react-icons/fa";
-import { FaScrewdriverWrench, FaTriangleExclamation } from "react-icons/fa6";
+import { FaCalendarCheck, FaScrewdriverWrench, FaTriangleExclamation } from "react-icons/fa6";
 
 export default function ReportStats({ summary = {} }) {
   const cards = [
@@ -14,6 +14,8 @@ export default function ReportStats({ summary = {} }) {
     { title: "Active Borrowers", value: summary.active_borrowers ?? 0, icon: <FaUsers /> },
     { title: "Open Maintenance", value: summary.open_maintenance_cases ?? 0, icon: <FaScrewdriverWrench /> },
     { title: "Overdue Maintenance", value: summary.overdue_maintenance_cases ?? 0, icon: <FaTriangleExclamation /> },
+    { title: "Scheduled Inspections", value: summary.scheduled_inspection_assets ?? 0, icon: <FaCalendarCheck /> },
+    { title: "Inspections Due", value: summary.overdue_inspection_assets ?? 0, icon: <FaTriangleExclamation /> },
   ];
   return (
     <div className="report-stats">
