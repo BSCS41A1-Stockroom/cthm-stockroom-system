@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { authenticatedFetch } from "../../lib/api";
 import { supabase } from "../../lib/supabase";
 import QRCode from "qrcode";
+import { FaCamera, FaCheckCircle, FaMobileAlt, FaQrcode, FaTimes, FaUsb } from "react-icons/fa";
 import "../../styles/qr.css";
 
 export default function ScanQr() {
@@ -25,6 +26,11 @@ export default function ScanQr() {
   const [returnAssets, setReturnAssets] = useState([]);
   const [missingAssets, setMissingAssets] = useState([]);
 
+  const clearResult = useCallback(() => {
+    setResult(null); setVerified(false); setReturnRequest(null); setReturnForm(null);
+    setAssetTokens([]); setReturnAssets([]); setMissingAssets([]); setAssetScanValue("");
+  }, []);
+
   function selectReturnRequest(request) {
     setReturnAssets([]);
     setMissingAssets([]);
@@ -45,6 +51,15 @@ export default function ScanQr() {
   }
 
   useEffect(() => () => { const current = scanner.current; if (current?.isScanning) current.stop().catch(() => {}); }, []);
+
+  useEffect(() => {
+    if (!result) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event) => { if (event.key === "Escape" && !busy) clearResult(); };
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", closeOnEscape);
+    return () => { document.body.style.overflow = previousOverflow; document.removeEventListener("keydown", closeOnEscape); };
+  }, [result, busy, clearResult]);
 
   useEffect(() => {
     if (!pairing?.id) return undefined;
@@ -258,23 +273,24 @@ export default function ScanQr() {
   }
 
   return <div className="qr-page scan-page">
-    <header><h1>Scan Account QR</h1><p>Scan a borrower&apos;s account QR to claim requested items or process a return.</p></header>
+    <header><div className="page-title-icon"><FaQrcode /></div><div><h1>QR Transaction Scanner</h1><p>Verify a borrower and securely process item claims or returns.</p></div></header>
     <div className="scan-mode-tabs" role="tablist" aria-label="QR transaction mode">
       <button type="button" role="tab" aria-selected={mode === "claim"} className={mode === "claim" ? "active" : ""} onClick={() => changeMode("claim")}>Claim Items</button>
       <button type="button" role="tab" aria-selected={mode === "return"} className={mode === "return" ? "active" : ""} onClick={() => changeMode("return")}>Return Items</button>
     </div>
     <section className="scanner-card">
+      <div className="scanner-card-heading"><div><span className="scanner-step">Step 1</span><h2>Scan the borrower&apos;s account QR</h2><p>Use this computer&apos;s camera, pair a phone, or use a USB scanner.</p></div><div className="scanner-mode-badge"><FaQrcode /> {mode === "return" ? "Return mode" : "Claim mode"}</div></div>
       <div className={`camera-frame desktop-camera-frame ${cameraActive ? "active" : ""}`}>
         <div id="account-qr-reader" className="camera-reader" />
-        {!cameraActive && <div className="camera-placeholder"><div className="camera-icon" aria-hidden="true">▣</div><span>Select a camera option below to begin scanning</span></div>}
+        {!cameraActive && <div className="camera-placeholder"><div className="camera-icon" aria-hidden="true"><FaCamera /></div><strong>Camera preview</strong><span>Select a scanning option below to begin</span></div>}
       </div>
       {cameras.length > 1 && !cameraActive && <label>Camera
         <select value={cameraId} onChange={(event) => setCameraId(event.target.value)}>{cameras.map((camera) => <option key={camera.id} value={camera.id}>{camera.label || "Camera"}</option>)}</select>
       </label>}
       <div className="scanner-actions">
-        {!cameraActive ? <button type="button" onClick={startCamera} disabled={busy}>Use This Device&apos;s Camera</button>
+        {!cameraActive ? <button type="button" onClick={startCamera} disabled={busy}><FaCamera /> Use This Device&apos;s Camera</button>
           : <button type="button" onClick={stopCamera}>Stop Camera</button>}
-        {!pairing && <button type="button" className="secondary-button" onClick={createPairing} disabled={busy}>Use Phone as Scanner</button>}
+        {!pairing && <button type="button" className="secondary-button" onClick={createPairing} disabled={busy}><FaMobileAlt /> Use Phone as Scanner</button>}
       </div>
       {pairing && <div className="pairing-panel">
         <h2>Pair a phone</h2>
@@ -284,24 +300,24 @@ export default function ScanQr() {
         <button type="button" className="secondary-button" onClick={closePairing}>Disconnect Phone</button>
       </div>}
       <form onSubmit={(event) => { event.preventDefault(); lookup(scanValue); }}>
-        <label>USB scanner or manual token
+        <label><span className="input-label-with-icon"><FaUsb /> USB scanner or manual token</span>
           <input autoFocus autoComplete="off" value={scanValue} onChange={(event) => setScanValue(event.target.value)} placeholder="Scan while this field is focused" />
         </label>
         <button type="submit" disabled={busy || !scanValue.trim()}>{busy ? "Checking..." : mode === "return" ? "Find Borrowed Items" : "Find Ready Request"}</button>
       </form>
-      {message && <p className={/^(Items released|Return completed|Partial return|Account QR received)/.test(message) ? "qr-success" : "form-error"}>{message}</p>}
+      {message && <div className={/^(Items released|Return completed|Partial return|Account QR received|.* added to)/.test(message) ? "qr-feedback success" : "qr-feedback error"}>{/^(Items released|Return completed|Partial return|Account QR received|.* added to)/.test(message) && <FaCheckCircle />}<span>{message}</span></div>}
     </section>
-    {result && result.mode !== "return" && <section className="claim-card">
+    {result && result.mode !== "return" && <div className="transaction-result-overlay"><section className="claim-card transaction-result-dialog" role="dialog" aria-modal="true" aria-label="Verified borrowing request"><div className="result-dialog-top"><span className="result-status ready"><FaCheckCircle /> Verified request</span><button type="button" className="result-close" onClick={clearResult} aria-label="Close request"><FaTimes /></button></div>
       <h2>Ready for Claim · BR-{String(result.request.id).padStart(3, "0")}</h2>
       <dl><div><dt>Borrower</dt><dd>{result.borrower.fullName}</dd></div><div><dt>Student ID</dt><dd>{result.borrower.studentId || "Not applicable"}</dd></div>
         <div><dt>Borrow date</dt><dd>{String(result.request.borrowDate).slice(0, 10)}</dd></div><div><dt>Deadline</dt><dd>{String(result.request.returnDate).slice(0, 10)}</dd></div></dl>
-      <h3>Items to release</h3><ul>{result.request.items.map((item) => <li key={item.inventoryId}><span>{item.name}</span><strong>× {item.quantity}</strong></li>)}</ul>
+      <div className="result-section-heading"><div><span className="scanner-step">Step 2</span><h3>Items to release</h3></div><span>{result.request.items.reduce((sum, item) => sum + Number(item.quantity), 0)} total units</span></div><ul className="request-item-list">{result.request.items.map((item) => <li key={item.inventoryId}><span><strong>{item.name}</strong><small>{item.trackingType === "serialized" ? "Individual asset scan required" : "Bulk quantity"}</small></span><b>× {item.quantity}</b></li>)}</ul>
       {result.request.items.some((item) => item.trackingType === "serialized") && <div className="serialized-scan-panel"><h3>Scan Serialized Assets</h3><p>Scan every physical unit required by this request.</p><form onSubmit={(event) => { event.preventDefault(); lookupAsset(assetScanValue); }}><input autoComplete="off" value={assetScanValue} onChange={(event) => setAssetScanValue(event.target.value)} placeholder="Scan an asset QR" /><button disabled={busy || !assetScanValue.trim()}>Add Asset</button></form>{result.request.items.filter((item) => item.trackingType === "serialized").map((item) => { const scanned = assetTokens.filter((entry) => String(entry.asset.inventoryId) === String(item.inventoryId)); return <div className="serialized-requirement" key={item.inventoryId}><strong>{item.name}: {scanned.length}/{item.quantity}</strong>{scanned.map((entry) => <span key={entry.asset.id}>{entry.asset.assetNumber}<button type="button" onClick={() => setAssetTokens((current) => current.filter((value) => value.asset.id !== entry.asset.id))}>Remove</button></span>)}</div>; })}</div>}
-      <p><strong>Purpose:</strong> {result.request.purpose}</p>
+      <div className="request-purpose"><span>Purpose</span><p>{result.request.purpose}</p></div>
       <label className="identity-check"><input type="checkbox" checked={verified} onChange={(event) => setVerified(event.target.checked)} /> I compared the displayed borrower information with their school ID.</label>
       <button type="button" className="release-button" disabled={!verified || busy || result.request.items.some((item) => item.trackingType === "serialized" && assetTokens.filter((entry) => String(entry.asset.inventoryId) === String(item.inventoryId)).length !== Number(item.quantity))} onClick={release}>{busy ? "Rechecking inventory..." : "Release Items"}</button>
-    </section>}
-    {result?.mode === "return" && <section className="claim-card return-scan-card">
+    </section></div>}
+    {result?.mode === "return" && <div className="transaction-result-overlay"><section className="claim-card return-scan-card transaction-result-dialog" role="dialog" aria-modal="true" aria-label="Process borrowing return"><div className="result-dialog-top"><span className="result-status return"><FaCheckCircle /> Borrower verified</span><button type="button" className="result-close" onClick={clearResult} aria-label="Close return"><FaTimes /></button></div>
       <h2>Process Return</h2>
       <p><strong>Borrower:</strong> {result.borrower.fullName} · {result.borrower.studentId || "No student ID"}</p>
       {result.requests.length > 1 && <label className="return-request-select">Borrowing transaction
@@ -328,6 +344,6 @@ export default function ScanQr() {
         <label>Return remarks<textarea rows="3" maxLength="1000" value={returnForm.remarks} onChange={(event) => setReturnForm({ ...returnForm, remarks: event.target.value })} /></label>
         <button className="release-button" type="submit" disabled={busy}>{busy ? "Recording return..." : "Record Return"}</button>
       </form>}
-    </section>}
+    </section></div>}
   </div>;
 }
