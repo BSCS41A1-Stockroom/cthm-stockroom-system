@@ -5,6 +5,7 @@ import {
   FaCheck,
   FaTimes,
   FaUndo,
+  FaReceipt,
 } from "react-icons/fa";
 
 import "../../styles/requests.css";
@@ -436,15 +437,9 @@ export default function Requests() {
 
             <div className="modal-actions">
 
-              {["Borrowed", "Returned"].includes(selected.status) && <button className="approve-btn" onClick={() => setReceiptRequestId(selected.databaseId)}>View Receipts</button>}
+              <button type="button" className="modal-secondary-btn" onClick={() => setSelected(null)}>Close</button>
 
-              <button
-                onClick={() =>
-                  setSelected(null)
-                }
-              >
-                Close
-              </button>
+              {["Borrowed", "Returned"].includes(selected.status) && <button type="button" className="modal-receipt-btn" onClick={() => setReceiptRequestId(selected.databaseId)}><FaReceipt /> View Receipts</button>}
 
             </div>
 

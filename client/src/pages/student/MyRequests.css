@@ -547,11 +547,13 @@
 
     max-width:95%;
 
+    max-height:90vh;
+
     background:#fff;
 
     border-radius:14px;
 
-    overflow:hidden;
+    overflow-y:auto;
 
     box-shadow:0 8px 30px rgba(0,0,0,.12);
 
@@ -684,6 +686,46 @@
     font-weight:600;
 }
 
+.request-detail-actions{
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:4px;
+    padding:18px 22px;
+    border-top:1px solid #f1f5f9;
+    background:#fafafa;
+}
+
+.request-detail-actions button{
+    min-height:40px;
+    padding:9px 16px;
+    border-radius:8px;
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+}
+
+.detail-secondary-btn{
+    border:1px solid #d1d5db;
+    background:#fff;
+    color:#475569;
+}
+
+.detail-secondary-btn:hover{background:#f8fafc;color:#111827}
+
+.receipt-action-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    border:1px solid #2563eb;
+    background:#2563eb;
+    color:#fff;
+}
+
+.receipt-action-btn:hover{background:#1d4ed8}
+
 
 /* ======================================================
    MODAL GRID
@@ -788,6 +830,14 @@
     .modal-grid{
         grid-template-columns:1fr;
     }
+
+    .modal-items li{align-items:flex-start;flex-direction:column;gap:5px}
+
+    .modal-qty{line-height:1.45}
+
+    .request-detail-actions{position:sticky;bottom:0;flex-direction:column-reverse;align-items:stretch}
+
+    .request-detail-actions button{width:100%}
 }
 
 
