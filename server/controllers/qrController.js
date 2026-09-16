@@ -71,9 +71,11 @@ async function findBorrowedRequests(userId, database = pool) {
          SELECT request_id, inventory_id,
                 SUM(good_quantity+damaged_quantity+missing_quantity)::integer AS accounted
            FROM public.borrowing_return_items GROUP BY request_id, inventory_id
-       ) returned ON returned.request_id=request.id AND returned.inventory_id=item.inventory_id
+      ) returned ON returned.request_id=request.id AND returned.inventory_id=item.inventory_id
       WHERE request.user_id=$1 AND request.status='Borrowed'
-      GROUP BY request.id ORDER BY request.return_date, request.id LIMIT 20`, [userId]
+      GROUP BY request.id
+     HAVING bool_or(item.quantity > COALESCE(returned.accounted, 0))
+      ORDER BY request.return_date, request.id LIMIT 20`, [userId]
   );
   if (!result.rowCount) { const error = new Error("This account has no outstanding borrowed transaction."); error.code = "NO_ACTIVE_BORROWING"; throw error; }
   return result.rows;

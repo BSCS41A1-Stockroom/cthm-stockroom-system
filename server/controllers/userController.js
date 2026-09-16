@@ -5,6 +5,24 @@ const { writeAuditLog } = require("../utils/auditLog");
 
 const ROLES = new Set(["student", "professor", "admin"]);
 let adminClient;
+function cleanEnvironmentValue(value) {
+  let cleaned = String(value ?? "").trim();
+  if ((cleaned.startsWith('"') && cleaned.endsWith('"')) || (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+  return cleaned.replace(/\s+/g, "");
+}
+function serviceRoleKey(value) {
+  if (/^\s*["']?Bearer\s/i.test(String(value ?? ""))) return null;
+  const key = cleanEnvironmentValue(value);
+  if (!key) return null;
+  if (/^sb_secret_[A-Za-z0-9_-]+$/.test(key)) return key;
+  if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(key)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(key.split(".")[1], "base64url").toString("utf8"));
+    return payload.role === "service_role" ? key : null;
+  } catch { return null; }
+}
 function invitationRedirectUrl(clientUrl = process.env.CLIENT_URL) {
   const origin = String(clientUrl ?? "").split(",")[0].trim();
   if (!origin) throw new Error("CLIENT_URL is required for account invitations.");
@@ -16,12 +34,22 @@ function invitationRedirectUrl(clientUrl = process.env.CLIENT_URL) {
 }
 function getAdminClient() {
   if (adminClient) return adminClient;
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  const url = cleanEnvironmentValue(process.env.SUPABASE_URL);
+  const key = serviceRoleKey(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  if (!url || !key) {
     const error = new Error("User invitations are not configured on the server.");
     error.code = "USER_ADMIN_NOT_CONFIGURED";
     throw error;
   }
-  adminClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
+  let parsedUrl;
+  try { parsedUrl = new URL(url); }
+  catch { parsedUrl = null; }
+  if (!parsedUrl || parsedUrl.protocol !== "https:" || !parsedUrl.hostname.endsWith(".supabase.co")) {
+    const error = new Error("SUPABASE_URL is invalid on the server.");
+    error.code = "USER_ADMIN_NOT_CONFIGURED";
+    throw error;
+  }
+  adminClient = createClient(parsedUrl.toString().replace(/\/$/, ""), key, { auth: { autoRefreshToken: false, persistSession: false } });
   return adminClient;
 }
 function normalizeUser(body = {}) {
@@ -68,7 +96,9 @@ async function inviteUser(req, res, next) {
     return res.status(201).json({ user: { email: user.email, ...result.rows[0] } });
   } catch (error) {
     if (invitedId) await getAdminClient().auth.admin.deleteUser(invitedId).catch(() => {});
-    if (error.code === "USER_ADMIN_NOT_CONFIGURED") return res.status(503).json({ error: error.code, message: error.message });
+    if (error.code === "USER_ADMIN_NOT_CONFIGURED" || /invalid header value/i.test(String(error.message))) {
+      return res.status(503).json({ error: "USER_ADMIN_NOT_CONFIGURED", message: "User invitations are unavailable because the server's Supabase Admin credentials are invalid. Ask an administrator to update SUPABASE_SERVICE_ROLE_KEY." });
+    }
     if (error.message === "CLIENT_URL is required for account invitations." || error.message === "CLIENT_URL must use HTTPS for account invitations.") {
       return res.status(503).json({ error: "INVITATION_REDIRECT_NOT_CONFIGURED", message: error.message });
     }
@@ -112,4 +142,4 @@ async function updateUser(req, res, next) {
     return next(error);
   } finally { client.release(); }
 }
-module.exports = { inviteUser, invitationRedirectUrl, listUsers, normalizeUser, updateUser, userErrors };
+module.exports = { cleanEnvironmentValue, inviteUser, invitationRedirectUrl, listUsers, normalizeUser, serviceRoleKey, updateUser, userErrors };
