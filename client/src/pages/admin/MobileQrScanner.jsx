@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { FaCamera, FaCheckCircle, FaQrcode, FaShieldAlt } from "react-icons/fa";
 import { authenticatedFetch } from "../../lib/api";
 import "../../styles/qr.css";
 
@@ -87,16 +88,16 @@ export default function MobileQrScanner() {
 
   return <main className="mobile-scanner-page">
     <section className="mobile-scanner-card">
-      <div className="mobile-scanner-brand">CTHM Stockroom</div>
+      <div className="mobile-scanner-brand"><FaShieldAlt /> CTHM Stockroom</div>
       <h1>Phone QR Scanner</h1>
       <div className={`connection-badge ${connection}`}><span />{connection === "connected" ? "Phone connected" : connection === "complete" ? "Scan delivered" : connection === "error" ? "Connection problem" : "Connecting"}</div>
-      <p className="mobile-scanner-message" role="status">{message}</p>
+      <p className="mobile-scanner-message" role="status">{connection === "complete" ? <FaCheckCircle aria-hidden="true" /> : <FaQrcode aria-hidden="true" />}<span>{message}</span></p>
       <div className={`camera-frame ${cameraActive ? "active" : ""}`}>
         <div id="mobile-account-reader" className="camera-reader" />
-        {!cameraActive && connection !== "complete" && <div className="camera-placeholder"><div className="camera-icon" aria-hidden="true">▣</div><span>Camera preview will appear here</span></div>}
+        {!cameraActive && connection !== "complete" && <div className="camera-placeholder"><div className="camera-icon" aria-hidden="true"><FaCamera /></div><strong>Camera preview</strong><span>Your camera will appear here after permission is granted</span></div>}
       </div>
       <div className="mobile-scanner-actions">
-        {!cameraActive && connection !== "complete" && <button type="button" onClick={startCamera} disabled={connection !== "connected"}>Start Camera</button>}
+        {!cameraActive && connection !== "complete" && <button type="button" onClick={startCamera} disabled={connection !== "connected"}><FaCamera /> Start Camera</button>}
         {cameraActive && <button type="button" className="secondary-button" onClick={stopCamera}>Stop Camera</button>}
       </div>
       <p className="qr-warning">Camera access requires HTTPS and browser permission. After scanning, verify and release the items from the paired PC.</p>

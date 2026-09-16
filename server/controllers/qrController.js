@@ -40,6 +40,7 @@ async function findReadyRequest(userId, database = pool) {
        JOIN public.borrow_request_items item ON item.request_id=request.id
        JOIN public.inventory inventory ON inventory.id=item.inventory_id
       WHERE request.user_id=$1 AND request.status='Approved'
+        AND request.borrow_date >= (now() AT TIME ZONE 'Asia/Manila')::date
       GROUP BY request.id ORDER BY request.created_at LIMIT 2`, [userId]
   );
   if (!requests.rowCount) { const error = new Error("This account has no request ready for claim."); error.code = "NO_READY_REQUEST"; throw error; }
