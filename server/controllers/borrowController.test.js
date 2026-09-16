@@ -67,6 +67,7 @@ test("processes a complete return and updates inventory condition counters atomi
       if (sql.includes("SELECT inventory_id, quantity FROM borrow_request_items")) return { rows: [{ inventory_id: 7, quantity: 2 }] };
       if (sql.includes("SUM(good_quantity")) return { rows: [] };
       if (sql.includes("INSERT INTO borrowing_returns")) return { rows: [{ id: 20, request_id: 10 }] };
+      if (sql.includes("INSERT INTO public.transaction_receipts")) return { rowCount: 1, rows: [{ id: 30, receipt_number: "RCT-2030-00000001", receipt_type: "return" }] };
       if (sql.includes("UPDATE inventory")) return { rowCount: 1, rows: [{ id: 7 }] };
       if (sql.includes("UPDATE borrow_requests SET status")) return { rows: [{ id: 10, status: "Returned" }] };
       return { rowCount: 1, rows: [] };

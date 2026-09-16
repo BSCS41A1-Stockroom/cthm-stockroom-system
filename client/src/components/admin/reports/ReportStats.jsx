@@ -1,6 +1,7 @@
 import {
   FaClipboardList,
   FaBoxOpen,
+  FaReceipt,
   FaUsers,
   FaUndo
 } from "react-icons/fa";
@@ -12,6 +13,7 @@ export default function ReportStats({ summary = {} }) {
     { title: "Returned Units", value: summary.returned_units ?? 0, icon: <FaUndo /> },
     { title: "Borrowed Units", value: summary.borrowed_units ?? 0, icon: <FaBoxOpen /> },
     { title: "Active Borrowers", value: summary.active_borrowers ?? 0, icon: <FaUsers /> },
+    { title: "Receipts Generated", value: summary.receipts_generated ?? 0, icon: <FaReceipt /> },
     { title: "Open Maintenance", value: summary.open_maintenance_cases ?? 0, icon: <FaScrewdriverWrench /> },
     { title: "Overdue Maintenance", value: summary.overdue_maintenance_cases ?? 0, icon: <FaTriangleExclamation /> },
     { title: "Scheduled Inspections", value: summary.scheduled_inspection_assets ?? 0, icon: <FaCalendarCheck /> },

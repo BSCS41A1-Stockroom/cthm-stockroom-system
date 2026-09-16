@@ -16,6 +16,7 @@ const { notifyRoles, notifyUser } = require("../utils/notifications");
 const { loadInventoryCommitment, usableInventoryQuantity } = require("../utils/inventoryCommitments");
 const { parseAssetQr, verifyClaimTicket } = require("../utils/qrCredential");
 const { processExpiredRequests } = require("./overdueController");
+const { createTransactionReceipt } = require("../utils/transactionReceipt");
 
 const RESERVED_STATUSES = new Set(["Pending", "Validated", "Approved"]);
 const BORROWED_STATUSES = new Set(["Borrowed"]);
@@ -757,8 +758,8 @@ async function processBorrowingReturn(req, res, next) {
     for (const asset of returnedAssetRows) {
       const damaged = asset.submitted.condition === "damaged";
       await client.query(
-        `UPDATE public.borrowing_asset_assignments SET returned_by=$2, returned_at=now(), return_condition=$3, condition_note=$4 WHERE id=$1`,
-        [asset.assignment_id, req.user.id, asset.submitted.condition, asset.submitted.conditionNote || null]
+        `UPDATE public.borrowing_asset_assignments SET returned_by=$2, returned_at=now(), return_condition=$3, condition_note=$4, return_id=$5 WHERE id=$1`,
+        [asset.assignment_id, req.user.id, asset.submitted.condition, asset.submitted.conditionNote || null, returnResult.rows[0].id]
       );
       await client.query(
         `UPDATE public.inventory_assets SET status=$2, condition=$3, maintenance_note=$4,
@@ -777,8 +778,8 @@ async function processBorrowingReturn(req, res, next) {
     }
     for (const asset of missingAssetRows) {
       await client.query(
-        `UPDATE public.borrowing_asset_assignments SET returned_by=$2, returned_at=now(), return_condition='missing', condition_note=$3 WHERE id=$1`,
-        [asset.assignment_id, req.user.id, asset.incidentReason]
+        `UPDATE public.borrowing_asset_assignments SET returned_by=$2, returned_at=now(), return_condition='missing', condition_note=$3, return_id=$4 WHERE id=$1`,
+        [asset.assignment_id, req.user.id, asset.incidentReason, returnResult.rows[0].id]
       );
       await client.query(
         `UPDATE public.inventory_assets SET status='missing', condition='missing', maintenance_note=$2,
@@ -840,8 +841,20 @@ async function processBorrowingReturn(req, res, next) {
         : `A partial return was recorded for BR-${String(requestId).padStart(3, "0")}. Outstanding items remain.`,
       relatedPath: "/my-requests", entityType: "borrowing_request", entityId: requestId,
     });
+    const receipt = await createTransactionReceipt(client, { requestId, receiptType: "return", returnId: returnResult.rows[0].id, createdBy: req.user.id });
+    await writeAuditLog(client, req.user, {
+      action: "transaction_receipt_created",
+      entityType: "transaction_receipt",
+      entityId: receipt.id,
+      newValues: {
+        receiptNumber: receipt.receipt_number,
+        receiptType: "return",
+        requestId,
+        returnId: returnResult.rows[0].id,
+      },
+    });
     await client.query("COMMIT");
-    return res.status(201).json({ return: returnResult.rows[0], request: updatedResult.rows[0], complete });
+    return res.status(201).json({ return: returnResult.rows[0], request: updatedResult.rows[0], receipt, complete });
   } catch (error) {
     await client.query("ROLLBACK");
     return next(error);
@@ -1109,8 +1122,25 @@ async function updateBorrowRequestStatus(req, res, next) {
       entityId: requestId,
     });
 
+    const receipt = nextStatus === "Borrowed"
+      ? await createTransactionReceipt(client, { requestId, receiptType: "claim", createdBy: req.user.id })
+      : null;
+
+    if (receipt) {
+      await writeAuditLog(client, req.user, {
+        action: "transaction_receipt_created",
+        entityType: "transaction_receipt",
+        entityId: receipt.id,
+        newValues: {
+          receiptNumber: receipt.receipt_number,
+          receiptType: "claim",
+          requestId,
+        },
+      });
+    }
+
     await client.query("COMMIT");
-    return res.json({ request: updatedResult.rows[0] });
+    return res.json({ request: updatedResult.rows[0], receipt });
   } catch (error) {
     await client.query("ROLLBACK");
     return next(error);

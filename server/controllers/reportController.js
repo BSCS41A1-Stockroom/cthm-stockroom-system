@@ -83,6 +83,9 @@ async function reportSummary(req, res, next) {
            (SELECT COALESCE(SUM(cost),0) FROM asset_maintenance_records WHERE (opened_at AT TIME ZONE 'Asia/Manila')::date BETWEEN $1::date AND $2::date) AS maintenance_cost,
            (SELECT COUNT(*) FROM inventory_assets WHERE inspection_interval_days IS NOT NULL AND status<>'retired') AS scheduled_inspection_assets,
            (SELECT COUNT(*) FROM inventory_assets WHERE status='available' AND next_inspection_date IS NOT NULL AND next_inspection_date <= (now() AT TIME ZONE 'Asia/Manila')::date) AS overdue_inspection_assets,
+           (SELECT COUNT(*) FROM transaction_receipts WHERE (created_at AT TIME ZONE 'Asia/Manila')::date BETWEEN $1::date AND $2::date) AS receipts_generated,
+           (SELECT COUNT(*) FROM transaction_receipts WHERE receipt_type = 'claim' AND (created_at AT TIME ZONE 'Asia/Manila')::date BETWEEN $1::date AND $2::date) AS claim_receipts,
+           (SELECT COUNT(*) FROM transaction_receipts WHERE receipt_type = 'return' AND (created_at AT TIME ZONE 'Asia/Manila')::date BETWEEN $1::date AND $2::date) AS return_receipts,
            COALESCE((
              SELECT SUM(good_quantity + damaged_quantity + missing_quantity)
                FROM borrowing_return_items returned_items
