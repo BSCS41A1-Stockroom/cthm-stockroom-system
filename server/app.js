@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 
 const borrowRoutes = require("./routes/borrowRoutes");
+const borrowerFormRoutes = require("./routes/borrowerFormRoutes");
 const calendarRoutes = require("./routes/calendarRoutes");
 const inventoryRoutes = require("./routes/inventoryRoutes");
 const reportRoutes = require("./routes/reportRoutes");
@@ -43,6 +44,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/borrowings", borrowRoutes);
+app.use("/api/borrower-form", borrowerFormRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/reports", reportRoutes);
