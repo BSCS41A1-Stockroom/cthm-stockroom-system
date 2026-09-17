@@ -2,9 +2,11 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
     "cors": "^2.8.6",
+    "docxtemplater": "^3.70.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "pg": "^8.22.0"
+    "pg": "^8.22.0",
+    "pizzip": "^3.2.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
