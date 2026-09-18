@@ -1,8 +1,13 @@
 import { useState } from "react";
 import { authenticatedFetch } from "../../../lib/api";
-import { DEFAULT_LOW_STOCK_THRESHOLD, inventoryTotals } from "../../../utils/inventoryAvailability";
+import { supabase } from "../../../lib/supabase";
+import {
+    DEFAULT_LOW_STOCK_THRESHOLD,
+    inventoryTotals
+} from "../../../utils/inventoryAvailability";
 
 export default function AddItemModal({ open, onClose }) {
+
     const [form, setForm] = useState({
         item_name: "",
         purchase_date: "",
@@ -16,35 +21,161 @@ export default function AddItemModal({ open, onClose }) {
         low_stock_threshold: DEFAULT_LOW_STOCK_THRESHOLD,
         remarks: "",
         tracking_type: "bulk",
+        image_url: "",
     });
+
+    const [imageFile, setImageFile] = useState(null);
+    const [imagePreview, setImagePreview] = useState("");
+    const [saving, setSaving] = useState(false);
 
     if (!open) return null;
 
     function handleChange(e) {
-        const { name, value } = e.target;
+        const { name, value, type } = e.target;
 
         setForm((prev) => ({
             ...prev,
             [name]:
-                e.target.type === "number"
+                type === "number"
                     ? Number(value)
                     : value,
-            ...(name === "tracking_type" && value === "serialized" ? { quantity: 0, additional_qty: 0, replaces: 0, missing: 0, breakage: 0, defective: 0, total_loss: 0 } : {}),
+
+            ...(name === "tracking_type" && value === "serialized"
+                ? {
+                    quantity: 0,
+                    additional_qty: 0,
+                    replaces: 0,
+                    missing: 0,
+                    breakage: 0,
+                    defective: 0,
+                    total_loss: 0
+                }
+                : {})
         }));
     }
 
-    async function handleSave() {
-        const response = await authenticatedFetch("/api/inventory", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(form),
-        });
-        const result = await response.json();
+    function handleImageChange(e) {
+        const file = e.target.files?.[0];
 
-        if (!response.ok) {
-            alert(result.reasons?.[0] || result.message || "Unable to create inventory item.");
+        if (!file) return;
+
+        const allowedTypes = [
+            "image/jpeg",
+            "image/png",
+            "image/webp"
+        ];
+
+        if (!allowedTypes.includes(file.type)) {
+            alert("Please select a JPG, PNG, or WEBP image.");
+            e.target.value = "";
             return;
         }
+
+        if (file.size > 5 * 1024 * 1024) {
+            alert("Image must be 5MB or smaller.");
+            e.target.value = "";
+            return;
+        }
+
+        setImageFile(file);
+
+        const previewUrl = URL.createObjectURL(file);
+        setImagePreview(previewUrl);
+    }
+
+    function removeImage() {
+        setImageFile(null);
+        setImagePreview("");
+        setForm((prev) => ({
+            ...prev,
+            image_url: ""
+        }));
+    }
+
+    async function uploadImage() {
+
+        if (!imageFile) {
+            return "";
+        }
+
+        const extension = imageFile.name.split(".").pop().toLowerCase();
+
+        const fileName = `inventory/${crypto.randomUUID()}.${extension}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from("inventory-images")
+            .upload(fileName, imageFile, {
+                cacheControl: "3600",
+                upsert: false,
+                contentType: imageFile.type
+            });
+
+        if (uploadError) {
+            throw uploadError;
+        }
+
+        const { data } = supabase.storage
+            .from("inventory-images")
+            .getPublicUrl(fileName);
+
+        return data.publicUrl;
+    }
+
+    async function handleSave() {
+
+        if (!form.item_name.trim()) {
+            alert("Please enter an item name.");
+            return;
+        }
+
+        try {
+
+            setSaving(true);
+
+            // 1. Upload image first
+            const imageUrl = await uploadImage();
+
+            // 2. Save inventory record with image URL
+            const response = await authenticatedFetch("/api/inventory", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    ...form,
+                    image_url: imageUrl
+                }),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                alert(
+                    result.reasons?.[0] ||
+                    result.message ||
+                    "Unable to create inventory item."
+                );
+                return;
+            }
+
+            resetForm();
+            onClose();
+
+        } catch (error) {
+
+            console.error("Inventory image upload error:", error);
+
+            alert(
+                error.message ||
+                "Unable to upload inventory image."
+            );
+
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    function resetForm() {
 
         setForm({
             item_name: "",
@@ -59,119 +190,250 @@ export default function AddItemModal({ open, onClose }) {
             low_stock_threshold: DEFAULT_LOW_STOCK_THRESHOLD,
             remarks: "",
             tracking_type: "bulk",
+            image_url: "",
         });
 
-        onClose();
+        setImageFile(null);
+        setImagePreview("");
     }
 
-    const { total: totalInventory, usable: endInventory } = inventoryTotals(form);
+    const {
+        total: totalInventory,
+        usable: endInventory
+    } = inventoryTotals(form);
 
     return (
         <div className="modal-overlay">
+
             <div className="modal">
 
                 <div className="modal-header">
+
                     <h2>Add Inventory Item</h2>
-                    <button onClick={onClose}>✕</button>
+
+                    <button
+                        onClick={onClose}
+                        disabled={saving}
+                    >
+                        ✕
+                    </button>
+
                 </div>
 
                 <div className="modal-body">
 
                     <div className="form-grid">
 
+                        {/* IMAGE */}
+
+                        <div className="form-group full-width">
+
+                            <label>Item Image</label>
+
+                            <div className="inventory-image-upload">
+
+                                {imagePreview ? (
+                                    <div className="inventory-image-preview">
+
+                                        <img
+                                            src={imagePreview}
+                                            alt="Inventory preview"
+                                        />
+
+                                        <button
+                                            type="button"
+                                            onClick={removeImage}
+                                            disabled={saving}
+                                        >
+                                            Remove
+                                        </button>
+
+                                    </div>
+                                ) : (
+                                    <label className="inventory-image-dropzone">
+
+                                        <span>
+                                            Upload Item Image
+                                        </span>
+
+                                        <small>
+                                            JPG, PNG, or WEBP · Max 5MB
+                                        </small>
+
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            onChange={handleImageChange}
+                                            hidden
+                                        />
+
+                                    </label>
+                                )}
+
+                            </div>
+
+                        </div>
+
                         <div className="form-group">
-                            <label>Tools / Particular Item</label>
+
+                            <label>
+                                Tools / Particular Item
+                            </label>
+
                             <input
                                 name="item_name"
                                 value={form.item_name}
                                 onChange={handleChange}
                             />
+
                         </div>
 
                         <div className="form-group">
-                            <label>Date of Purchase</label>
+
+                            <label>
+                                Date of Purchase
+                            </label>
+
                             <input
                                 type="date"
                                 name="purchase_date"
                                 value={form.purchase_date}
                                 onChange={handleChange}
                             />
+
                         </div>
 
                         <div className="form-group">
+
                             <label>Quantity</label>
+
                             <input
                                 type="number"
+                                min="0"
                                 name="quantity"
                                 value={form.quantity}
                                 onChange={handleChange}
                             />
+
                         </div>
 
                         <div className="form-group">
+
                             <label>Additional Qty</label>
+
                             <input
                                 type="number"
+                                min="0"
                                 name="additional_qty"
                                 value={form.additional_qty}
                                 onChange={handleChange}
                             />
+
                         </div>
 
                         <div className="form-group">
+
                             <label>Replaces</label>
+
                             <input
                                 type="number"
+                                min="0"
                                 name="replaces"
                                 value={form.replaces}
                                 onChange={handleChange}
                             />
+
                         </div>
 
                         <div className="form-group">
+
                             <label>Missing</label>
+
                             <input
                                 type="number"
+                                min="0"
                                 name="missing"
                                 value={form.missing}
                                 onChange={handleChange}
                             />
+
                         </div>
 
                         <div className="form-group">
+
                             <label>Breakage</label>
+
                             <input
                                 type="number"
+                                min="0"
                                 name="breakage"
                                 value={form.breakage}
                                 onChange={handleChange}
                             />
+
                         </div>
 
                         <div className="form-group">
+
                             <label>Defective</label>
+
                             <input
                                 type="number"
+                                min="0"
                                 name="defective"
                                 value={form.defective}
                                 onChange={handleChange}
                             />
+
                         </div>
 
                         <div className="form-group">
+
                             <label>Total Loss</label>
+
                             <input
                                 type="number"
+                                min="0"
                                 name="total_loss"
                                 value={form.total_loss}
                                 onChange={handleChange}
                             />
+
                         </div>
 
-                        <div className="form-group"><label>Tracking Type</label><select name="tracking_type" value={form.tracking_type} onChange={handleChange}><option value="bulk">Bulk quantity</option><option value="serialized">Serialized assets</option></select><small>{form.tracking_type === "serialized" ? "Save first, then register each physical asset and print its QR." : "Manage interchangeable items by quantity."}</small></div>
+                        <div className="form-group">
+
+                            <label>Tracking Type</label>
+
+                            <select
+                                name="tracking_type"
+                                value={form.tracking_type}
+                                onChange={handleChange}
+                            >
+                                <option value="bulk">
+                                    Bulk quantity
+                                </option>
+
+                                <option value="serialized">
+                                    Serialized assets
+                                </option>
+                            </select>
+
+                            <small>
+                                {form.tracking_type === "serialized"
+                                    ? "Save first, then register each physical asset and print its QR."
+                                    : "Manage interchangeable items by quantity."
+                                }
+                            </small>
+
+                        </div>
 
                         <div className="form-group">
-                            <label>Low Stock Alert At</label>
+
+                            <label>
+                                Low Stock Alert At
+                            </label>
+
                             <input
                                 type="number"
                                 min="0"
@@ -179,25 +441,37 @@ export default function AddItemModal({ open, onClose }) {
                                 value={form.low_stock_threshold}
                                 onChange={handleChange}
                             />
+
                         </div>
 
                         <div className="form-group">
-                            <label>Total Inventory</label>
+
+                            <label>
+                                Total Inventory
+                            </label>
+
                             <input
                                 disabled
                                 value={totalInventory}
                             />
+
                         </div>
 
                         <div className="form-group">
-                            <label>End Inventory</label>
+
+                            <label>
+                                End Inventory
+                            </label>
+
                             <input
                                 disabled
                                 value={endInventory}
                             />
+
                         </div>
 
                         <div className="form-group full-width">
+
                             <label>Remarks</label>
 
                             <textarea
@@ -206,6 +480,7 @@ export default function AddItemModal({ open, onClose }) {
                                 value={form.remarks}
                                 onChange={handleChange}
                             />
+
                         </div>
 
                     </div>
@@ -217,6 +492,7 @@ export default function AddItemModal({ open, onClose }) {
                     <button
                         className="cancel-btn"
                         onClick={onClose}
+                        disabled={saving}
                     >
                         Cancel
                     </button>
@@ -224,13 +500,15 @@ export default function AddItemModal({ open, onClose }) {
                     <button
                         className="save-btn"
                         onClick={handleSave}
+                        disabled={saving}
                     >
-                        Save Item
+                        {saving ? "Saving..." : "Save Item"}
                     </button>
 
                 </div>
 
             </div>
+
         </div>
     );
 }

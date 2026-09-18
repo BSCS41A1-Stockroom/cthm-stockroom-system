@@ -1,141 +1,692 @@
-import { FaBarcode, FaCalendarTimes, FaEdit, FaTrash, FaEye } from "react-icons/fa";
-import { inventoryStockStatus, inventoryTotals } from "../../../utils/inventoryAvailability";
+import {
+    FaBarcode,
+    FaCalendarTimes,
+    FaEdit,
+    FaEye,
+    FaSort,
+    FaSortUp,
+    FaSortDown,
+} from "react-icons/fa";
+
+import {
+    inventoryTotals
+} from "../../../utils/inventoryAvailability";
+
+import { useMemo, useState } from "react";
 
 export default function InventoryTable({
     inventory,
+    selectedIds = [],
+    onToggleSelection,
+    onToggleSelectAll,
     onDetails,
     onEdit,
-    onDelete,
     onAvailability,
     onAssets,
 }) {
+    const [sortConfig, setSortConfig] = useState({
+        key: null,
+        direction: "asc",
+    });
 
-  if (!inventory || inventory.length === 0) {
-      return (
-          <div style={{ padding: "30px", textAlign: "center" }}>
-              No inventory found.
-          </div>
-      );
-  }
+    /*
+    |--------------------------------------------------------------------------
+    | INVENTORY HELPERS
+    |--------------------------------------------------------------------------
+    */
 
-  return (
-    <>
-      <table className="inventory-table inventory-table--compact">
-        <thead>
-          <tr>
-            <th className="col-sticky">Tools / Item</th>
-            <th>Date of Purchase</th>
-            <th>Qty</th>
-            <th>Total Inventory</th>
-            <th>Available</th>
-            <th>Stock Level</th>
-            <th>Remarks</th>
-            <th className="col-actions">Actions</th>
-          </tr>
-        </thead>
+    const getTotals = (item) => {
+        return inventoryTotals(item);
+    };
 
-        <tbody>
-          {inventory.map((item) => {
-            const { total: totalInventory, available, threshold } = inventoryTotals(item);
-            const stockStatus = inventoryStockStatus(item);
+    const getTotalInventory = (item) => {
+        const totals = getTotals(item);
 
+        return totals?.total ?? 0;
+    };
+
+    const getAvailable = (item) => {
+        const totals = getTotals(item);
+
+        return totals?.available ?? 0;
+    };
+
+    const getStatus = (item) => {
+        const available = getAvailable(item);
+
+        return available > 0
+            ? "available"
+            : "unavailable";
+    };
+
+    const getStatusLabel = (item) => {
+        return getStatus(item) === "available"
+            ? "Available"
+            : "Unavailable";
+    };
+
+    const getImage = (item) => {
+        return (
+            item.image_url ||
+            item.image ||
+            item.image_path ||
+            null
+        );
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | SORTING
+    |--------------------------------------------------------------------------
+    */
+
+    const handleSort = (key) => {
+        setSortConfig((current) => {
+
+            if (current.key === key) {
+                return {
+                    key,
+                    direction:
+                        current.direction === "asc"
+                            ? "desc"
+                            : "asc",
+                };
+            }
+
+            return {
+                key,
+                direction: "asc",
+            };
+        });
+    };
+
+    const sortedInventory = useMemo(() => {
+
+        const items = [
+            ...(inventory || [])
+        ];
+
+        if (!sortConfig.key) {
+            return items;
+        }
+
+        return items.sort((a, b) => {
+
+            let aValue;
+            let bValue;
+
+            switch (sortConfig.key) {
+
+                case "item_name":
+                    aValue = (
+                        a.item_name || ""
+                    ).toLowerCase();
+
+                    bValue = (
+                        b.item_name || ""
+                    ).toLowerCase();
+
+                    break;
+
+                case "quantity":
+                    aValue =
+                        getTotalInventory(a);
+
+                    bValue =
+                        getTotalInventory(b);
+
+                    break;
+
+                case "available":
+                    aValue =
+                        getAvailable(a);
+
+                    bValue =
+                        getAvailable(b);
+
+                    break;
+
+                case "status": {
+                    /*
+                     * Explicit status order:
+                     *
+                     * Available
+                     * Partially Available
+                     * Unavailable
+                     *
+                     * Currently the system uses
+                     * Available / Unavailable.
+                     */
+
+                    const statusOrder = {
+                        available: 1,
+                        unavailable: 3,
+                    };
+
+                    aValue =
+                        statusOrder[getStatus(a)] ??
+                        99;
+
+                    bValue =
+                        statusOrder[getStatus(b)] ??
+                        99;
+
+                    break;
+                }
+
+                default:
+                    return 0;
+            }
+
+            let result = 0;
+
+            if (
+                typeof aValue === "number" &&
+                typeof bValue === "number"
+            ) {
+                result = aValue - bValue;
+            } else {
+                result =
+                    String(aValue).localeCompare(
+                        String(bValue)
+                    );
+            }
+
+            return sortConfig.direction === "asc"
+                ? result
+                : -result;
+        });
+
+    }, [inventory, sortConfig]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | EMPTY STATE
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        !inventory ||
+        inventory.length === 0
+    ) {
+        return (
+            <div className="inventory-empty">
+
+                <div className="inventory-empty-icon">
+                    <FaBarcode />
+                </div>
+
+                <h3>
+                    No inventory found
+                </h3>
+
+                <p>
+                    There are no inventory items
+                    matching your current search.
+                </p>
+
+            </div>
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | SELECTION
+    |--------------------------------------------------------------------------
+    */
+
+    const visibleIds =
+        sortedInventory.map(
+            (item) => item.id
+        );
+
+    const allSelected =
+        visibleIds.length > 0 &&
+        visibleIds.every((id) =>
+            selectedIds.includes(id)
+        );
+
+    const someSelected =
+        visibleIds.some((id) =>
+            selectedIds.includes(id)
+        );
+
+    /*
+    |--------------------------------------------------------------------------
+    | SORT ICON
+    |--------------------------------------------------------------------------
+    */
+
+    const renderSortIcon = (key) => {
+
+        if (sortConfig.key !== key) {
             return (
-              <tr key={item.id}>
-                <td className="col-sticky col-item-name">
-                  <span className="item-name">{item.item_name}</span>
-                </td>
-
-                <td>{item.purchase_date}</td>
-
-                <td className="col-number">{item.quantity}</td>
-
-                <td className="col-number">{totalInventory}</td>
-
-                <td className="col-number col-available">
-                  <strong>{available}</strong>
-                </td>
-
-                <td>
-                  <span 
-                    className={`remark remark--${
-                      stockStatus === "in-stock" 
-                        ? "available" 
-                        : stockStatus === "out-of-stock" 
-                        ? "danger" 
-                        : "warning"
-                    }`}
-                  >
-                    {stockStatus === "out-of-stock" 
-                      ? "Out of Stock" 
-                      : stockStatus === "low-stock" 
-                      ? "Low Stock" 
-                      : "In Stock"}
-                  </span>
-                </td>
-
-                <td>
-                  <span
-                    className={`remark remark--${
-                      item.remarks === "Available"
-                        ? "available"
-                        : item.remarks === "Good Condition"
-                        ? "good"
-                        : "warning"
-                    }`}
-                  >
-                    {item.remarks}
-                  </span>
-                </td>
-
-                <td className="col-actions">
-                  <button
-                    className="details-btn"
-                    onClick={() => onDetails(item)}
-                    title="View all details"
-                    aria-label={`View details for ${item.item_name}`}
-                  >
-                    <FaEye />
-                  </button>
-                  {item.tracking_type === "serialized" && (
-                    <button 
-                      className="asset-btn" 
-                      onClick={() => onAssets(item)} 
-                      title="Manage serialized assets" 
-                      aria-label={`Manage assets for ${item.item_name}`}
-                    >
-                      <FaBarcode />
-                    </button>
-                  )}
-                  <button
-                    className="availability-btn"
-                    onClick={() => onAvailability(item)}
-                    title="Manage unavailable dates"
-                    aria-label={`Manage unavailable dates for ${item.item_name}`}
-                  >
-                    <FaCalendarTimes />
-                  </button>
-                  <button
-                    className="edit-btn"
-                    onClick={() => onEdit(item)}
-                    title="Edit item"
-                    aria-label={`Edit ${item.item_name}`}
-                  >
-                    <FaEdit />
-                  </button>
-                  <button
-                    className="delete-btn"
-                    onClick={() => onDelete(item)}
-                    title="Delete item"
-                    aria-label={`Delete ${item.item_name}`}
-                  >
-                    <FaTrash />
-                  </button>
-                </td>
-              </tr>
+                <FaSort
+                    className="sort-icon sort-icon--inactive"
+                />
             );
-          })}
-        </tbody>
-      </table>
-    </>
-  );
+        }
+
+        if (
+            sortConfig.direction === "asc"
+        ) {
+            return (
+                <FaSortUp
+                    className="sort-icon"
+                />
+            );
+        }
+
+        return (
+            <FaSortDown
+                className="sort-icon"
+            />
+        );
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | TABLE
+    |--------------------------------------------------------------------------
+    */
+
+    return (
+        <table className="inventory-table">
+
+            <thead>
+
+                <tr>
+
+                    {/* SELECT ALL */}
+
+                    <th className="col-checkbox">
+
+                        <input
+                            type="checkbox"
+                            checked={allSelected}
+                            ref={(input) => {
+
+                                if (input) {
+                                    input.indeterminate =
+                                        !allSelected &&
+                                        someSelected;
+                                }
+
+                            }}
+                            onChange={
+                                onToggleSelectAll
+                            }
+                            aria-label="Select all inventory items"
+                        />
+
+                    </th>
+
+
+                    {/* IMAGE */}
+
+                    <th className="col-image">
+                        Image
+                    </th>
+
+
+                    {/* ITEM */}
+
+                    <th
+                        className="col-item sortable"
+                        onClick={() =>
+                            handleSort(
+                                "item_name"
+                            )
+                        }
+                    >
+
+                        <span>
+                            Tools / Item
+                        </span>
+
+                        {renderSortIcon(
+                            "item_name"
+                        )}
+
+                    </th>
+
+
+                    {/* QTY */}
+
+                    <th
+                        className="col-number sortable"
+                        onClick={() =>
+                            handleSort(
+                                "quantity"
+                            )
+                        }
+                    >
+
+                        <span>
+                            Qty
+                        </span>
+
+                        {renderSortIcon(
+                            "quantity"
+                        )}
+
+                    </th>
+
+
+                    {/* AVAILABLE */}
+
+                    <th
+                        className="col-number sortable"
+                        onClick={() =>
+                            handleSort(
+                                "available"
+                            )
+                        }
+                    >
+
+                        <span>
+                            Available
+                        </span>
+
+                        {renderSortIcon(
+                            "available"
+                        )}
+
+                    </th>
+
+
+                    {/* STATUS */}
+
+                    <th
+                        className="sortable"
+                        onClick={() =>
+                            handleSort(
+                                "status"
+                            )
+                        }
+                    >
+
+                        <span>
+                            Status
+                        </span>
+
+                        {renderSortIcon(
+                            "status"
+                        )}
+
+                    </th>
+
+
+                    {/* ACTIONS */}
+
+                    <th className="col-actions">
+                        Actions
+                    </th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+                {sortedInventory.map(
+                    (item) => {
+
+                        const totalInventory =
+                            getTotalInventory(
+                                item
+                            );
+
+                        const available =
+                            getAvailable(
+                                item
+                            );
+
+                        const status =
+                            getStatus(
+                                item
+                            );
+
+                        const image =
+                            getImage(
+                                item
+                            );
+
+                        return (
+                            <tr
+                                key={item.id}
+                            >
+
+                                {/* CHECKBOX */}
+
+                                <td className="col-checkbox">
+
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedIds.includes(
+                                            item.id
+                                        )}
+                                        onChange={() =>
+                                            onToggleSelection(
+                                                item.id
+                                            )
+                                        }
+                                        aria-label={`Select ${item.item_name}`}
+                                    />
+
+                                </td>
+
+
+                                {/* IMAGE */}
+
+                                <td className="col-image">
+
+                                    <div className="inventory-item-image">
+
+                                        {image ? (
+
+                                            <img
+                                                src={image}
+                                                alt={
+                                                    item.item_name ||
+                                                    "Inventory item"
+                                                }
+                                                loading="lazy"
+                                                onError={(
+                                                    e
+                                                ) => {
+                                                    e.currentTarget.style.display =
+                                                        "none";
+                                                }}
+                                            />
+
+                                        ) : (
+
+                                            <FaBarcode />
+
+                                        )}
+
+                                    </div>
+
+                                </td>
+
+
+                                {/* ITEM */}
+
+                                <td className="col-item">
+
+                                    <span className="item-name">
+                                        {
+                                            item.item_name ||
+                                            "Unnamed Item"
+                                        }
+                                    </span>
+
+                                </td>
+
+
+                                {/* TOTAL QTY */}
+
+                                <td className="col-number">
+
+                                    <strong>
+                                        {
+                                            totalInventory
+                                        }
+                                    </strong>
+
+                                </td>
+
+
+                                {/* AVAILABLE */}
+
+                                <td className="col-number">
+
+                                    <span
+                                        className={
+                                            available > 0
+                                                ? "available-number"
+                                                : "available-number unavailable"
+                                        }
+                                    >
+                                        {
+                                            available
+                                        }
+                                    </span>
+
+                                </td>
+
+
+                                {/* STATUS */}
+
+                                <td>
+
+                                    <span
+                                        className={`inventory-status ${
+                                            status ===
+                                            "available"
+                                                ? "available"
+                                                : "danger"
+                                        }`}
+                                    >
+
+                                        <span className="status-dot" />
+
+                                        {
+                                            getStatusLabel(
+                                                item
+                                            )
+                                        }
+
+                                    </span>
+
+                                </td>
+
+
+                                {/* ACTIONS */}
+
+                                <td className="col-actions">
+
+                                    <div className="inventory-actions">
+
+                                        {/* VIEW */}
+
+                                        <button
+                                            className="action-btn action-view"
+                                            onClick={() =>
+                                                onDetails(
+                                                    item
+                                                )
+                                            }
+                                            title="View inventory details"
+                                            aria-label={`View details for ${item.item_name}`}
+                                        >
+                                            <FaEye />
+                                            <span>
+                                                View
+                                            </span>
+                                        </button>
+
+
+                                        {/* ASSETS */}
+
+                                        {item.tracking_type ===
+                                            "serialized" && (
+
+                                            <button
+                                                className="action-btn action-assets"
+                                                onClick={() =>
+                                                    onAssets(
+                                                        item
+                                                    )
+                                                }
+                                                title="Manage serialized assets"
+                                                aria-label={`Manage assets for ${item.item_name}`}
+                                            >
+                                                <FaBarcode />
+
+                                                <span>
+                                                    Assets
+                                                </span>
+
+                                            </button>
+
+                                        )}
+
+
+                                        {/* AVAILABILITY */}
+
+                                        <button
+                                            className="action-btn action-availability"
+                                            onClick={() =>
+                                                onAvailability(
+                                                    item
+                                                )
+                                            }
+                                            title="Manage unavailable dates"
+                                            aria-label={`Manage availability for ${item.item_name}`}
+                                        >
+                                            <FaCalendarTimes />
+
+                                            <span>
+                                                Availability
+                                            </span>
+
+                                        </button>
+
+
+                                        {/* EDIT */}
+
+                                        <button
+                                            className="action-btn action-edit"
+                                            onClick={() =>
+                                                onEdit(
+                                                    item
+                                                )
+                                            }
+                                            title="Edit inventory item"
+                                            aria-label={`Edit ${item.item_name}`}
+                                        >
+                                            <FaEdit />
+
+                                            <span>
+                                                Edit
+                                            </span>
+
+                                        </button>
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+                        );
+                    }
+                )}
+
+            </tbody>
+
+        </table>
+    );
 }

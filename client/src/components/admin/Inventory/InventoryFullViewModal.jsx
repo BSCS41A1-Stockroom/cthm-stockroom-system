@@ -1,24 +1,50 @@
 import { FaTimes, FaDownload } from "react-icons/fa";
-import { inventoryStockStatus, inventoryTotals } from "../../../utils/inventoryAvailability";
 
-export default function InventoryFullViewModal({ 
-  open, 
-  inventory, 
+import {
+  inventoryStockStatus,
+  inventoryTotals,
+} from "../../../utils/inventoryAvailability";
+
+export default function InventoryFullViewModal({
+  open,
+  inventory,
   onClose,
   search,
   status,
 }) {
   if (!open) return null;
 
-  // Filter inventory based on search and status
   const filteredInventory = inventory.filter((item) => {
-    const matchesSearch = item.item_name?.toLowerCase().includes(search.trim().toLowerCase());
-    const matchesStatus = status === "all" || inventoryStockStatus(item) === status;
+    const matchesSearch = item.item_name
+      ?.toLowerCase()
+      .includes(search.trim().toLowerCase());
+
+    const matchesStatus =
+      status === "all" ||
+      inventoryStockStatus(item) === status;
+
     return matchesSearch && matchesStatus;
   });
 
+  const getStockLabel = (stockStatus) => {
+    if (stockStatus === "out-of-stock") return "Out of Stock";
+    if (stockStatus === "low-stock") return "Low Stock";
+    return "In Stock";
+  };
+
+  const getStockClass = (stockStatus) => {
+    if (stockStatus === "out-of-stock") return "danger";
+    if (stockStatus === "low-stock") return "warning";
+    return "available";
+  };
+
+  const getRemarkClass = (remark) => {
+    if (remark === "Available") return "available";
+    if (remark === "Good Condition") return "good";
+    return "warning";
+  };
+
   const handleExport = () => {
-    // Create CSV data
     const headers = [
       "No.",
       "Tools / Particular Item",
@@ -41,75 +67,103 @@ export default function InventoryFullViewModal({
     ];
 
     const rows = filteredInventory.map((item, index) => {
-      const { total: totalInventory, available, threshold } = inventoryTotals(item);
+      const {
+        total: totalInventory,
+        available,
+        threshold,
+      } = inventoryTotals(item);
+
       const stockStatus = inventoryStockStatus(item);
-      const statusText = 
-        stockStatus === "out-of-stock" 
-          ? "Out of Stock" 
-          : stockStatus === "low-stock" 
-          ? "Low Stock" 
-          : "In Stock";
 
       return [
         index + 1,
-        item.item_name,
-        item.purchase_date,
-        item.quantity,
-        item.tracking_type === "serialized" ? "Serialized" : "Bulk",
-        item.additional_qty,
-        item.replaces,
+        item.item_name ?? "",
+        item.purchase_date ?? "",
+        item.quantity ?? 0,
+        item.tracking_type === "serialized"
+          ? "Serialized"
+          : "Bulk",
+        item.additional_qty ?? 0,
+        item.replaces ?? 0,
         totalInventory,
-        item.missing,
-        item.breakage,
-        item.defective,
-        item.total_loss,
+        item.missing ?? 0,
+        item.breakage ?? 0,
+        item.defective ?? 0,
+        item.total_loss ?? 0,
         item.reserved_quantity ?? 0,
         item.borrowed_quantity ?? 0,
         available,
         threshold,
-        statusText,
-        item.remarks,
+        getStockLabel(stockStatus),
+        item.remarks ?? "",
       ];
     });
 
-    // Create CSV string
     const csvContent = [
-      headers.join(","),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+      headers.map((header) => `"${header}"`).join(","),
+      ...rows.map((row) =>
+        row
+          .map((cell) =>
+            `"${String(cell).replace(/"/g, '""')}"`
+          )
+          .join(",")
+      ),
     ].join("\n");
 
-    // Download CSV
-    const blob = new Blob([csvContent], { type: "text/csv" });
+    const blob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+
     const url = window.URL.createObjectURL(blob);
+
     const link = document.createElement("a");
+
     link.href = url;
-    link.download = `inventory-${new Date().toISOString().split("T")[0]}.csv`;
+    link.download = `inventory-${
+      new Date().toISOString().split("T")[0]
+    }.csv`;
+
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
+
     window.URL.revokeObjectURL(url);
   };
 
   return (
     <div className="fullview-overlay" onClick={onClose}>
-      <div 
-        className="fullview-modal" 
+      <div
+        className="fullview-modal"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="fullview-header">
-          <h2>Full Inventory View</h2>
+          <div className="fullview-title-area">
+            <h2>Full Inventory</h2>
+
+            <p>
+              Complete inventory information
+              {filteredInventory.length > 0 &&
+                ` • ${filteredInventory.length} item${
+                  filteredInventory.length !== 1 ? "s" : ""
+                }`}
+            </p>
+          </div>
+
           <div className="fullview-header-actions">
             <button
               className="fullview-export"
               onClick={handleExport}
-              title="Export to CSV"
-              aria-label="Export inventory to CSV"
+              title="Export inventory to CSV"
             >
-              <FaDownload /> Export
+              <FaDownload />
+              <span>Export CSV</span>
             </button>
-            <button 
-              className="fullview-close" 
+
+            <button
+              className="fullview-close"
               onClick={onClose}
-              title="Close modal"
-              aria-label="Close full inventory view"
+              title="Close"
+              aria-label="Close full inventory"
             >
               <FaTimes />
             </button>
@@ -126,7 +180,7 @@ export default function InventoryFullViewModal({
                   <th>Date of Purchase</th>
                   <th>Qty</th>
                   <th>Tracking</th>
-                  <th>Additional Items Qty</th>
+                  <th>Additional Qty</th>
                   <th>Replaces</th>
                   <th>Total Inventory</th>
                   <th>Missing</th>
@@ -145,63 +199,109 @@ export default function InventoryFullViewModal({
               <tbody>
                 {filteredInventory.length === 0 ? (
                   <tr>
-                    <td colSpan="18" className="fullview-empty">
+                    <td
+                      colSpan={18}
+                      className="fullview-empty"
+                    >
                       No inventory items found.
                     </td>
                   </tr>
                 ) : (
                   filteredInventory.map((item, index) => {
-                    const { total: totalInventory, available, threshold } = inventoryTotals(item);
-                    const stockStatus = inventoryStockStatus(item);
+                    const {
+                      total: totalInventory,
+                      available,
+                      threshold,
+                    } = inventoryTotals(item);
+
+                    const stockStatus =
+                      inventoryStockStatus(item);
 
                     return (
                       <tr key={item.id}>
-                        <td className="col-number">{index + 1}</td>
-                        <td className="col-item-name">{item.item_name}</td>
-                        <td>{item.purchase_date}</td>
-                        <td className="col-number">{item.quantity}</td>
-                        <td>{item.tracking_type === "serialized" ? "Serialized" : "Bulk"}</td>
-                        <td className="col-number">{item.additional_qty}</td>
-                        <td className="col-number">{item.replaces}</td>
-                        <td className="col-number">{totalInventory}</td>
-                        <td className="col-number">{item.missing}</td>
-                        <td className="col-number">{item.breakage}</td>
-                        <td className="col-number">{item.defective}</td>
-                        <td className="col-number">{item.total_loss}</td>
-                        <td className="col-number">{item.reserved_quantity ?? 0}</td>
-                        <td className="col-number">{item.borrowed_quantity ?? 0}</td>
-                        <td className="col-number col-available">
-                          <strong>{available}</strong>
+                        <td className="col-number">
+                          {index + 1}
                         </td>
-                        <td className="col-number">{threshold}</td>
+
+                        <td className="col-item-name">
+                          {item.item_name || "—"}
+                        </td>
+
                         <td>
-                          <span 
-                            className={`remark remark--${
-                              stockStatus === "in-stock" 
-                                ? "available" 
-                                : stockStatus === "out-of-stock" 
-                                ? "danger" 
-                                : "warning"
-                            }`}
-                          >
-                            {stockStatus === "out-of-stock" 
-                              ? "Out of Stock" 
-                              : stockStatus === "low-stock" 
-                              ? "Low Stock" 
-                              : "In Stock"}
-                          </span>
+                          {item.purchase_date || "—"}
                         </td>
+
+                        <td className="col-number">
+                          {item.quantity ?? 0}
+                        </td>
+
+                        <td>
+                          {item.tracking_type === "serialized"
+                            ? "Serialized"
+                            : "Bulk"}
+                        </td>
+
+                        <td className="col-number">
+                          {item.additional_qty ?? 0}
+                        </td>
+
+                        <td className="col-number">
+                          {item.replaces ?? 0}
+                        </td>
+
+                        <td className="col-number">
+                          <strong>{totalInventory}</strong>
+                        </td>
+
+                        <td className="col-number">
+                          {item.missing ?? 0}
+                        </td>
+
+                        <td className="col-number">
+                          {item.breakage ?? 0}
+                        </td>
+
+                        <td className="col-number">
+                          {item.defective ?? 0}
+                        </td>
+
+                        <td className="col-number">
+                          {item.total_loss ?? 0}
+                        </td>
+
+                        <td className="col-number">
+                          {item.reserved_quantity ?? 0}
+                        </td>
+
+                        <td className="col-number">
+                          {item.borrowed_quantity ?? 0}
+                        </td>
+
+                        <td className="col-number col-available">
+                          {available}
+                        </td>
+
+                        <td className="col-number">
+                          {threshold}
+                        </td>
+
                         <td>
                           <span
-                            className={`remark remark--${
-                              item.remarks === "Available"
-                                ? "available"
-                                : item.remarks === "Good Condition"
-                                ? "good"
-                                : "warning"
-                            }`}
+                            className={`remark remark--${getStockClass(
+                              stockStatus
+                            )}`}
                           >
-                            {item.remarks}
+                            {getStockLabel(stockStatus)}
+                          </span>
+                        </td>
+
+                        <td>
+                          <span
+                            className={`remark remark--${getRemarkClass(
+                              item.remarks
+                            )}`}
+                          >
+                            {item.remarks || "—"}
                           </span>
                         </td>
                       </tr>
@@ -215,8 +315,11 @@ export default function InventoryFullViewModal({
           {filteredInventory.length > 0 && (
             <div className="fullview-footer">
               <p className="fullview-info">
-                Showing <strong>{filteredInventory.length}</strong> of{" "}
-                <strong>{inventory.length}</strong> items
+                Showing{" "}
+                <strong>{filteredInventory.length}</strong>{" "}
+                of{" "}
+                <strong>{inventory.length}</strong>{" "}
+                inventory items
               </p>
             </div>
           )}
