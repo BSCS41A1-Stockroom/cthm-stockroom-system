@@ -35,7 +35,7 @@ function invitationRedirectUrl(clientUrl = process.env.CLIENT_URL) {
 function getAdminClient() {
   if (adminClient) return adminClient;
   const url = cleanEnvironmentValue(process.env.SUPABASE_URL);
-  const key = serviceRoleKey(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const key = serviceRoleKey(process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY);
   if (!url || !key) {
     const error = new Error("User invitations are not configured on the server.");
     error.code = "USER_ADMIN_NOT_CONFIGURED";
@@ -97,7 +97,7 @@ async function inviteUser(req, res, next) {
   } catch (error) {
     if (invitedId) await getAdminClient().auth.admin.deleteUser(invitedId).catch(() => {});
     if (error.code === "USER_ADMIN_NOT_CONFIGURED" || /invalid header value/i.test(String(error.message))) {
-      return res.status(503).json({ error: "USER_ADMIN_NOT_CONFIGURED", message: "User invitations are unavailable because the server's Supabase Admin credentials are invalid. Ask an administrator to update SUPABASE_SERVICE_ROLE_KEY." });
+      return res.status(503).json({ error: "USER_ADMIN_NOT_CONFIGURED", message: "User invitations are unavailable because the server's Supabase Admin credentials are invalid. Ask an administrator to update SUPABASE_SECRET_KEY." });
     }
     if (error.message === "CLIENT_URL is required for account invitations." || error.message === "CLIENT_URL must use HTTPS for account invitations.") {
       return res.status(503).json({ error: "INVITATION_REDIRECT_NOT_CONFIGURED", message: error.message });

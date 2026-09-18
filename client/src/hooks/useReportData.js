@@ -34,6 +34,9 @@ export function useReportData(from, to) {
 
   useEffect(() => {
     const timer = window.setTimeout(refresh, 0);
+    const refreshWhenVisible = () => { if (document.visibilityState === "visible") refresh(); };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
     const channel = supabase
       .channel(`reporting-${from}-${to}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "borrow_requests" }, refresh)
@@ -43,6 +46,8 @@ export function useReportData(from, to) {
 
     return () => {
       window.clearTimeout(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
       supabase.removeChannel(channel);
     };
   }, [from, refresh, to]);

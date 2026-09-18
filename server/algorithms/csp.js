@@ -886,9 +886,9 @@ function checkBorrowingLimit(
         "borrowing_limit",
 
       message:
-        `Borrowing limit exceeded. ` +
-        `Maximum: ${finalPolicy.maxQuantityPerStudent}, ` +
-        `Requested: ${totalQuantity}.`,
+        `Per-request quantity limit exceeded. ` +
+        `You selected ${totalQuantity} total unit(s), but each request may contain at most ` +
+        `${finalPolicy.maxQuantityPerStudent}. This limit is separate from your active-request status.`,
     };
   }
 

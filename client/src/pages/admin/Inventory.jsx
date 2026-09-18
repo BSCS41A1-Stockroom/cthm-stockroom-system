@@ -14,7 +14,6 @@ import AssetModal from "../../components/admin/Inventory/AssetModal";
 import ReconciliationModal from "../../components/admin/Inventory/ReconciliationModal";
 import InventoryDetailsModal from "../../components/admin/Inventory/InventoryDetailsModal";
 import InventoryFullViewModal from "../../components/admin/Inventory/InventoryFullViewModal";
-import { inventoryTotals } from "../../utils/inventoryAvailability";
 
 export default function Inventory() {
     const [inventory, setInventory] = useState([]);

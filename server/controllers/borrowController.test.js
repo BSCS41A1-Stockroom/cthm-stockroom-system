@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const pool = require("../config/db");
 const {
   authenticatedStudentRequest,
+  getBorrowingPolicy,
   inventoryDeltas,
   loadValidationContext,
   normalizeRequest,
@@ -16,6 +17,16 @@ const {
   validatePolicyConstraints,
   withValidation,
 } = require("./borrowController");
+
+test("exposes the authoritative borrowing limits to the student form", () => {
+  const response = { json(body) { this.body = body; return this; } };
+  getBorrowingPolicy({}, response);
+  assert.deepEqual(response.body, {
+    maxItemsPerRequest: 10,
+    maxQuantityPerRequest: 10,
+    leadTimeDays: 2,
+  });
+});
 
 test("normalizes return quantities and rejects invalid return batches", () => {
   const valid = normalizeReturn({ remarks: " Checked ", items: [{ inventory_id: 7, good_quantity: "2", damaged_quantity: 1, missing_quantity: 0, condition_note: "Bent handle" }] });

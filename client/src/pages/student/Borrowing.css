@@ -373,7 +373,7 @@
 
     min-width: 0 !important;
 
-    height: 360px;
+    height: clamp(200px, 28vh, 320px);
 
     overflow-x: hidden !important;
 
@@ -680,7 +680,17 @@
 
     gap: 16px;
 
-    padding-top: 14px;
+    position: sticky;
+
+    z-index: 5;
+
+    bottom: 0;
+
+    padding: 12px 0 2px;
+
+    border-top: 1px solid #e5e7eb;
+
+    background: #ffffff;
 
     box-sizing: border-box;
 }
@@ -708,6 +718,18 @@
     color: #111827;
 
     font-size: 13px;
+}
+
+.request-limit {
+    color: #64748b;
+
+    font-size: 11px;
+}
+
+.request-limit.exceeded {
+    color: #dc2626;
+
+    font-weight: 700;
 }
 
 .selection-divider {

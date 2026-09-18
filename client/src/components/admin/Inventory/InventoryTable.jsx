@@ -14,6 +14,13 @@ import {
 
 import { useMemo, useState } from "react";
 
+const getTotals = (item) => inventoryTotals(item);
+const getTotalInventory = (item) => getTotals(item)?.total ?? 0;
+const getAvailable = (item) => getTotals(item)?.available ?? 0;
+const getStatus = (item) => getAvailable(item) > 0 ? "available" : "unavailable";
+const getStatusLabel = (item) => getStatus(item) === "available" ? "Available" : "Unavailable";
+const getImage = (item) => item.image_url || item.image || item.image_path || null;
+
 export default function InventoryTable({
     inventory,
     selectedIds = [],
@@ -34,45 +41,6 @@ export default function InventoryTable({
     | INVENTORY HELPERS
     |--------------------------------------------------------------------------
     */
-
-    const getTotals = (item) => {
-        return inventoryTotals(item);
-    };
-
-    const getTotalInventory = (item) => {
-        const totals = getTotals(item);
-
-        return totals?.total ?? 0;
-    };
-
-    const getAvailable = (item) => {
-        const totals = getTotals(item);
-
-        return totals?.available ?? 0;
-    };
-
-    const getStatus = (item) => {
-        const available = getAvailable(item);
-
-        return available > 0
-            ? "available"
-            : "unavailable";
-    };
-
-    const getStatusLabel = (item) => {
-        return getStatus(item) === "available"
-            ? "Available"
-            : "Unavailable";
-    };
-
-    const getImage = (item) => {
-        return (
-            item.image_url ||
-            item.image ||
-            item.image_path ||
-            null
-        );
-    };
 
     /*
     |--------------------------------------------------------------------------
@@ -178,7 +146,7 @@ export default function InventoryTable({
                     return 0;
             }
 
-            let result = 0;
+            let result;
 
             if (
                 typeof aValue === "number" &&

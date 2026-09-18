@@ -68,7 +68,7 @@ async function reportSummary(req, res, next) {
          )
          SELECT
            COUNT(*) AS total_borrowings,
-           COUNT(*) FILTER (WHERE status IN ('Pending', 'Validated')) AS pending_requests,
+           (SELECT COUNT(*) FROM public.borrow_requests WHERE status IN ('Pending', 'Validated')) AS pending_requests,
            COUNT(*) FILTER (WHERE status = 'Approved') AS approved_requests,
            COUNT(*) FILTER (WHERE status = 'Borrowed') AS borrowed_requests,
            COUNT(*) FILTER (WHERE status = 'Returned') AS returned_requests,

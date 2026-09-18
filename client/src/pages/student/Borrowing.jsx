@@ -5,6 +5,23 @@ import { authenticatedFetch } from "../../lib/api";
 import { useAuth } from "../../auth/useAuth";
 import { inventoryTotals } from "../../utils/inventoryAvailability";
 
+const DEFAULT_BORROWING_POLICY = Object.freeze({
+  maxItemsPerRequest: 10,
+  maxQuantityPerRequest: 10,
+  leadTimeDays: 2,
+});
+
+function dateInManila() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map(({ type, value: part }) => [type, part]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+
 export default function BorrowingInterface() {
   const { profile } = useAuth();
 
@@ -24,6 +41,7 @@ export default function BorrowingInterface() {
   const [successMsg, setSuccessMsg] = useState("");
 
   const [expandedTable, setExpandedTable] = useState(false);
+  const [borrowingPolicy, setBorrowingPolicy] = useState(DEFAULT_BORROWING_POLICY);
 
   const studentName = profile?.full_name || "";
   const studentId = profile?.student_id || "";
@@ -36,6 +54,7 @@ export default function BorrowingInterface() {
 
   useEffect(() => {
     loadInventory();
+    loadBorrowingPolicy();
 
     const channel = supabase
       .channel("student-borrowing-inventory")
@@ -54,6 +73,21 @@ export default function BorrowingInterface() {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  async function loadBorrowingPolicy() {
+    try {
+      const response = await authenticatedFetch("/api/borrowings/policy");
+      if (!response.ok) return;
+      const policy = await response.json();
+      setBorrowingPolicy({
+        maxItemsPerRequest: Number(policy.maxItemsPerRequest) || DEFAULT_BORROWING_POLICY.maxItemsPerRequest,
+        maxQuantityPerRequest: Number(policy.maxQuantityPerRequest) || DEFAULT_BORROWING_POLICY.maxQuantityPerRequest,
+        leadTimeDays: Number(policy.leadTimeDays) || DEFAULT_BORROWING_POLICY.leadTimeDays,
+      });
+    } catch {
+      // Safe defaults mirror the server policy during a temporary API failure.
+    }
+  }
 
   async function loadInventory() {
     setLoading(true);
@@ -184,6 +218,14 @@ export default function BorrowingInterface() {
       return "Please select at least one item.";
     }
 
+    if (totalItems > borrowingPolicy.maxItemsPerRequest) {
+      return `Each request may contain at most ${borrowingPolicy.maxItemsPerRequest} different items. You selected ${totalItems}.`;
+    }
+
+    if (totalUnits > borrowingPolicy.maxQuantityPerRequest) {
+      return `Each request may contain at most ${borrowingPolicy.maxQuantityPerRequest} total units. You selected ${totalUnits}. This is a per-request quantity limit, not an active-request limit.`;
+    }
+
     if (!borrowDate) {
       return "Borrow date is required.";
     }
@@ -306,31 +348,6 @@ export default function BorrowingInterface() {
       pad(date.getHours()) +
       pad(date.getMinutes()) +
       pad(date.getSeconds())
-    );
-  }
-
-  /*
-   * ============================================================
-   * DATE FORMAT
-   * ============================================================
-   */
-
-  function formatDate(dateValue) {
-    if (!dateValue) {
-      return "—";
-    }
-
-    const date = new Date(
-      `${dateValue}T00:00:00`
-    );
-
-    return date.toLocaleDateString(
-      "en-PH",
-      {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }
     );
   }
 
@@ -555,7 +572,7 @@ export default function BorrowingInterface() {
    * ============================================================
    */
 
-  function InventoryTable() {
+  function renderInventoryTable() {
     return (
       <table className="inventory-table">
 
@@ -782,11 +799,7 @@ export default function BorrowingInterface() {
 
               <input
                 type="date"
-                min={
-                  new Date()
-                    .toISOString()
-                    .split("T")[0]
-                }
+                min={dateInManila()}
                 value={borrowDate}
                 onChange={(e) =>
                   setBorrowDate(
@@ -805,9 +818,7 @@ export default function BorrowingInterface() {
                 type="date"
                 min={
                   borrowDate ||
-                  new Date()
-                    .toISOString()
-                    .split("T")[0]
+                  dateInManila()
                 }
                 value={returnDate}
                 onChange={(e) =>
@@ -917,7 +928,7 @@ export default function BorrowingInterface() {
 
         <div className="table-wrap">
 
-          <InventoryTable />
+          {renderInventoryTable()}
 
         </div>
 
@@ -949,6 +960,10 @@ export default function BorrowingInterface() {
             <strong>
               {totalUnits}
             </strong>
+
+            <span className={`request-limit ${totalUnits > borrowingPolicy.maxQuantityPerRequest ? "exceeded" : ""}`}>
+              / {borrowingPolicy.maxQuantityPerRequest} unit limit
+            </span>
 
           </div>
 
@@ -1055,7 +1070,7 @@ export default function BorrowingInterface() {
 
             <div className="expanded-table-wrap">
 
-              <InventoryTable />
+              {renderInventoryTable()}
 
             </div>
 

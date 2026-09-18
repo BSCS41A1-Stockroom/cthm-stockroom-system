@@ -6,7 +6,10 @@ const {
   validateBorrowingRequest,
   validateBorrowingRequestShape,
 } = require("../algorithms/borrowingValidation");
-const { validateBorrowingRequest: validateBorrowingPolicy } = require("../algorithms/csp");
+const {
+  DEFAULT_POLICY,
+  validateBorrowingRequest: validateBorrowingPolicy,
+} = require("../algorithms/csp");
 const {
   ACTIVE_BORROWING_STATUSES,
   detectBorrowingConflicts,
@@ -197,6 +200,14 @@ const POLICY_REASON_CODES = Object.freeze({
   status: "ACTIVE_REQUEST_CONFLICT",
   availability_date: "INVENTORY_DATE_UNAVAILABLE",
 });
+
+function getBorrowingPolicy(_req, res) {
+  return res.json({
+    maxItemsPerRequest: DEFAULT_POLICY.maxItemsPerRequest,
+    maxQuantityPerRequest: DEFAULT_POLICY.maxQuantityPerStudent,
+    leadTimeDays: DEFAULT_POLICY.leadTimeDays,
+  });
+}
 
 function validatePolicyConstraints({
   request,
@@ -1183,6 +1194,7 @@ async function updateBorrowRequestStatus(req, res, next) {
 module.exports = {
   authenticatedStudentRequest,
   createBorrowRequest,
+  getBorrowingPolicy,
   inventoryDeltas,
   listBorrowRequests,
   loadValidationContext,

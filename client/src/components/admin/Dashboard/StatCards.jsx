@@ -14,7 +14,7 @@ export default function StatCards({ summary = {} }) {
         {
             title: "Pending Requests",
             value: summary.pending_requests ?? 0,
-            subtitle: "For Approval",
+            subtitle: "Currently For Approval",
         },
         {
             title: "Returned Today",
