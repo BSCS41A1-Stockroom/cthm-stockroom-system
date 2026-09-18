@@ -209,6 +209,24 @@ function getBorrowingPolicy(_req, res) {
   });
 }
 
+function validateClaimWindow(borrowDate, returnDate, today) {
+  const borrow = String(borrowDate ?? "").slice(0, 10);
+  const returned = String(returnDate ?? "").slice(0, 10);
+  if (borrow > today) {
+    return {
+      error: "CLAIM_WINDOW_NOT_OPEN",
+      message: `This request is scheduled for ${borrow} and cannot be released early.`,
+    };
+  }
+  if (returned < today) {
+    return {
+      error: "CLAIM_WINDOW_EXPIRED",
+      message: "This request has passed its return deadline and can no longer be released.",
+    };
+  }
+  return null;
+}
+
 function validatePolicyConstraints({
   request,
   inventory = [],
@@ -976,6 +994,7 @@ async function updateBorrowRequestStatus(req, res, next) {
         await client.query("ROLLBACK");
         return res.status(409).json({ error: "QR_NO_LONGER_ACTIVE", message: "The borrower's QR was revoked, replaced, or deactivated. Scan the currently issued QR again." });
       }
+      const borrowDate = request.borrow_date.toISOString?.().slice(0, 10) || String(request.borrow_date).slice(0, 10);
       const returnDate = request.return_date.toISOString?.().slice(0, 10) || String(request.return_date).slice(0, 10);
       releaseReturnDate = returnDate;
       const todayParts = new Intl.DateTimeFormat("en-CA", {
@@ -983,9 +1002,10 @@ async function updateBorrowRequestStatus(req, res, next) {
       }).formatToParts(new Date());
       const today = Object.fromEntries(todayParts.map((part) => [part.type, part.value]));
       releaseDateKey = `${today.year}-${today.month}-${today.day}`;
-      if (returnDate < releaseDateKey) {
+      const claimWindowError = validateClaimWindow(borrowDate, returnDate, releaseDateKey);
+      if (claimWindowError) {
         await client.query("ROLLBACK");
-        return res.status(409).json({ error: "CLAIM_WINDOW_EXPIRED", message: "This request has passed its return deadline and can no longer be released." });
+        return res.status(409).json(claimWindowError);
       }
     }
 
@@ -1205,6 +1225,7 @@ module.exports = {
   serializeBorrowRequest,
   validatePolicyConstraints,
   updateBorrowRequestStatus,
+  validateClaimWindow,
   validateBorrowRequest,
   withValidation,
 };

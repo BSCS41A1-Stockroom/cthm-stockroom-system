@@ -923,74 +923,51 @@ export default function BorrowingInterface() {
 
 
         {/* ====================================================
+            REQUEST SUMMARY / ACTIONS
+        ==================================================== */}
+
+        <div className="borrow-footer">
+
+          <div className="selection-summary">
+            <span>Selected Items</span>
+            <strong>{totalItems}</strong>
+            <span className="selection-divider">|</span>
+            <span>Total Qty</span>
+            <strong>{totalUnits}</strong>
+            <span className={`request-limit ${totalUnits > borrowingPolicy.maxQuantityPerRequest ? "exceeded" : ""}`}>
+              / {borrowingPolicy.maxQuantityPerRequest} unit limit
+            </span>
+          </div>
+
+          <div className="borrow-footer-actions">
+            <button
+              type="button"
+              className="borrow-action-btn borrow-print-btn"
+              onClick={handlePrint}
+            >
+              Print
+            </button>
+
+            <button
+              type="button"
+              className="borrow-action-btn submit-btn-main"
+              onClick={handleSubmit}
+              disabled={submitting}
+            >
+              {submitting ? "Submitting..." : "Submit Request"}
+            </button>
+          </div>
+
+        </div>
+
+
+        {/* ====================================================
             FIXED HEIGHT TABLE
         ==================================================== */}
 
         <div className="table-wrap">
 
           {renderInventoryTable()}
-
-        </div>
-
-
-        {/* ====================================================
-            TABLE FOOTER / ACTIONS
-        ==================================================== */}
-
-        <div className="borrow-footer">
-
-          <div className="selection-summary">
-
-            <span>
-              Selected Items
-            </span>
-
-            <strong>
-              {totalItems}
-            </strong>
-
-            <span className="selection-divider">
-              |
-            </span>
-
-            <span>
-              Total Qty
-            </span>
-
-            <strong>
-              {totalUnits}
-            </strong>
-
-            <span className={`request-limit ${totalUnits > borrowingPolicy.maxQuantityPerRequest ? "exceeded" : ""}`}>
-              / {borrowingPolicy.maxQuantityPerRequest} unit limit
-            </span>
-
-          </div>
-
-
-          <div className="borrow-footer-actions">
-
-            <button
-              type="button"
-              className="action-btn secondary-btn"
-              onClick={handlePrint}
-            >
-              Print
-            </button>
-
-
-            <button
-              type="button"
-              className="action-btn submit-btn-main"
-              onClick={handleSubmit}
-              disabled={submitting}
-            >
-              {submitting
-                ? "Submitting..."
-                : "Submit Request"}
-            </button>
-
-          </div>
 
         </div>
 
