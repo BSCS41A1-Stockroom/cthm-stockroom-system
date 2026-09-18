@@ -35,6 +35,14 @@ function createAuthenticate({ client = null, databasePool = pool } = {}) {
     try {
       const verifier = client ?? getAuthClient();
       const { data, error } = await verifier.auth.getUser(token);
+      if (error && (Number(error.status) >= 500
+        || error.name === "AuthRetryableFetchError"
+        || /fetch|network|timeout|temporar|unavailable/i.test(String(error.message ?? "")))) {
+        return res.status(503).json({
+          error: "AUTH_PROVIDER_UNAVAILABLE",
+          message: "Authentication is temporarily unavailable. Please retry shortly.",
+        });
+      }
       if (error || !data?.user) {
         return res.status(401).json({ error: "INVALID_ACCESS_TOKEN", message: "Your session is invalid or has expired." });
       }
