@@ -7,12 +7,30 @@ export const API_URL = (configuredApiUrl || "http://localhost:5000").replace(/\/
 let refreshPromise = null;
 
 function isRetryableAuthError(error) {
-  return error?.status === 0 || error?.name === "AuthRetryableFetchError" || /fetch|network/i.test(String(error?.message ?? ""));
+  const status = Number(error?.status ?? 0);
+  return status === 0
+    || status >= 500
+    || error?.name === "AuthRetryableFetchError"
+    || /fetch|network|timeout|temporar|unavailable/i.test(String(error?.message ?? ""));
+}
+
+function isDefinitiveSessionError(error) {
+  const code = String(error?.code ?? "").toLowerCase();
+  const message = String(error?.message ?? "").toLowerCase();
+  return ["refresh_token_not_found", "invalid_refresh_token", "bad_jwt"].includes(code)
+    || /refresh token.*(invalid|expired|not found)|invalid refresh token|already used/.test(message);
 }
 
 async function refreshSession() {
   if (!refreshPromise) {
-    refreshPromise = supabase.auth.refreshSession().finally(() => { refreshPromise = null; });
+    refreshPromise = (async () => {
+      let result = await supabase.auth.refreshSession();
+      if (result.error && isRetryableAuthError(result.error)) {
+        await new Promise((resolve) => globalThis.setTimeout(resolve, 350));
+        result = await supabase.auth.refreshSession();
+      }
+      return result;
+    })().finally(() => { refreshPromise = null; });
   }
   return refreshPromise;
 }
@@ -37,16 +55,23 @@ function requestWithToken(path, options, token) {
 
 export async function authenticatedFetch(path, options = {}) {
   const { data, error } = await supabase.auth.getSession();
-  if (error && isRetryableAuthError(error)) throw new Error("Unable to verify your session. Check your internet connection and try again.");
-  let session = data.session;
+  if (error) {
+    if (isDefinitiveSessionError(error)) {
+      await endExpiredSession(); throw new Error("Your session expired. Please sign in again.");
+    }
+    throw new Error("Unable to verify your session right now. Check your connection and try again.");
+  }
+  let session = data?.session;
   if (!session?.refresh_token) { await endExpiredSession(); throw new Error("Your session expired. Please sign in again."); }
 
   const expiresSoon = Number(session.expires_at ?? 0) * 1000 <= Date.now() + 30_000;
   if (expiresSoon) {
     const refreshed = await refreshSession();
     if (refreshed.error) {
-      if (isRetryableAuthError(refreshed.error)) throw new Error("Unable to refresh your session. Check your internet connection and try again.");
-      await endExpiredSession(); throw new Error("Your session expired. Please sign in again.");
+      if (isDefinitiveSessionError(refreshed.error)) {
+        await endExpiredSession(); throw new Error("Your session expired. Please sign in again.");
+      }
+      throw new Error("Your session could not be refreshed right now. Check your connection and try again.");
     }
     session = refreshed.data.session;
   }
@@ -56,13 +81,14 @@ export async function authenticatedFetch(path, options = {}) {
 
   const refreshed = await refreshSession();
   if (refreshed.error || !refreshed.data.session?.access_token) {
-    if (isRetryableAuthError(refreshed.error)) throw new Error("Unable to refresh your session. Check your internet connection and try again.");
-    await endExpiredSession(); throw new Error("Your session expired. Please sign in again.");
+    if (isDefinitiveSessionError(refreshed.error)) {
+      await endExpiredSession(); throw new Error("Your session expired. Please sign in again.");
+    }
+    throw new Error("Your session could not be refreshed right now. Check your connection and try again.");
   }
   response = await requestWithToken(path, options, refreshed.data.session.access_token);
   if (response.status === 401) {
-    await endExpiredSession();
-    throw new Error("Your session expired. Please sign in again.");
+    throw new Error("The server could not verify your session. Please retry. If this continues, sign in again.");
   }
   return response;
 }

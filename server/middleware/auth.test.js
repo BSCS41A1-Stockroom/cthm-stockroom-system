@@ -27,6 +27,18 @@ test("rejects requests without an access token", async () => {
   assert.equal(response.body.error, "AUTHENTICATION_REQUIRED");
 });
 
+test("does not misreport a temporary Supabase outage as an expired session", async () => {
+  const authenticate = createAuthenticate({
+    client: { auth: { async getUser() {
+      return { data: { user: null }, error: { status: 503, message: "Service temporarily unavailable" } };
+    } } },
+  });
+  const response = responseRecorder();
+  await authenticate({ headers: { authorization: "Bearer token" } }, response, () => assert.fail("next should not run"));
+  assert.equal(response.statusCode, 503);
+  assert.equal(response.body.error, "AUTH_PROVIDER_UNAVAILABLE");
+});
+
 test("loads the trusted database role for a verified Supabase user", async () => {
   const authenticate = createAuthenticate({
     client: { auth: { async getUser() { return { data: { user: { id: "user-1", email: "student@example.com" } }, error: null }; } } },
