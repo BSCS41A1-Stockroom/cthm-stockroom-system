@@ -19,17 +19,10 @@ const {
   withValidation,
 } = require("./borrowController");
 
-test("allows releases only after the scheduled borrow date and before the deadline", () => {
-  assert.deepEqual(
-    validateClaimWindow("2026-09-30", "2026-10-17", "2026-09-18"),
-    {
-      error: "CLAIM_WINDOW_NOT_OPEN",
-      message: "This request is scheduled for 2026-09-30 and cannot be released early.",
-    }
-  );
-  assert.equal(validateClaimWindow("2026-09-18", "2026-10-17", "2026-09-18"), null);
-  assert.equal(validateClaimWindow("2026-09-17", "2026-10-17", "2026-09-18"), null);
-  assert.equal(validateClaimWindow("2026-09-01", "2026-09-17", "2026-09-18").error, "CLAIM_WINDOW_EXPIRED");
+test("allows approved requests to be claimed early but not after their deadline", () => {
+  assert.equal(validateClaimWindow("2026-10-17", "2026-09-18"), null);
+  assert.equal(validateClaimWindow("2026-09-18", "2026-09-18"), null);
+  assert.equal(validateClaimWindow("2026-09-17", "2026-09-18").error, "CLAIM_WINDOW_EXPIRED");
 });
 
 test("exposes the authoritative borrowing limits to the student form", () => {
