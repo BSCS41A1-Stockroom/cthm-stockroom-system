@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { authenticatedFetch } from "../../../lib/api";
 import { supabase } from "../../../lib/supabase";
 import {
@@ -12,50 +12,25 @@ export default function EditItemModal({
     item,
     onUpdated
 }) {
-    const [form, setForm] = useState({
-        item_name: "",
-        purchase_date: "",
-        quantity: 0,
-        additional_qty: 0,
-        replaces: 0,
-        missing: 0,
-        breakage: 0,
-        defective: 0,
-        total_loss: 0,
-        low_stock_threshold: DEFAULT_LOW_STOCK_THRESHOLD,
-        remarks: "",
-        tracking_type: "bulk",
-        image_url: "",
-    });
+    const [form, setForm] = useState(() => ({
+        item_name: item?.item_name ?? "",
+        purchase_date: item?.purchase_date ?? "",
+        quantity: item?.quantity ?? 0,
+        additional_qty: item?.additional_qty ?? 0,
+        replaces: item?.replaces ?? 0,
+        missing: item?.missing ?? 0,
+        breakage: item?.breakage ?? 0,
+        defective: item?.defective ?? 0,
+        total_loss: item?.total_loss ?? 0,
+        low_stock_threshold: item?.low_stock_threshold ?? DEFAULT_LOW_STOCK_THRESHOLD,
+        remarks: item?.remarks ?? "",
+        tracking_type: item?.tracking_type ?? "bulk",
+        image_url: item?.image_url ?? "",
+    }));
 
     const [imageFile, setImageFile] = useState(null);
-    const [imagePreview, setImagePreview] = useState("");
+    const [imagePreview, setImagePreview] = useState(() => item?.image_url ?? "");
     const [saving, setSaving] = useState(false);
-
-    useEffect(() => {
-        if (!item) return;
-
-        setForm({
-            item_name: item.item_name ?? "",
-            purchase_date: item.purchase_date ?? "",
-            quantity: item.quantity ?? 0,
-            additional_qty: item.additional_qty ?? 0,
-            replaces: item.replaces ?? 0,
-            missing: item.missing ?? 0,
-            breakage: item.breakage ?? 0,
-            defective: item.defective ?? 0,
-            total_loss: item.total_loss ?? 0,
-            low_stock_threshold:
-                item.low_stock_threshold ??
-                DEFAULT_LOW_STOCK_THRESHOLD,
-            remarks: item.remarks ?? "",
-            tracking_type: item.tracking_type ?? "bulk",
-            image_url: item.image_url ?? "",
-        });
-
-        setImageFile(null);
-        setImagePreview(item.image_url ?? "");
-    }, [item]);
 
     if (!open || !item) return null;
 
