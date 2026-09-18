@@ -12,6 +12,8 @@ import DeleteModal from "../../components/admin/Inventory/DeleteModal";
 import UnavailabilityModal from "../../components/admin/Inventory/UnavailabilityModal";
 import AssetModal from "../../components/admin/Inventory/AssetModal";
 import ReconciliationModal from "../../components/admin/Inventory/ReconciliationModal";
+import InventoryDetailsModal from "../../components/admin/Inventory/InventoryDetailsModal";
+import InventoryFullViewModal from "../../components/admin/Inventory/InventoryFullViewModal";
 import { inventoryStockStatus } from "../../utils/inventoryAvailability";
 
 export default function Inventory() {
@@ -30,6 +32,8 @@ export default function Inventory() {
     const [availabilityItem, setAvailabilityItem] = useState(null);
     const [assetItem, setAssetItem] = useState(null);
     const [reconciliationOpen, setReconciliationOpen] = useState(false);
+    const [detailsItem, setDetailsItem] = useState(null);
+    const [fullViewOpen, setFullViewOpen] = useState(false);
 
     useEffect(() => {
         loadInventory();
@@ -71,11 +75,13 @@ export default function Inventory() {
                 status={status}
                 setStatus={setStatus}
                 onReconcile={() => setReconciliationOpen(true)}
+                onViewFullInventory={() => setFullViewOpen(true)}
             />
 
             <div className="inventory-table-wrapper">
                 <InventoryTable
                     inventory={filteredInventory}
+                    onDetails={setDetailsItem}
                     onEdit={(item)=>{
                         setSelectedItem(item);
                         setEditOpen(true);
@@ -88,6 +94,26 @@ export default function Inventory() {
                     onAssets={setAssetItem}
                 />
             </div>
+
+            <InventoryFullViewModal
+                open={fullViewOpen}
+                inventory={inventory}
+                onClose={() => setFullViewOpen(false)}
+                search={search}
+                status={status}
+            />
+
+            {detailsItem && (
+                <InventoryDetailsModal
+                    item={detailsItem}
+                    onClose={() => setDetailsItem(null)}
+                    onEdit={(item) => {
+                        setSelectedItem(item);
+                        setEditOpen(true);
+                        setDetailsItem(null);
+                    }}
+                />
+            )}
 
             {editOpen && selectedItem && (
                 <EditItemModal

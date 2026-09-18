@@ -1,8 +1,9 @@
-import { FaBarcode, FaCalendarTimes, FaEdit, FaTrash } from "react-icons/fa";
+import { FaBarcode, FaCalendarTimes, FaEdit, FaTrash, FaEye } from "react-icons/fa";
 import { inventoryStockStatus, inventoryTotals } from "../../../utils/inventoryAvailability";
 
 export default function InventoryTable({
     inventory,
+    onDetails,
     onEdit,
     onDelete,
     onAvailability,
@@ -16,80 +17,65 @@ export default function InventoryTable({
           </div>
       );
   }
+
   return (
     <>
-      <table className="inventory-table">
+      <table className="inventory-table inventory-table--compact">
         <thead>
           <tr>
-            <th>No.</th>
-            <th>Tools / Particular Item</th>
+            <th className="col-sticky">Tools / Item</th>
             <th>Date of Purchase</th>
             <th>Qty</th>
-            <th>Tracking</th>
-            <th>Additional Items Qty</th>
-            <th>Replaces</th>
             <th>Total Inventory</th>
-            <th>Missing</th>
-            <th>Breakage</th>
-            <th>Defective</th>
-            <th>Total Loss</th>
-            <th>Reserved</th>
-            <th>Borrowed</th>
             <th>Available</th>
-            <th>Low Stock At</th>
             <th>Stock Level</th>
             <th>Remarks</th>
-            <th>Actions</th>
+            <th className="col-actions">Actions</th>
           </tr>
         </thead>
 
         <tbody>
-          {inventory.map((item, index) => {
+          {inventory.map((item) => {
             const { total: totalInventory, available, threshold } = inventoryTotals(item);
             const stockStatus = inventoryStockStatus(item);
 
             return (
               <tr key={item.id}>
-                <td>{index + 1}</td>
-
-                <td>{item.item_name}</td>
+                <td className="col-sticky col-item-name">
+                  <span className="item-name">{item.item_name}</span>
+                </td>
 
                 <td>{item.purchase_date}</td>
 
-                <td>{item.quantity}</td>
-                <td>{item.tracking_type === "serialized" ? "Serialized" : "Bulk"}</td>
+                <td className="col-number">{item.quantity}</td>
 
-                <td>{item.additional_qty}</td>
+                <td className="col-number">{totalInventory}</td>
 
-                <td>{item.replaces}</td>
-
-                <td>{totalInventory}</td>
-
-                <td>{item.missing}</td>
-
-                <td>{item.breakage}</td>
-
-                <td>{item.defective}</td>
-
-                <td>{item.total_loss}</td>
-
-                <td>{item.reserved_quantity ?? 0}</td>
-
-                <td>{item.borrowed_quantity ?? 0}</td>
-
-                <td>
+                <td className="col-number col-available">
                   <strong>{available}</strong>
                 </td>
 
-                <td>{threshold}</td>
-
-                <td><span className={`remark ${stockStatus === "in-stock" ? "available" : stockStatus === "out-of-stock" ? "danger" : "warning"}`}>
-                  {stockStatus === "out-of-stock" ? "Out of Stock" : stockStatus === "low-stock" ? "Low Stock" : "In Stock"}
-                </span></td>
+                <td>
+                  <span 
+                    className={`remark remark--${
+                      stockStatus === "in-stock" 
+                        ? "available" 
+                        : stockStatus === "out-of-stock" 
+                        ? "danger" 
+                        : "warning"
+                    }`}
+                  >
+                    {stockStatus === "out-of-stock" 
+                      ? "Out of Stock" 
+                      : stockStatus === "low-stock" 
+                      ? "Low Stock" 
+                      : "In Stock"}
+                  </span>
+                </td>
 
                 <td>
                   <span
-                    className={`remark ${
+                    className={`remark remark--${
                       item.remarks === "Available"
                         ? "available"
                         : item.remarks === "Good Condition"
@@ -101,28 +87,48 @@ export default function InventoryTable({
                   </span>
                 </td>
 
-                <td className="actions">
-                  {item.tracking_type === "serialized" && <button className="asset-btn" onClick={() => onAssets(item)} title="Manage serialized assets" aria-label={`Manage assets for ${item.item_name}`}><FaBarcode /></button>}
+                <td className="col-actions">
                   <button
-                      className="availability-btn"
-                      onClick={() => onAvailability(item)}
-                      title="Manage unavailable dates"
-                      aria-label={`Manage unavailable dates for ${item.item_name}`}
+                    className="details-btn"
+                    onClick={() => onDetails(item)}
+                    title="View all details"
+                    aria-label={`View details for ${item.item_name}`}
                   >
-                      <FaCalendarTimes />
+                    <FaEye />
+                  </button>
+                  {item.tracking_type === "serialized" && (
+                    <button 
+                      className="asset-btn" 
+                      onClick={() => onAssets(item)} 
+                      title="Manage serialized assets" 
+                      aria-label={`Manage assets for ${item.item_name}`}
+                    >
+                      <FaBarcode />
+                    </button>
+                  )}
+                  <button
+                    className="availability-btn"
+                    onClick={() => onAvailability(item)}
+                    title="Manage unavailable dates"
+                    aria-label={`Manage unavailable dates for ${item.item_name}`}
+                  >
+                    <FaCalendarTimes />
                   </button>
                   <button
-                      className="edit-btn"
-                      onClick={() => onEdit(item)}
+                    className="edit-btn"
+                    onClick={() => onEdit(item)}
+                    title="Edit item"
+                    aria-label={`Edit ${item.item_name}`}
                   >
-                      <FaEdit/>
+                    <FaEdit />
                   </button>
-
                   <button
-                      className="delete-btn"
-                      onClick={() => onDelete(item)}
+                    className="delete-btn"
+                    onClick={() => onDelete(item)}
+                    title="Delete item"
+                    aria-label={`Delete ${item.item_name}`}
                   >
-                      <FaTrash />
+                    <FaTrash />
                   </button>
                 </td>
               </tr>
