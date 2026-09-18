@@ -13,9 +13,9 @@ export default function InventoryToolbar({
     return (
         <div className="inventory-toolbar">
 
-            <div className="inventory-toolbar-left">
+            {/* SEARCH */}
+            <div className="inventory-toolbar-search">
 
-                {/* SEARCH */}
                 <div className="inventory-search">
 
                     <FaSearch className="inventory-search-icon" />
@@ -24,7 +24,9 @@ export default function InventoryToolbar({
                         type="text"
                         placeholder="Search items, tools, or inventory..."
                         value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        onChange={(e) =>
+                            setSearch(e.target.value)
+                        }
                     />
 
                     {search && (
@@ -39,8 +41,12 @@ export default function InventoryToolbar({
 
                 </div>
 
+            </div>
 
-                {/* FULL INVENTORY */}
+
+            {/* ACTIONS */}
+            <div className="inventory-toolbar-actions">
+
                 <button
                     className="inventory-toolbar-btn"
                     onClick={onViewFullInventory}
@@ -51,7 +57,6 @@ export default function InventoryToolbar({
                 </button>
 
 
-                {/* PHYSICAL COUNT */}
                 <button
                     className="inventory-toolbar-btn"
                     onClick={onReconcile}
