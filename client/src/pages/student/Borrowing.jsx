@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import "./Borrowing.css";
@@ -38,12 +39,19 @@ export default function BorrowingInterface() {
   const [borrowDate, setBorrowDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
   const [purpose, setPurpose] = useState("");
-  const [assignmentOptions, setAssignmentOptions] = useState({ departments: [], sections: [], professors: [] });
+
+  const [assignmentOptions, setAssignmentOptions] = useState({
+    departments: [],
+    sections: [],
+    professors: [],
+  });
+
   const [departmentId, setDepartmentId] = useState("");
   const [sectionId, setSectionId] = useState("");
   const [assignedProfessorId, setAssignedProfessorId] = useState("");
   const [professorQuery, setProfessorQuery] = useState("");
-  const [professorSuggestionsOpen, setProfessorSuggestionsOpen] = useState(false);
+  const [professorSuggestionsOpen, setProfessorSuggestionsOpen] =
+    useState(false);
   const [professorHighlight, setProfessorHighlight] = useState(0);
   const [assignmentLoading, setAssignmentLoading] = useState(true);
 
@@ -53,6 +61,11 @@ export default function BorrowingInterface() {
   const [successMsg, setSuccessMsg] = useState("");
 
   const [expandedTable, setExpandedTable] = useState(false);
+
+  const [inventoryView, setInventoryView] = useState("table");
+
+  const [selectedItemDetails, setSelectedItemDetails] = useState(null);
+
   const [borrowingPolicy, setBorrowingPolicy] = useState(
     DEFAULT_BORROWING_POLICY
   );
@@ -113,17 +126,32 @@ export default function BorrowingInterface() {
           DEFAULT_BORROWING_POLICY.leadTimeDays,
       });
     } catch {
-      // Safe defaults mirror the server policy during a temporary API failure.
+      // Safe defaults mirror the server policy.
     }
   }
 
   async function loadAssignmentOptions() {
     setAssignmentLoading(true);
+
     try {
-      const response = await authenticatedFetch("/api/borrowings/assignment-options");
+      const response = await authenticatedFetch(
+        "/api/borrowings/assignment-options"
+      );
+
       const body = await response.json();
-      if (!response.ok) throw new Error(body.message || "Unable to load departments, sections, and professors.");
-      setAssignmentOptions({ departments: body.departments || [], sections: body.sections || [], professors: body.professors || [] });
+
+      if (!response.ok) {
+        throw new Error(
+          body.message ||
+            "Unable to load departments, sections, and professors."
+        );
+      }
+
+      setAssignmentOptions({
+        departments: body.departments || [],
+        sections: body.sections || [],
+        professors: body.professors || [],
+      });
     } catch (error) {
       setFormError(error.message);
     } finally {
@@ -241,18 +269,56 @@ export default function BorrowingInterface() {
     0
   );
 
-  const availableSections = useMemo(() => assignmentOptions.sections.filter((section) => String(section.departmentId) === String(departmentId)), [assignmentOptions.sections, departmentId]);
+  const availableSections = useMemo(
+    () =>
+      assignmentOptions.sections.filter(
+        (section) =>
+          String(section.departmentId) === String(departmentId)
+      ),
+    [assignmentOptions.sections, departmentId]
+  );
+
   const professorSuggestions = useMemo(() => {
     const query = professorQuery.trim().toLowerCase();
-    return assignmentOptions.professors.filter((professor) => String(professor.departmentId) === String(departmentId)
-      && (!query || professor.fullName.toLowerCase().includes(query))).slice(0, 8);
-  }, [assignmentOptions.professors, departmentId, professorQuery]);
+
+    return assignmentOptions.professors
+      .filter(
+        (professor) =>
+          String(professor.departmentId) === String(departmentId) &&
+          (!query ||
+            professor.fullName
+              .toLowerCase()
+              .includes(query))
+      )
+      .slice(0, 8);
+  }, [
+    assignmentOptions.professors,
+    departmentId,
+    professorQuery,
+  ]);
 
   function selectProfessor(professor) {
     setAssignedProfessorId(professor.id);
     setProfessorQuery(professor.fullName);
     setProfessorSuggestionsOpen(false);
     setProfessorHighlight(0);
+  }
+
+  /*
+   * ============================================================
+   * INVENTORY IMAGE
+   * ============================================================
+   */
+
+  function getItemImage(item) {
+    return (
+      item.image_url ||
+      item.image ||
+      item.image_path ||
+      item.photo_url ||
+      item.photo ||
+      ""
+    );
   }
 
   /*
@@ -270,9 +336,17 @@ export default function BorrowingInterface() {
       return "Student ID is required.";
     }
 
-    if (!departmentId) return "Please select your department.";
-    if (!sectionId) return "Please select your section.";
-    if (!assignedProfessorId) return "Select an assigned professor from the official suggestions.";
+    if (!departmentId) {
+      return "Please select your department.";
+    }
+
+    if (!sectionId) {
+      return "Please select your section.";
+    }
+
+    if (!assignedProfessorId) {
+      return "Select an assigned professor from the official suggestions.";
+    }
 
     if (totalItems === 0) {
       return "Please select at least one item.";
@@ -388,6 +462,7 @@ export default function BorrowingInterface() {
       setSectionId("");
       setAssignedProfessorId("");
       setProfessorQuery("");
+      setSelectedItemDetails(null);
 
       loadInventory();
     } catch (error) {
@@ -464,9 +539,7 @@ export default function BorrowingInterface() {
 
       const formData = {
         laboratory: "",
-
         dateTime,
-
         controlNo,
 
         items: selectedList
@@ -482,9 +555,7 @@ export default function BorrowingInterface() {
               item.borrowQty || 0,
 
             returned: "",
-
             unreturned: "",
-
             remarks: "",
           })),
       };
@@ -569,23 +640,6 @@ export default function BorrowingInterface() {
 
   /*
    * ============================================================
-   * INVENTORY IMAGE
-   * ============================================================
-   */
-
-  function getItemImage(item) {
-    return (
-      item.image_url ||
-      item.image ||
-      item.image_path ||
-      item.photo_url ||
-      item.photo ||
-      ""
-    );
-  }
-
-  /*
-   * ============================================================
    * TABLE
    * ============================================================
    */
@@ -604,25 +658,11 @@ export default function BorrowingInterface() {
 
         <thead>
           <tr>
-            <th>
-              Select
-            </th>
-
-            <th>
-              Picture
-            </th>
-
-            <th>
-              Item
-            </th>
-
-            <th>
-              Available
-            </th>
-
-            <th>
-              Qty
-            </th>
+            <th>Select</th>
+            <th>Picture</th>
+            <th>Item</th>
+            <th>Available</th>
+            <th>Qty</th>
           </tr>
         </thead>
 
@@ -659,7 +699,6 @@ export default function BorrowingInterface() {
                 }
               >
 
-                {/* SELECT */}
                 <td className="select-cell">
 
                   <input
@@ -676,14 +715,15 @@ export default function BorrowingInterface() {
 
                 </td>
 
-
-                {/* PICTURE */}
                 <td className="image-cell">
 
                   {imageUrl ? (
                     <img
                       src={imageUrl}
-                      alt={item.item_name || "Inventory item"}
+                      alt={
+                        item.item_name ||
+                        "Inventory item"
+                      }
                       className="inventory-item-image"
                       onError={(e) => {
                         e.currentTarget.style.display =
@@ -703,8 +743,6 @@ export default function BorrowingInterface() {
 
                 </td>
 
-
-                {/* ITEM */}
                 <td className="item-cell">
 
                   <span
@@ -716,8 +754,6 @@ export default function BorrowingInterface() {
 
                 </td>
 
-
-                {/* AVAILABLE */}
                 <td className="available-cell">
 
                   <span
@@ -732,8 +768,6 @@ export default function BorrowingInterface() {
 
                 </td>
 
-
-                {/* QUANTITY */}
                 <td className="quantity-cell">
 
                   <input
@@ -768,6 +802,299 @@ export default function BorrowingInterface() {
 
   /*
    * ============================================================
+   * CARD VIEW
+   * ============================================================
+   */
+
+  function renderInventoryCards() {
+    if (filteredItems.length === 0) {
+      return (
+        <div className="inventory-card-empty">
+
+          <div className="inventory-card-empty-icon">
+            ☐
+          </div>
+
+          <h3>
+            No Inventory Found
+          </h3>
+
+          <p>
+            Try searching for another inventory item.
+          </p>
+
+        </div>
+      );
+    }
+
+    return (
+      <div className="inventory-card-grid">
+
+        {filteredItems.map((item) => {
+
+          const { available } =
+            inventoryTotals(item);
+
+          const checked =
+            selected[item.id] !== undefined;
+
+          const imageUrl =
+            getItemImage(item);
+
+          const totalQuantity =
+            item.quantity ??
+            item.total_quantity ??
+            item.totalQuantity ??
+            item.stock_quantity ??
+            item.stock ??
+            null;
+
+          const category =
+            item.category ||
+            item.item_category ||
+            "";
+
+          const unit =
+            item.unit ||
+            item.unit_type ||
+            "";
+
+          const itemCode =
+            item.item_code ||
+            item.code ||
+            item.itemCode ||
+            "";
+
+          return (
+            <article
+              key={item.id}
+              className={`inventory-card ${
+                checked
+                  ? "inventory-card-selected"
+                  : ""
+              }`}
+            >
+
+              {/* IMAGE */}
+
+              <button
+                type="button"
+                className="inventory-card-image-wrap"
+                onClick={() =>
+                  setSelectedItemDetails(item)
+                }
+              >
+
+                {imageUrl ? (
+                  <img
+                    src={imageUrl}
+                    alt={
+                      item.item_name ||
+                      "Inventory item"
+                    }
+                    className="inventory-card-image"
+                    onError={(e) => {
+                      e.currentTarget.style.display =
+                        "none";
+
+                      e.currentTarget.parentElement
+                        ?.classList.add(
+                          "image-failed"
+                        );
+                    }}
+                  />
+                ) : (
+                  <div className="inventory-card-image-placeholder">
+                    <span>
+                      No Image
+                    </span>
+                  </div>
+                )}
+
+                <span className="inventory-card-image-overlay">
+                  View Details
+                </span>
+
+              </button>
+
+
+              {/* CARD CONTENT */}
+
+              <div className="inventory-card-content">
+
+                <div className="inventory-card-title-row">
+
+                  <div className="inventory-card-title">
+
+                    <h3
+                      title={
+                        item.item_name || ""
+                      }
+                    >
+                      {item.item_name ||
+                        "Unnamed Item"}
+                    </h3>
+
+                  </div>
+
+                  <span
+                    className={`inventory-stock-badge ${
+                      available <= 0
+                        ? "out-of-stock"
+                        : available <= 3
+                        ? "low-stock"
+                        : ""
+                    }`}
+                  >
+                    {available <= 0
+                      ? "Unavailable"
+                      : `${available} Available`}
+                  </span>
+
+                </div>
+
+
+                {/* CARD DETAILS */}
+
+                <div className="inventory-card-details">
+
+                  {category && (
+                    <div className="inventory-card-detail">
+                      <span>
+                        Category
+                      </span>
+
+                      <strong>
+                        {category}
+                      </strong>
+                    </div>
+                  )}
+
+                  {itemCode && (
+                    <div className="inventory-card-detail">
+                      <span>
+                        Item Code
+                      </span>
+
+                      <strong>
+                        {itemCode}
+                      </strong>
+                    </div>
+                  )}
+
+                  {unit && (
+                    <div className="inventory-card-detail">
+                      <span>
+                        Unit
+                      </span>
+
+                      <strong>
+                        {unit}
+                      </strong>
+                    </div>
+                  )}
+
+                  {totalQuantity !== null && (
+                    <div className="inventory-card-detail">
+                      <span>
+                        Total Stock
+                      </span>
+
+                      <strong>
+                        {totalQuantity}
+                      </strong>
+                    </div>
+                  )}
+
+                </div>
+
+
+                {/* SELECTION */}
+
+                <div className="inventory-card-actions">
+
+                  <label className="inventory-card-select">
+
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={
+                        available <= 0
+                      }
+                      onChange={(e) =>
+                        toggleItem(
+                          item,
+                          e.target.checked
+                        )
+                      }
+                    />
+
+                    <span>
+                      Select item
+                    </span>
+
+                  </label>
+
+
+                  <div className="inventory-card-quantity">
+
+                    <span>
+                      Quantity
+                    </span>
+
+                    <input
+                      type="number"
+                      min="1"
+                      max={available}
+                      className="qty-input"
+                      disabled={!checked}
+                      value={
+                        selected[item.id] ??
+                        ""
+                      }
+                      onChange={(e) =>
+                        updateQuantity(
+                          item.id,
+                          e.target.value,
+                          available
+                        )
+                      }
+                    />
+
+                  </div>
+
+                </div>
+
+
+                {/* DETAILS BUTTON */}
+
+                <button
+                  type="button"
+                  className="inventory-card-details-btn"
+                  onClick={() =>
+                    setSelectedItemDetails(item)
+                  }
+                >
+                  View Item Details
+
+                  <span>
+                    →
+                  </span>
+
+                </button>
+
+              </div>
+
+            </article>
+          );
+        })}
+
+      </div>
+    );
+  }
+
+  /*
+   * ============================================================
    * LOADING
    * ============================================================
    */
@@ -775,9 +1102,11 @@ export default function BorrowingInterface() {
   if (loading) {
     return (
       <div className="borrow-page">
+
         <div className="borrow-loading">
           Loading inventory...
         </div>
+
       </div>
     );
   }
@@ -861,52 +1190,311 @@ export default function BorrowingInterface() {
 
             </label>
 
+
             <label>
               Department
-              <select value={departmentId} disabled={assignmentLoading} onChange={(event) => {
-                setDepartmentId(event.target.value);
-                setSectionId("");
-                setAssignedProfessorId("");
-                setProfessorQuery("");
-              }}>
-                <option value="">{assignmentLoading ? "Loading departments..." : "Select department"}</option>
-                {assignmentOptions.departments.map((department) => <option key={department.id} value={department.id}>{department.code} — {department.name}</option>)}
+
+              <select
+                value={departmentId}
+                disabled={assignmentLoading}
+                onChange={(event) => {
+
+                  setDepartmentId(
+                    event.target.value
+                  );
+
+                  setSectionId("");
+                  setAssignedProfessorId("");
+                  setProfessorQuery("");
+
+                }}
+              >
+
+                <option value="">
+                  {assignmentLoading
+                    ? "Loading departments..."
+                    : "Select department"}
+                </option>
+
+                {assignmentOptions.departments.map(
+                  (department) => (
+
+                    <option
+                      key={department.id}
+                      value={department.id}
+                    >
+                      {department.code} —{" "}
+                      {department.name}
+                    </option>
+
+                  )
+                )}
+
               </select>
+
             </label>
+
 
             <label>
               Section
-              <select value={sectionId} disabled={!departmentId || assignmentLoading} onChange={(event) => setSectionId(event.target.value)}>
-                <option value="">{departmentId ? "Select section" : "Select a department first"}</option>
-                {availableSections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
+
+              <select
+                value={sectionId}
+                disabled={
+                  !departmentId ||
+                  assignmentLoading
+                }
+                onChange={(event) =>
+                  setSectionId(
+                    event.target.value
+                  )
+                }
+              >
+
+                <option value="">
+                  {departmentId
+                    ? "Select section"
+                    : "Select a department first"}
+                </option>
+
+                {availableSections.map(
+                  (section) => (
+
+                    <option
+                      key={section.id}
+                      value={section.id}
+                    >
+                      {section.name}
+                    </option>
+
+                  )
+                )}
+
               </select>
+
             </label>
+
+
+            {/* PROFESSOR */}
 
             <label className="professor-combobox-field">
+
               Assigned Professor
+
               <div className="professor-combobox">
-                <input type="text" role="combobox" aria-autocomplete="list" aria-expanded={professorSuggestionsOpen} aria-controls="professor-suggestions"
-                  disabled={!departmentId || assignmentLoading} value={professorQuery}
-                  placeholder={departmentId ? "Type the professor's name..." : "Select a department first"}
-                  onFocus={() => setProfessorSuggestionsOpen(true)}
-                  onBlur={() => setProfessorSuggestionsOpen(false)}
-                  onChange={(event) => { setProfessorQuery(event.target.value); setAssignedProfessorId(""); setProfessorHighlight(0); setProfessorSuggestionsOpen(true); }}
+
+                <input
+                  type="text"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded={
+                    professorSuggestionsOpen
+                  }
+                  aria-controls="professor-suggestions"
+                  disabled={
+                    !departmentId ||
+                    assignmentLoading
+                  }
+                  value={professorQuery}
+                  placeholder={
+                    departmentId
+                      ? "Type the professor's name..."
+                      : "Select a department first"
+                  }
+                  onFocus={() =>
+                    setProfessorSuggestionsOpen(
+                      true
+                    )
+                  }
+                  onBlur={() =>
+                    setProfessorSuggestionsOpen(
+                      false
+                    )
+                  }
+                  onChange={(event) => {
+
+                    setProfessorQuery(
+                      event.target.value
+                    );
+
+                    setAssignedProfessorId("");
+
+                    setProfessorHighlight(0);
+
+                    setProfessorSuggestionsOpen(
+                      true
+                    );
+
+                  }}
                   onKeyDown={(event) => {
-                    if (event.key === "Escape") setProfessorSuggestionsOpen(false);
-                    if (event.key === "ArrowDown" && professorSuggestions.length) { event.preventDefault(); setProfessorSuggestionsOpen(true); setProfessorHighlight((index) => (index + 1) % professorSuggestions.length); }
-                    if (event.key === "ArrowUp" && professorSuggestions.length) { event.preventDefault(); setProfessorSuggestionsOpen(true); setProfessorHighlight((index) => (index - 1 + professorSuggestions.length) % professorSuggestions.length); }
-                    if (event.key === "Enter" && professorSuggestionsOpen && professorSuggestions[professorHighlight]) { event.preventDefault(); selectProfessor(professorSuggestions[professorHighlight]); }
-                  }} />
-                {professorSuggestionsOpen && departmentId && <div id="professor-suggestions" className="professor-suggestions" role="listbox">
-                  {professorSuggestions.length ? professorSuggestions.map((professor, index) => <button type="button" role="option" aria-selected={assignedProfessorId === professor.id || professorHighlight === index}
-                    key={professor.id} onMouseDown={(event) => event.preventDefault()} onClick={() => selectProfessor(professor)}>
-                    <strong>{professor.fullName}</strong><span>{assignmentOptions.departments.find((department) => String(department.id) === String(professor.departmentId))?.name}</span>
-                  </button>) : <div className="professor-no-results">No active professor matches that name.</div>}
-                </div>}
+
+                    if (
+                      event.key ===
+                      "Escape"
+                    ) {
+                      setProfessorSuggestionsOpen(
+                        false
+                      );
+                    }
+
+                    if (
+                      event.key ===
+                        "ArrowDown" &&
+                      professorSuggestions.length
+                    ) {
+
+                      event.preventDefault();
+
+                      setProfessorSuggestionsOpen(
+                        true
+                      );
+
+                      setProfessorHighlight(
+                        (index) =>
+                          (index + 1) %
+                          professorSuggestions.length
+                      );
+
+                    }
+
+                    if (
+                      event.key ===
+                        "ArrowUp" &&
+                      professorSuggestions.length
+                    ) {
+
+                      event.preventDefault();
+
+                      setProfessorSuggestionsOpen(
+                        true
+                      );
+
+                      setProfessorHighlight(
+                        (index) =>
+                          (index -
+                            1 +
+                            professorSuggestions.length) %
+                          professorSuggestions.length
+                      );
+
+                    }
+
+                    if (
+                      event.key ===
+                        "Enter" &&
+                      professorSuggestionsOpen &&
+                      professorSuggestions[
+                        professorHighlight
+                      ]
+                    ) {
+
+                      event.preventDefault();
+
+                      selectProfessor(
+                        professorSuggestions[
+                          professorHighlight
+                        ]
+                      );
+
+                    }
+
+                  }}
+                />
+
+
+                {professorSuggestionsOpen &&
+                  departmentId && (
+
+                    <div
+                      id="professor-suggestions"
+                      className="professor-suggestions"
+                      role="listbox"
+                    >
+
+                      {professorSuggestions.length ? (
+
+                        professorSuggestions.map(
+                          (
+                            professor,
+                            index
+                          ) => (
+
+                            <button
+                              type="button"
+                              role="option"
+                              aria-selected={
+                                assignedProfessorId ===
+                                  professor.id ||
+                                professorHighlight ===
+                                  index
+                              }
+                              key={
+                                professor.id
+                              }
+                              onMouseDown={(
+                                event
+                              ) =>
+                                event.preventDefault()
+                              }
+                              onClick={() =>
+                                selectProfessor(
+                                  professor
+                                )
+                              }
+                            >
+
+                              <strong>
+                                {
+                                  professor.fullName
+                                }
+                              </strong>
+
+                              <span>
+                                {
+                                  assignmentOptions.departments.find(
+                                    (
+                                      department
+                                    ) =>
+                                      String(
+                                        department.id
+                                      ) ===
+                                      String(
+                                        professor.departmentId
+                                      )
+                                  )?.name
+                                }
+                              </span>
+
+                            </button>
+
+                          )
+                        )
+
+                      ) : (
+
+                        <div className="professor-no-results">
+                          No active professor matches that name.
+                        </div>
+
+                      )}
+
+                    </div>
+
+                  )}
+
               </div>
-              {assignedProfessorId && <small className="professor-selected-hint">Official professor account selected</small>}
+
+
+              {assignedProfessorId && (
+                <small className="professor-selected-hint">
+                  Official professor account selected
+                </small>
+              )}
+
             </label>
 
+
+            {/* BORROW DATE */}
 
             <label>
               Borrow Date
@@ -924,6 +1512,8 @@ export default function BorrowingInterface() {
 
             </label>
 
+
+            {/* RETURN DATE */}
 
             <label>
               Return Date
@@ -944,6 +1534,8 @@ export default function BorrowingInterface() {
 
             </label>
 
+
+            {/* PURPOSE */}
 
             <label className="purpose-field">
 
@@ -987,7 +1579,9 @@ export default function BorrowingInterface() {
               placeholder="Search item..."
               value={search}
               onChange={(e) =>
-                setSearch(e.target.value)
+                setSearch(
+                  e.target.value
+                )
               }
             />
 
@@ -996,7 +1590,7 @@ export default function BorrowingInterface() {
         </div>
 
 
-        {/* TABLE HEADER */}
+        {/* INVENTORY HEADER */}
 
         <div className="table-heading">
 
@@ -1017,29 +1611,82 @@ export default function BorrowingInterface() {
           </div>
 
 
-          <button
-            type="button"
-            className="expand-table-btn"
-            onClick={() =>
-              setExpandedTable(true)
-            }
-          >
-            Expand Table
-          </button>
+          <div className="inventory-view-controls">
+
+            <button
+              type="button"
+              className={`inventory-view-btn ${
+                inventoryView === "table"
+                  ? "active"
+                  : ""
+              }`}
+              onClick={() =>
+                setInventoryView(
+                  "table"
+                )
+              }
+            >
+              Table View
+            </button>
+
+
+            <button
+              type="button"
+              className={`inventory-view-btn ${
+                inventoryView === "cards"
+                  ? "active"
+                  : ""
+              }`}
+              onClick={() =>
+                setInventoryView(
+                  "cards"
+                )
+              }
+            >
+              Card View
+            </button>
+
+
+            {inventoryView ===
+              "table" && (
+
+              <button
+                type="button"
+                className="expand-table-btn"
+                onClick={() =>
+                  setExpandedTable(
+                    true
+                  )
+                }
+              >
+                Expand Table
+              </button>
+
+            )}
+
+          </div>
 
         </div>
 
 
-        {/* TABLE */}
+        {/* INVENTORY */}
 
-        <div className="table-wrap">
+        {inventoryView === "table" ? (
 
-          {renderInventoryTable()}
+          <div className="table-wrap">
+            {renderInventoryTable()}
+          </div>
 
-        </div>
+        ) : (
+
+          <div className="inventory-cards-wrap">
+            {renderInventoryCards()}
+          </div>
+
+        )}
 
 
-        {/* REQUEST SUMMARY / ACTIONS */}
+        {/* FOOTER */}
 
         <div className="borrow-footer">
 
@@ -1073,7 +1720,11 @@ export default function BorrowingInterface() {
                   : ""
               }`}
             >
-              / {borrowingPolicy.maxQuantityPerRequest} unit limit
+              /{" "}
+              {
+                borrowingPolicy.maxQuantityPerRequest
+              }{" "}
+              unit limit
             </span>
 
           </div>
@@ -1108,7 +1759,350 @@ export default function BorrowingInterface() {
       </section>
 
 
-      {/* EXPANDED TABLE MODAL */}
+      {/* ========================================================
+          ITEM DETAILS MODAL
+          ======================================================== */}
+
+      {selectedItemDetails && (
+
+        <div
+          className="item-details-overlay"
+          onMouseDown={(e) => {
+
+            if (
+              e.target ===
+              e.currentTarget
+            ) {
+              setSelectedItemDetails(
+                null
+              );
+            }
+
+          }}
+        >
+
+          <div className="item-details-modal">
+
+            {/* HEADER */}
+
+            <div className="item-details-header">
+
+              <div>
+
+                <h2>
+                  {
+                    selectedItemDetails.item_name ||
+                    "Unnamed Item"
+                  }
+                </h2>
+
+              </div>
+
+
+              <button
+                type="button"
+                className="item-details-close"
+                aria-label="Close item details"
+                onClick={() =>
+                  setSelectedItemDetails(
+                    null
+                  )
+                }
+              >
+                ×
+              </button>
+
+            </div>
+
+
+            {/* BODY */}
+
+            <div className="item-details-body">
+
+              {/* IMAGE */}
+
+              <div className="item-details-image-section">
+
+                {getItemImage(
+                  selectedItemDetails
+                ) ? (
+
+                  <img
+                    src={getItemImage(
+                      selectedItemDetails
+                    )}
+                    alt={
+                      selectedItemDetails.item_name ||
+                      "Inventory item"
+                    }
+                    className="item-details-image"
+                    onError={(e) => {
+                      e.currentTarget.style.display =
+                        "none";
+
+                      e.currentTarget.parentElement
+                        ?.classList.add(
+                          "image-failed"
+                        );
+                    }}
+                  />
+
+                ) : (
+
+                  <div className="item-details-image-placeholder">
+                    <span>
+                      No Image Available
+                    </span>
+                  </div>
+
+                )}
+
+              </div>
+
+
+              {/* INFORMATION */}
+
+              <div className="item-details-information">
+
+                <div className="item-details-stock">
+
+                  <div>
+
+                    <span>
+                      Available Quantity
+                    </span>
+
+                    <strong>
+                      {
+                        inventoryTotals(
+                          selectedItemDetails
+                        ).available
+                      }
+                    </strong>
+
+                  </div>
+
+                  <span
+                    className={`item-details-status ${
+                      inventoryTotals(
+                        selectedItemDetails
+                      ).available <= 0
+                        ? "unavailable"
+                        : "available"
+                    }`}
+                  >
+                    {
+                      inventoryTotals(
+                        selectedItemDetails
+                      ).available > 0
+                        ? "Available"
+                        : "Unavailable"
+                    }
+                  </span>
+
+                </div>
+
+
+                <div className="item-details-grid">
+
+                  <div>
+                    <span>
+                      Item Name
+                    </span>
+
+                    <strong>
+                      {
+                        selectedItemDetails.item_name ||
+                        "—"
+                      }
+                    </strong>
+                  </div>
+
+
+                  <div>
+                    <span>
+                      Item Code
+                    </span>
+
+                    <strong>
+                      {
+                        selectedItemDetails.item_code ||
+                        selectedItemDetails.code ||
+                        "—"
+                      }
+                    </strong>
+                  </div>
+
+
+                  <div>
+                    <span>
+                      Category
+                    </span>
+
+                    <strong>
+                      {
+                        selectedItemDetails.category ||
+                        selectedItemDetails.item_category ||
+                        "—"
+                      }
+                    </strong>
+                  </div>
+
+
+                  <div>
+                    <span>
+                      Unit
+                    </span>
+
+                    <strong>
+                      {
+                        selectedItemDetails.unit ||
+                        selectedItemDetails.unit_type ||
+                        "—"
+                      }
+                    </strong>
+                  </div>
+
+
+                  <div>
+                    <span>
+                      Total Quantity
+                    </span>
+
+                    <strong>
+                      {
+                        selectedItemDetails.quantity ??
+                        selectedItemDetails.total_quantity ??
+                        selectedItemDetails.totalQuantity ??
+                        selectedItemDetails.stock_quantity ??
+                        selectedItemDetails.stock ??
+                        "—"
+                      }
+                    </strong>
+                  </div>
+
+
+                  <div>
+                    <span>
+                      Available
+                    </span>
+
+                    <strong>
+                      {
+                        inventoryTotals(
+                          selectedItemDetails
+                        ).available
+                      }
+                    </strong>
+                  </div>
+
+                </div>
+
+
+                <div className="item-details-selection">
+
+                  <label className="item-details-checkbox">
+
+                    <input
+                      type="checkbox"
+                      checked={
+                        selected[
+                          selectedItemDetails.id
+                        ] !== undefined
+                      }
+                      disabled={
+                        inventoryTotals(
+                          selectedItemDetails
+                        ).available <= 0
+                      }
+                      onChange={(e) =>
+                        toggleItem(
+                          selectedItemDetails,
+                          e.target.checked
+                        )
+                      }
+                    />
+
+                    <span>
+                      Select this item for borrowing
+                    </span>
+
+                  </label>
+
+
+                  {selected[
+                    selectedItemDetails.id
+                  ] !== undefined && (
+
+                    <div className="item-details-quantity">
+
+                      <label>
+                        Quantity
+                      </label>
+
+                      <input
+                        type="number"
+                        min="1"
+                        max={
+                          inventoryTotals(
+                            selectedItemDetails
+                          ).available
+                        }
+                        value={
+                          selected[
+                            selectedItemDetails.id
+                          ] ?? 1
+                        }
+                        onChange={(e) =>
+                          updateQuantity(
+                            selectedItemDetails.id,
+                            e.target.value,
+                            inventoryTotals(
+                              selectedItemDetails
+                            ).available
+                          )
+                        }
+                      />
+
+                    </div>
+
+                  )}
+
+                </div>
+
+              </div>
+
+            </div>
+
+
+            {/* FOOTER */}
+
+            <div className="item-details-footer">
+
+              <button
+                type="button"
+                className="action-btn secondary-btn"
+                onClick={() =>
+                  setSelectedItemDetails(
+                    null
+                  )
+                }
+              >
+                Close
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
+
+
+      {/* ========================================================
+          EXPANDED TABLE MODAL
+          ======================================================== */}
 
       {expandedTable && (
 
@@ -1117,9 +2111,12 @@ export default function BorrowingInterface() {
           onMouseDown={(e) => {
 
             if (
-              e.target === e.currentTarget
+              e.target ===
+              e.currentTarget
             ) {
-              setExpandedTable(false);
+              setExpandedTable(
+                false
+              );
             }
 
           }}
@@ -1146,7 +2143,9 @@ export default function BorrowingInterface() {
                 type="button"
                 className="table-modal-close"
                 onClick={() =>
-                  setExpandedTable(false)
+                  setExpandedTable(
+                    false
+                  )
                 }
               >
                 ×
@@ -1213,7 +2212,9 @@ export default function BorrowingInterface() {
                 type="button"
                 className="action-btn secondary-btn"
                 onClick={() =>
-                  setExpandedTable(false)
+                  setExpandedTable(
+                    false
+                  )
                 }
               >
                 Done
