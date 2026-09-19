@@ -13,7 +13,7 @@ export function AuthProvider({ children }) {
     let sessionGeneration = 0;
     async function loadProfile(user, generation = sessionGeneration) {
       if (!user || !active) { setProfile(null); return; }
-      const { data } = await supabase.from("profiles").select("user_id, role, full_name, student_id, is_active").eq("user_id", user.id).maybeSingle();
+      const { data } = await supabase.from("profiles").select("user_id, role, full_name, student_id, department_id, is_active").eq("user_id", user.id).maybeSingle();
       if (!active || generation !== sessionGeneration) return;
       setProfile(data ?? null);
       if (data?.is_active === false) await supabase.auth.signOut();

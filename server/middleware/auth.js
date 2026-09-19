@@ -48,7 +48,7 @@ function createAuthenticate({ client = null, databasePool = pool } = {}) {
       }
 
       const profileResult = await databasePool.query(
-        `SELECT user_id, role, full_name, student_id, is_active
+        `SELECT user_id, role, full_name, student_id, department_id, is_active
            FROM public.profiles
           WHERE user_id = $1`,
         [data.user.id]

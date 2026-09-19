@@ -1,0 +1,11 @@
+.authorization-review-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
+.authorization-reject-button,
+.authorization-rejection button { padding: 11px 16px; border: 1px solid #dc2626; border-radius: 9px; background: #fff; color: #b91c1c; font-weight: 800; cursor: pointer; }
+.authorization-reject-button:disabled,
+.authorization-rejection button:disabled { cursor: not-allowed; opacity: .55; }
+.authorization-rejection { display: grid; gap: 9px; margin: 18px 0; padding: 16px; border: 1px solid #fecaca; border-radius: 10px; background: #fef2f2; }
+.authorization-rejection label { color: #7f1d1d; font-weight: 800; }
+.authorization-rejection textarea { width: 100%; padding: 10px 12px; border: 1px solid #fca5a5; border-radius: 8px; resize: vertical; box-sizing: border-box; font: inherit; }
+.authorization-rejection > div { display: flex; justify-content: flex-end; gap: 10px; }
+.authorization-rejection .authorization-reject-confirm { border-color: #b91c1c; background: #b91c1c; color: #fff; }
+@media (max-width: 600px) { .authorization-review-actions { flex-direction: column-reverse; } .authorization-review-actions button { width: 100%; } }

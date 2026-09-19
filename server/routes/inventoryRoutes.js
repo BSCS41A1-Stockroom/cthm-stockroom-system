@@ -12,11 +12,13 @@ const {
 const { createAsset, listAssets, resolveAssetIncident, updateAsset } = require("../controllers/assetController");
 const { listAssetMaintenance, updateAssetMaintenance } = require("../controllers/maintenanceController");
 const { configureInspection, listInspections, recordInspection } = require("../controllers/inspectionController");
+const { requireInventoryDepartment } = require("../middleware/departmentAccess");
 
 const router = express.Router();
-router.use(authenticate, requireRoles("admin"));
+router.use(authenticate, requireRoles("staff", "admin"));
 
 router.post("/", saveInventory);
+router.use("/:inventoryId", requireInventoryDepartment);
 router.put("/:inventoryId", saveInventory);
 router.delete("/:inventoryId", deleteInventory);
 router.get("/:inventoryId/assets", listAssets);

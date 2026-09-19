@@ -224,18 +224,22 @@ function getBorrowingPolicy(_req, res) {
   });
 }
 
-async function getAssignmentOptions(_req, res, next) {
+async function getAssignmentOptions(req, res, next) {
   try {
-    const [departments, sections, professors] = await Promise.all([
+    const [departments, sections, professors, rooms] = await Promise.all([
       pool.query(`SELECT id,code,name FROM public.academic_departments WHERE is_active=true ORDER BY name,id`),
       pool.query(`SELECT id,department_id,name FROM public.academic_sections WHERE is_active=true ORDER BY name,id`),
       pool.query(`SELECT user_id,department_id,full_name FROM public.profiles
         WHERE role='professor' AND is_active=true AND department_id IS NOT NULL ORDER BY full_name,user_id`),
+      pool.query(`SELECT id,department_id,name,room_type FROM public.laboratory_rooms
+        WHERE is_active=true AND ($1::boolean=false OR department_id=$2) ORDER BY department_id,name,id`,
+        [req.user.role === "staff", req.user.department_id]),
     ]);
     return res.json({
       departments: departments.rows.map((row) => ({ id: row.id, code: row.code, name: row.name })),
       sections: sections.rows.map((row) => ({ id: row.id, departmentId: row.department_id, name: row.name })),
       professors: professors.rows.map((row) => ({ id: row.user_id, departmentId: row.department_id, fullName: row.full_name })),
+      rooms: rooms.rows.map((row) => ({ id: row.id, departmentId: row.department_id, name: row.name, roomType: row.room_type })),
     });
   } catch (error) { return next(error); }
 }
@@ -726,9 +730,10 @@ async function listBorrowRequests(req, res, next) {
          ) returned ON returned.request_id = br.id AND returned.inventory_id = bri.inventory_id
         WHERE ($1::boolean = false OR br.user_id = $2::uuid)
           AND ($3::boolean = false OR br.assigned_professor_user_id = $2::uuid)
+          AND ($4::boolean = false OR br.department_id = $5::bigint)
         GROUP BY br.id,department.id,section.id,professor.user_id
         ORDER BY br.created_at DESC, br.id DESC`,
-      [studentOnly, req.user.id, req.user.role === "professor"]
+      [studentOnly, req.user.id, req.user.role === "professor", req.user.role === "staff", req.user.department_id]
     );
 
     return res.json({ requests: result.rows.map(serializeBorrowRequest) });
@@ -770,6 +775,10 @@ async function processBorrowingReturn(req, res, next) {
       }
     }
     const request = requestResult.rows[0];
+    if (req.user.role === "staff" && String(request.department_id) !== String(req.user.department_id)) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "REQUEST_NOT_FOUND", message: "Borrowing request was not found in your department." });
+    }
     if (request.status !== "Borrowed") {
       await client.query("ROLLBACK");
       return res.status(409).json({ error: "REQUEST_NOT_BORROWED", message: "Only borrowed requests can be returned." });
@@ -1038,9 +1047,27 @@ async function updateBorrowRequestStatus(req, res, next) {
     }
 
     const request = requestResult.rows[0];
+    if (req.user.role === "staff" && String(request.department_id) !== String(req.user.department_id)) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "REQUEST_NOT_FOUND", message: "Borrowing request was not found in your department." });
+    }
+    if (req.user.role === "professor" && String(request.assigned_professor_user_id ?? "") !== String(req.user.id)) {
+      await writeAuditLog(client, req.user, { action: "borrowing_assignment_access_denied", entityType: "borrowing_request", entityId: requestId,
+        metadata: { attemptedStatus: nextStatus, reason: request.assigned_professor_user_id ? "NOT_ASSIGNED_PROFESSOR" : "PROFESSOR_NOT_ASSIGNED" } });
+      await client.query("COMMIT");
+      return res.status(request.assigned_professor_user_id ? 403 : 409).json({
+        error: request.assigned_professor_user_id ? "NOT_ASSIGNED_PROFESSOR" : "PROFESSOR_NOT_ASSIGNED",
+        message: request.assigned_professor_user_id ? "This request is assigned to another professor." : "This request has no assigned professor.",
+      });
+    }
     if (nextStatus === "Approved" && req.user.role !== "admin") {
       await client.query("ROLLBACK");
       return res.status(403).json({ error: "ADMIN_APPROVAL_REQUIRED", message: "Only an administrator can give final approval." });
+    }
+    if (nextStatus === "Rejected" && req.user.role === "professor"
+      && String(req.body?.reason ?? "").trim().length < 5) {
+      await client.query("ROLLBACK");
+      return res.status(422).json({ error: "REJECTION_REASON_REQUIRED", message: "Provide a rejection reason of at least 5 characters." });
     }
     const allowed = STATUS_TRANSITIONS[request.status];
     if (!allowed || !allowed.has(nextStatus)) {

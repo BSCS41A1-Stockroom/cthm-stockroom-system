@@ -6,7 +6,7 @@ import {
     inventoryTotals
 } from "../../../utils/inventoryAvailability";
 
-export default function AddItemModal({ open, onClose }) {
+export default function AddItemModal({ open, onClose, rooms = [] }) {
 
     const [form, setForm] = useState({
         item_name: "",
@@ -22,6 +22,7 @@ export default function AddItemModal({ open, onClose }) {
         remarks: "",
         tracking_type: "bulk",
         image_url: "",
+        room_id: "",
     });
 
     const [imageFile, setImageFile] = useState(null);
@@ -127,6 +128,7 @@ export default function AddItemModal({ open, onClose }) {
             alert("Please enter an item name.");
             return;
         }
+        if (!form.room_id) { alert("Please select a laboratory room."); return; }
 
         try {
 
@@ -191,6 +193,7 @@ export default function AddItemModal({ open, onClose }) {
             remarks: "",
             tracking_type: "bulk",
             image_url: "",
+            room_id: "",
         });
 
         setImageFile(null);
@@ -301,6 +304,14 @@ export default function AddItemModal({ open, onClose }) {
                                 onChange={handleChange}
                             />
 
+                        </div>
+
+                        <div className="form-group">
+                            <label>Laboratory Room</label>
+                            <select name="room_id" value={form.room_id} onChange={handleChange} required>
+                                <option value="">Select laboratory room</option>
+                                {rooms.map((room) => <option key={room.id} value={room.id}>{room.department ? `${room.department.code} — ` : ""}{room.name}</option>)}
+                            </select>
                         </div>
 
                         <div className="form-group">

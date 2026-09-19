@@ -3,7 +3,7 @@ const { createClient } = require("@supabase/supabase-js");
 const pool = require("../config/db");
 const { writeAuditLog } = require("../utils/auditLog");
 
-const ROLES = new Set(["student", "professor", "admin"]);
+const ROLES = new Set(["student", "professor", "staff", "admin"]);
 let adminClient;
 function cleanEnvironmentValue(value) {
   let cleaned = String(value ?? "").trim();
@@ -62,14 +62,14 @@ function userErrors(user, requireEmail = false) {
   const errors = [];
   if (requireEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.email)) errors.push("A valid email is required.");
   if (!user.fullName || user.fullName.length > 150) errors.push("Full name is required and cannot exceed 150 characters.");
-  if (!ROLES.has(user.role)) errors.push("Role must be student, professor, or admin.");
+  if (!ROLES.has(user.role)) errors.push("Role must be student, professor, staff, or admin.");
   if (user.role === "student" && (!user.studentId || user.studentId.length > 100)) errors.push("A student ID is required for Student accounts.");
-  if (user.role === "professor" && !/^[1-9]\d*$/.test(String(user.departmentId ?? ""))) errors.push("An active department is required for Professor accounts.");
+  if (["professor", "staff"].includes(user.role) && !/^[1-9]\d*$/.test(String(user.departmentId ?? ""))) errors.push("An active department is required for Professor and Staff accounts.");
   if (typeof user.isActive !== "boolean") errors.push("Account status is invalid.");
   return errors;
 }
 async function professorDepartmentExists(user) {
-  if (user.role !== "professor") return true;
+  if (!["professor", "staff"].includes(user.role)) return true;
   const result = await pool.query(`SELECT 1 FROM public.academic_departments WHERE id=$1 AND is_active=true`, [user.departmentId]);
   return result.rowCount > 0;
 }
@@ -99,7 +99,7 @@ async function inviteUser(req, res, next) {
     if (error) return res.status(409).json({ error: "INVITATION_FAILED", message: error.message });
     invitedId = data.user.id;
     const result = await pool.query(`UPDATE public.profiles SET full_name=$2, role=$3, student_id=$4, is_active=$5,department_id=$6,updated_at=now()
-      WHERE user_id=$1 RETURNING *`, [invitedId, user.fullName, user.role, user.role === "student" ? user.studentId : null, user.isActive, user.role === "professor" ? user.departmentId : null]);
+      WHERE user_id=$1 RETURNING *`, [invitedId, user.fullName, user.role, user.role === "student" ? user.studentId : null, user.isActive, ["professor", "staff"].includes(user.role) ? user.departmentId : null]);
     if (!result.rowCount) throw new Error("The invited user profile was not created.");
     await writeAuditLog(pool, req.user, { action: "user_invited", entityType: "user_profile", entityId: invitedId, newValues: { email: user.email, ...result.rows[0] } });
     return res.status(201).json({ user: { email: user.email, ...result.rows[0] } });
@@ -135,7 +135,7 @@ async function updateUser(req, res, next) {
       if (activeAdmins.rowCount <= 1) { await client.query("ROLLBACK"); return res.status(409).json({ error: "LAST_ADMIN", message: "The last active Admin cannot be demoted or deactivated." }); }
     }
     const result = await client.query(`UPDATE public.profiles SET full_name=$2, role=$3, student_id=$4, is_active=$5,department_id=$6,updated_at=now()
-      WHERE user_id=$1 RETURNING *`, [req.params.id, user.fullName, user.role, user.role === "student" ? user.studentId : null, user.isActive, user.role === "professor" ? user.departmentId : null]);
+      WHERE user_id=$1 RETURNING *`, [req.params.id, user.fullName, user.role, user.role === "student" ? user.studentId : null, user.isActive, ["professor", "staff"].includes(user.role) ? user.departmentId : null]);
     if (current.role === "student" && user.role !== "student") {
       await client.query(`UPDATE public.profiles SET qr_status='revoked', qr_version=qr_version+1,
         qr_revoked_at=now(), qr_revocation_reason='Account role changed from Student', updated_at=now() WHERE user_id=$1`, [req.params.id]);

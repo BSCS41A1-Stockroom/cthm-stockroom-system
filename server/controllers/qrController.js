@@ -32,7 +32,7 @@ async function findActiveProfileFromQr(token, database = pool) {
   return profile;
 }
 
-async function findReadyRequest(userId, database = pool) {
+async function findReadyRequest(userId, database = pool, departmentId = null) {
   const requests = await database.query(
     `SELECT request.id, request.borrow_date, request.return_date, request.purpose,
             json_agg(json_build_object('inventoryId', item.inventory_id, 'name', inventory.item_name, 'quantity', item.quantity, 'trackingType', inventory.tracking_type) ORDER BY item.inventory_id) AS items
@@ -40,15 +40,16 @@ async function findReadyRequest(userId, database = pool) {
        JOIN public.borrow_request_items item ON item.request_id=request.id
        JOIN public.inventory inventory ON inventory.id=item.inventory_id
       WHERE request.user_id=$1 AND request.status='Approved'
+        AND ($2::bigint IS NULL OR request.department_id=$2)
         AND request.return_date >= (now() AT TIME ZONE 'Asia/Manila')::date
-      GROUP BY request.id ORDER BY request.created_at LIMIT 2`, [userId]
+      GROUP BY request.id ORDER BY request.created_at LIMIT 2`, [userId, departmentId]
   );
   if (!requests.rowCount) { const error = new Error("This account has no approved request ready for claim."); error.code = "NO_READY_REQUEST"; throw error; }
   if (requests.rowCount > 1) { const error = new Error("Multiple ready requests were found. Resolve the account records before release."); error.code = "MULTIPLE_READY_REQUESTS"; throw error; }
   return requests.rows[0];
 }
 
-async function findBorrowedRequests(userId, database = pool) {
+async function findBorrowedRequests(userId, database = pool, departmentId = null) {
   const result = await database.query(
     `SELECT request.id, request.borrow_date, request.return_date, request.purpose,
             json_agg(json_build_object(
@@ -73,9 +74,10 @@ async function findBorrowedRequests(userId, database = pool) {
            FROM public.borrowing_return_items GROUP BY request_id, inventory_id
       ) returned ON returned.request_id=request.id AND returned.inventory_id=item.inventory_id
       WHERE request.user_id=$1 AND request.status='Borrowed'
+        AND ($2::bigint IS NULL OR request.department_id=$2)
       GROUP BY request.id
      HAVING bool_or(item.quantity > COALESCE(returned.accounted, 0))
-      ORDER BY request.return_date, request.id LIMIT 20`, [userId]
+      ORDER BY request.return_date, request.id LIMIT 20`, [userId, departmentId]
   );
   if (!result.rowCount) { const error = new Error("This account has no outstanding borrowed transaction."); error.code = "NO_ACTIVE_BORROWING"; throw error; }
   return result.rows;
@@ -192,11 +194,11 @@ async function lookupReadyRequest(req, res, next) {
   try {
     const profile = await findActiveProfileFromQr(req.body?.token);
     if (mode === "return") {
-      const requests = await findBorrowedRequests(profile.user_id);
+      const requests = await findBorrowedRequests(profile.user_id, pool, req.user.role === "staff" ? req.user.department_id : null);
       await writeAuditLog(pool, req.user, { action: "return_qr_lookup_succeeded", entityType: "user_profile", entityId: profile.user_id });
       return res.json({ mode: "return", borrower: { fullName: profile.full_name, studentId: profile.student_id, role: profile.role }, requests });
     }
-    const request = await findReadyRequest(profile.user_id);
+    const request = await findReadyRequest(profile.user_id, pool, req.user.role === "staff" ? req.user.department_id : null);
     await writeAuditLog(pool, req.user, { action: "account_qr_lookup_succeeded", entityType: "user_profile", entityId: profile.user_id });
     return res.json(claimResponse(profile, request, req.user.id));
   } catch (error) {

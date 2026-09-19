@@ -185,7 +185,7 @@ export default function AppRoutes() {
             <Route
                 element={
                     <ProtectedRoute
-                        roles={["admin"]}
+                        roles={["staff", "admin"]}
                     />
                 }
             >
@@ -240,20 +240,15 @@ export default function AppRoutes() {
                         element={<Inventory />}
                     />
 
-                    {/* Activity Logs */}
-                    <Route
-                        path="/admin/activity-logs"
-                        element={<AuditLogs />}
-                    />
-
-                    {/* Users */}
-                    <Route
-                        path="/admin/users"
-                        element={<Users />}
-                    />
-
                 </Route>
 
+            </Route>
+
+            <Route element={<ProtectedRoute roles={["admin"]} />}>
+                <Route element={<AdminLayout />}>
+                    <Route path="/admin/activity-logs" element={<AuditLogs />} />
+                    <Route path="/admin/users" element={<Users />} />
+                </Route>
             </Route>
 
         </Routes>

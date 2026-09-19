@@ -30,7 +30,7 @@ router.get(
 
 router.get(
   "/assignment-options",
-  requireRoles("student", "admin"),
+  requireRoles("student", "staff", "admin"),
   getAssignmentOptions
 );
 
@@ -63,13 +63,13 @@ router.post(
 
 router.patch(
   "/:id/status",
-  requireRoles("professor", "admin"),
+  requireRoles("professor", "staff", "admin"),
   updateBorrowRequestStatus
 );
 
 router.post(
   "/:id/returns",
-  requireRoles("professor", "admin"),
+  requireRoles("staff", "admin"),
   processBorrowingReturn
 );
 
