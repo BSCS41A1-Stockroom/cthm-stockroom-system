@@ -34,7 +34,11 @@ insert into public.borrow_request_authorizations (request_id, status)
 select id, case when status in ('Validated','Approved','Borrowed','Returned') then 'authorized' else 'awaiting' end
 from public.borrow_requests request
 where status = 'Pending'
-  and not exists (select 1 from public.borrow_request_authorizations authorization where authorization.request_id=request.id);
+  and not exists (
+    select 1
+    from public.borrow_request_authorizations as authz
+    where authz.request_id = request.id
+  );
 
 alter table public.professor_signatures enable row level security;
 alter table public.borrow_request_authorizations enable row level security;

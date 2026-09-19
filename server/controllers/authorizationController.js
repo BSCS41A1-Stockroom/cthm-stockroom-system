@@ -42,21 +42,21 @@ async function saveMySignature(req, res, next) {
 }
 
 async function loadReview(token, userId) {
-  return pool.query(`SELECT authorization.review_token,authorization.status AS authorization_status,authorization.authorized_at,
-      authorization.professor_name,request.id,request.student_name,request.student_id,request.borrow_date,request.return_date,
+  return pool.query(`SELECT authz.review_token,authz.status AS authorization_status,authz.authorized_at,
+      authz.professor_name,request.id,request.student_name,request.student_id,request.borrow_date,request.return_date,
       request.purpose,request.status,profile.full_name AS current_professor_name,
       EXISTS(SELECT 1 FROM public.professor_signatures signature WHERE signature.professor_user_id=$2) AS signature_configured,
       (SELECT image_data FROM public.professor_signatures signature WHERE signature.professor_user_id=$2) AS current_signature,
       (SELECT mime_type FROM public.professor_signatures signature WHERE signature.professor_user_id=$2) AS current_signature_mime,
       COALESCE(json_agg(json_build_object('inventoryId',item.inventory_id,'name',inventory.item_name,'quantity',item.quantity)
         ORDER BY item.inventory_id) FILTER (WHERE item.inventory_id IS NOT NULL),'[]'::json) AS items
-    FROM public.borrow_request_authorizations authorization
-    JOIN public.borrow_requests request ON request.id=authorization.request_id
+    FROM public.borrow_request_authorizations AS authz
+    JOIN public.borrow_requests request ON request.id=authz.request_id
     LEFT JOIN public.borrow_request_items item ON item.request_id=request.id
     LEFT JOIN public.inventory inventory ON inventory.id=item.inventory_id
     JOIN public.profiles profile ON profile.user_id=$2
-    WHERE authorization.review_token=$1 GROUP BY authorization.review_token,authorization.status,authorization.authorized_at,
-      authorization.professor_name,request.id,profile.full_name`, [token, userId]);
+    WHERE authz.review_token=$1 GROUP BY authz.review_token,authz.status,authz.authorized_at,
+      authz.professor_name,request.id,profile.full_name`, [token, userId]);
 }
 
 async function getAuthorizationReview(req, res, next) {
@@ -79,12 +79,12 @@ async function authorizeRequest(req, res, next) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const record = await client.query(`SELECT authorization.*,request.status AS request_status,request.user_id,request.student_name,request.student_id,
+    const record = await client.query(`SELECT authz.*,request.status AS request_status,request.user_id,request.student_name,request.student_id,
         request.borrow_date,request.return_date,request.purpose,profile.full_name,
         signature.image_data,signature.mime_type,signature.image_hash
-      FROM public.borrow_request_authorizations authorization JOIN public.borrow_requests request ON request.id=authorization.request_id
+      FROM public.borrow_request_authorizations AS authz JOIN public.borrow_requests request ON request.id=authz.request_id
       JOIN public.profiles profile ON profile.user_id=$2 LEFT JOIN public.professor_signatures signature ON signature.professor_user_id=$2
-      WHERE authorization.review_token=$1 FOR UPDATE OF authorization,request`, [req.params.token, req.user.id]);
+      WHERE authz.review_token=$1 FOR UPDATE OF authz,request`, [req.params.token, req.user.id]);
     const row = record.rows[0];
     if (!row) { await client.query("ROLLBACK"); return res.status(404).json({ error: "REVIEW_NOT_FOUND", message: "This authorization request was not found." }); }
     if (row.status !== "awaiting" || row.request_status !== "Pending") { await client.query("ROLLBACK"); return res.status(409).json({ error: "ALREADY_REVIEWED", message: "This request is no longer awaiting professor authorization." }); }
@@ -110,12 +110,12 @@ async function authorizeRequest(req, res, next) {
 async function downloadAuthorizedDocument(req, res, next) {
   if (!UUID.test(req.params.token)) return res.status(400).json({ error: "INVALID_REVIEW_LINK", message: "This authorization link is invalid." });
   try {
-    const result = await pool.query(`SELECT authorization.*,request.student_name,request.student_id,request.borrow_date,request.return_date,request.purpose,
+    const result = await pool.query(`SELECT authz.*,request.student_name,request.student_id,request.borrow_date,request.return_date,request.purpose,
         request.created_at AS request_created_at,
         COALESCE(json_agg(json_build_object('description',inventory.item_name,'quantity',item.quantity,'released',item.quantity,'returned','','unreturned','','remarks','') ORDER BY item.inventory_id),'[]'::json) AS items
-      FROM public.borrow_request_authorizations authorization JOIN public.borrow_requests request ON request.id=authorization.request_id
+      FROM public.borrow_request_authorizations AS authz JOIN public.borrow_requests request ON request.id=authz.request_id
       JOIN public.borrow_request_items item ON item.request_id=request.id JOIN public.inventory inventory ON inventory.id=item.inventory_id
-      WHERE authorization.review_token=$1 AND authorization.status='authorized' GROUP BY authorization.request_id,request.id`, [req.params.token]);
+      WHERE authz.review_token=$1 AND authz.status='authorized' GROUP BY authz.request_id,request.id`, [req.params.token]);
     const row = result.rows[0];
     if (!row) return res.status(404).json({ error: "SIGNED_DOCUMENT_NOT_FOUND", message: "The signed document is not available yet." });
     const buffer = generateBorrowerForm({ laboratory: "", dateTime: new Date(row.request_created_at).toLocaleString("en-PH", { timeZone: "Asia/Manila" }),
