@@ -66,6 +66,9 @@ export default function Requests() {
           actualReturnedAt: request.actualReturnedAt,
           overdue: request.overdue,
           purpose: request.purpose || "-",
+          department: request.departmentName || "Not assigned",
+          section: request.sectionName || "Not assigned",
+          assignedProfessor: request.assignedProfessorName || "Not assigned",
           status: request.status.charAt(0).toUpperCase() + request.status.slice(1),
           authorizationToken: request.authorizationToken,
           authorizationStatus: request.authorizationStatus,
@@ -412,6 +415,12 @@ export default function Requests() {
               <p><strong>Student:</strong> {selected.student}</p>
 
               <p><strong>Student ID:</strong> {selected.studentId}</p>
+
+              <p><strong>Department:</strong> {selected.department}</p>
+
+              <p><strong>Section:</strong> {selected.section}</p>
+
+              <p><strong>Assigned Professor:</strong> {selected.assignedProfessor}</p>
 
               <p><strong>Item:</strong> {selected.item}</p>
 

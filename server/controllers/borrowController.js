@@ -77,6 +77,10 @@ function normalizeRequest(body) {
     purpose:
       source.purpose,
 
+    departmentId: source.departmentId ?? source.department_id,
+    sectionId: source.sectionId ?? source.section_id,
+    assignedProfessorId: source.assignedProfessorId ?? source.assigned_professor_user_id,
+
     items:
       Array.isArray(source.items)
         ? source.items.map((item) => ({
@@ -101,6 +105,13 @@ function serializeBorrowRequest(request) {
     borrowDate: request.borrow_date,
     returnDate: request.return_date,
     purpose: request.purpose,
+    departmentId: request.department_id ?? null,
+    departmentName: request.department_name ?? null,
+    departmentCode: request.department_code ?? null,
+    sectionId: request.section_id ?? null,
+    sectionName: request.section_name ?? null,
+    assignedProfessorId: request.assigned_professor_user_id ?? null,
+    assignedProfessorName: request.assigned_professor_name ?? null,
     status: String(request.status ?? "").toLowerCase(),
     requestedAt: request.created_at,
     actualReturnedAt: request.actual_returned_at ?? null,
@@ -211,6 +222,40 @@ function getBorrowingPolicy(_req, res) {
     maxQuantityPerRequest: DEFAULT_POLICY.maxQuantityPerStudent,
     leadTimeDays: DEFAULT_POLICY.leadTimeDays,
   });
+}
+
+async function getAssignmentOptions(_req, res, next) {
+  try {
+    const [departments, sections, professors] = await Promise.all([
+      pool.query(`SELECT id,code,name FROM public.academic_departments WHERE is_active=true ORDER BY name,id`),
+      pool.query(`SELECT id,department_id,name FROM public.academic_sections WHERE is_active=true ORDER BY name,id`),
+      pool.query(`SELECT user_id,department_id,full_name FROM public.profiles
+        WHERE role='professor' AND is_active=true AND department_id IS NOT NULL ORDER BY full_name,user_id`),
+    ]);
+    return res.json({
+      departments: departments.rows.map((row) => ({ id: row.id, code: row.code, name: row.name })),
+      sections: sections.rows.map((row) => ({ id: row.id, departmentId: row.department_id, name: row.name })),
+      professors: professors.rows.map((row) => ({ id: row.user_id, departmentId: row.department_id, fullName: row.full_name })),
+    });
+  } catch (error) { return next(error); }
+}
+
+async function validateAcademicAssignment(client, request) {
+  const departmentId = String(request.departmentId ?? "");
+  const sectionId = String(request.sectionId ?? "");
+  const professorId = String(request.assignedProfessorId ?? "");
+  if (!/^[1-9]\d*$/.test(departmentId) || !/^[1-9]\d*$/.test(sectionId)
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(professorId)) {
+    return { code: "ACADEMIC_ASSIGNMENT_REQUIRED", message: "Select a valid department, section, and assigned professor." };
+  }
+  const result = await client.query(`SELECT department.id
+    FROM public.academic_departments AS department
+    JOIN public.academic_sections AS section ON section.department_id=department.id AND section.id=$2 AND section.is_active=true
+    JOIN public.profiles AS professor ON professor.department_id=department.id AND professor.user_id=$3::uuid
+      AND professor.role='professor' AND professor.is_active=true
+    WHERE department.id=$1 AND department.is_active=true
+    FOR KEY SHARE OF department,section,professor`, [departmentId, sectionId, professorId]);
+  return result.rowCount ? null : { code: "INVALID_ACADEMIC_ASSIGNMENT", message: "The selected section or professor does not belong to the active department." };
 }
 
 function validateClaimWindow(returnDate, today) {
@@ -466,6 +511,13 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
 
   try {
     await client.query("BEGIN");
+    if (validationOptions.requireAcademicAssignment) {
+      const assignmentError = await validateAcademicAssignment(client, request);
+      if (assignmentError) {
+        await client.query("ROLLBACK");
+        return { request, validation: { valid: false, status: "Rejected", reasons: [assignmentError], assignment: null, checkedConstraints: [], conflicts: [] } };
+      }
+    }
     const context = await loadValidationContext(client, request, validationOptions.userId ?? null);
     const cspValidation = validateBorrowingRequest({ request, ...context });
     const policyValidation = validatePolicyConstraints({
@@ -521,7 +573,10 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
           return_date,
           purpose,
           status,
-          user_id
+          user_id,
+          department_id,
+          section_id,
+          assigned_professor_user_id
         )
       VALUES
         (
@@ -531,7 +586,10 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
           $4::date,
           $5,
           $6,
-          $7
+          $7,
+          $8,
+          $9,
+          $10::uuid
         )
       RETURNING *`,
       [
@@ -542,6 +600,9 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
         request.purpose.trim(),
         "Pending",
         validationOptions.userId ?? null,
+        request.departmentId,
+        request.sectionId,
+        request.assignedProfessorId,
       ]
     );
     const savedRequest = requestResult.rows[0];
@@ -573,13 +634,18 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
       entityId: savedRequest.id,
       newValues: { ...savedRequest, items: request.items },
     });
-    await notifyRoles(client, ["professor", "admin"], {
+    await notifyUser(client, request.assignedProfessorId, {
       type: "borrowing_submitted",
       title: "New borrowing request",
       message: `${savedRequest.student_name} submitted a borrowing request for ${savedRequest.borrow_date}.`,
-      relatedPath: "/admin/requests",
+      relatedPath: "/professor/requests",
       entityType: "borrowing_request",
       entityId: savedRequest.id,
+    });
+    await notifyRoles(client, ["admin"], {
+      type: "borrowing_submitted", title: "New borrowing request",
+      message: `${savedRequest.student_name} submitted a borrowing request for ${savedRequest.borrow_date}.`,
+      relatedPath: "/admin/requests", entityType: "borrowing_request", entityId: savedRequest.id,
     });
 
     await client.query("COMMIT");
@@ -599,7 +665,7 @@ async function validateBorrowRequest(req, res, next) {
       authenticatedStudentRequest(req.body, req.user),
       false,
       pool,
-      { userId: req.user.id, actor: req.user }
+      { userId: req.user.id, actor: req.user, requireAcademicAssignment: true }
     );
     return res.status(result.validation.valid ? 200 : 422).json(result);
   } catch (error) {
@@ -614,6 +680,9 @@ async function listBorrowRequests(req, res, next) {
     const result = await pool.query(
       `SELECT br.id, br.student_name, br.student_id, br.borrow_date,
               br.return_date, br.actual_returned_at, br.purpose, br.status, br.created_at,
+              br.department_id,department.name AS department_name,department.code AS department_code,
+              br.section_id,section.name AS section_name,br.assigned_professor_user_id,
+              professor.full_name AS assigned_professor_name,
               (SELECT status FROM public.borrow_request_authorizations WHERE request_id=br.id) AS authorization_status,
               (SELECT review_token FROM public.borrow_request_authorizations WHERE request_id=br.id) AS authorization_token,
               (SELECT professor_name FROM public.borrow_request_authorizations WHERE request_id=br.id) AS professor_name,
@@ -644,6 +713,9 @@ async function listBorrowRequests(req, res, next) {
          FROM borrow_requests br
          LEFT JOIN borrow_request_items bri ON bri.request_id = br.id
          LEFT JOIN inventory ON inventory.id = bri.inventory_id
+         LEFT JOIN public.academic_departments department ON department.id=br.department_id
+         LEFT JOIN public.academic_sections section ON section.id=br.section_id
+         LEFT JOIN public.profiles professor ON professor.user_id=br.assigned_professor_user_id
          LEFT JOIN (
            SELECT request_id, inventory_id,
                   SUM(good_quantity)::integer AS good_quantity,
@@ -653,9 +725,10 @@ async function listBorrowRequests(req, res, next) {
              FROM borrowing_return_items GROUP BY request_id, inventory_id
          ) returned ON returned.request_id = br.id AND returned.inventory_id = bri.inventory_id
         WHERE ($1::boolean = false OR br.user_id = $2::uuid)
-        GROUP BY br.id
+          AND ($3::boolean = false OR br.assigned_professor_user_id = $2::uuid)
+        GROUP BY br.id,department.id,section.id,professor.user_id
         ORDER BY br.created_at DESC, br.id DESC`,
-      [studentOnly, req.user.id]
+      [studentOnly, req.user.id, req.user.role === "professor"]
     );
 
     return res.json({ requests: result.rows.map(serializeBorrowRequest) });
@@ -936,7 +1009,7 @@ async function createBorrowRequest(req, res, next) {
       authenticatedStudentRequest(req.body, req.user),
       true,
       pool,
-      { userId: req.user.id, actor: req.user }
+      { userId: req.user.id, actor: req.user, requireAcademicAssignment: true }
     );
     return res.status(result.validation.valid ? 201 : 422).json(result);
   } catch (error) {
@@ -1228,6 +1301,7 @@ async function updateBorrowRequestStatus(req, res, next) {
 module.exports = {
   authenticatedStudentRequest,
   createBorrowRequest,
+  getAssignmentOptions,
   getBorrowingPolicy,
   inventoryDeltas,
   listBorrowRequests,
@@ -1241,5 +1315,6 @@ module.exports = {
   updateBorrowRequestStatus,
   validateClaimWindow,
   validateBorrowRequest,
+  validateAcademicAssignment,
   withValidation,
 };

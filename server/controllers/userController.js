@@ -55,6 +55,7 @@ function getAdminClient() {
 function normalizeUser(body = {}) {
   return { email: String(body.email ?? "").trim().toLowerCase(), fullName: String(body.fullName ?? body.full_name ?? "").trim(),
     role: String(body.role ?? "student").toLowerCase(), studentId: String(body.studentId ?? body.student_id ?? "").trim(),
+    departmentId: body.departmentId ?? body.department_id ?? null,
     isActive: body.isActive ?? body.is_active ?? true };
 }
 function userErrors(user, requireEmail = false) {
@@ -63,16 +64,23 @@ function userErrors(user, requireEmail = false) {
   if (!user.fullName || user.fullName.length > 150) errors.push("Full name is required and cannot exceed 150 characters.");
   if (!ROLES.has(user.role)) errors.push("Role must be student, professor, or admin.");
   if (user.role === "student" && (!user.studentId || user.studentId.length > 100)) errors.push("A student ID is required for Student accounts.");
+  if (user.role === "professor" && !/^[1-9]\d*$/.test(String(user.departmentId ?? ""))) errors.push("An active department is required for Professor accounts.");
   if (typeof user.isActive !== "boolean") errors.push("Account status is invalid.");
   return errors;
+}
+async function professorDepartmentExists(user) {
+  if (user.role !== "professor") return true;
+  const result = await pool.query(`SELECT 1 FROM public.academic_departments WHERE id=$1 AND is_active=true`, [user.departmentId]);
+  return result.rowCount > 0;
 }
 async function listUsers(req, res, next) {
   const search = String(req.query.search ?? "").trim().slice(0, 100);
   try {
     const result = await pool.query(`SELECT profile.user_id, users.email, profile.full_name, profile.student_id,
-      profile.role, profile.is_active, profile.qr_status, profile.qr_issued_at,
+      profile.role, profile.is_active, profile.department_id,department.name AS department_name,profile.qr_status, profile.qr_issued_at,
       profile.qr_last_printed_at, profile.created_at, profile.updated_at
       FROM public.profiles profile JOIN auth.users users ON users.id = profile.user_id
+      LEFT JOIN public.academic_departments department ON department.id=profile.department_id
       WHERE ($1 = '' OR profile.full_name ILIKE '%' || $1 || '%' OR users.email ILIKE '%' || $1 || '%'
         OR profile.student_id ILIKE '%' || $1 || '%') ORDER BY profile.full_name, profile.user_id LIMIT 200`, [search]);
     return res.json({ users: result.rows });
@@ -83,14 +91,15 @@ async function inviteUser(req, res, next) {
   if (errors.length) return res.status(422).json({ error: "INVALID_USER", reasons: errors });
   let invitedId;
   try {
+    if (!await professorDepartmentExists(user)) return res.status(422).json({ error: "INVALID_DEPARTMENT", message: "Select an active department for this professor." });
     const { data, error } = await getAdminClient().auth.admin.inviteUserByEmail(user.email, {
       data: { full_name: user.fullName, student_id: user.studentId || undefined },
       redirectTo: invitationRedirectUrl(),
     });
     if (error) return res.status(409).json({ error: "INVITATION_FAILED", message: error.message });
     invitedId = data.user.id;
-    const result = await pool.query(`UPDATE public.profiles SET full_name=$2, role=$3, student_id=$4, is_active=$5, updated_at=now()
-      WHERE user_id=$1 RETURNING *`, [invitedId, user.fullName, user.role, user.role === "student" ? user.studentId : null, user.isActive]);
+    const result = await pool.query(`UPDATE public.profiles SET full_name=$2, role=$3, student_id=$4, is_active=$5,department_id=$6,updated_at=now()
+      WHERE user_id=$1 RETURNING *`, [invitedId, user.fullName, user.role, user.role === "student" ? user.studentId : null, user.isActive, user.role === "professor" ? user.departmentId : null]);
     if (!result.rowCount) throw new Error("The invited user profile was not created.");
     await writeAuditLog(pool, req.user, { action: "user_invited", entityType: "user_profile", entityId: invitedId, newValues: { email: user.email, ...result.rows[0] } });
     return res.status(201).json({ user: { email: user.email, ...result.rows[0] } });
@@ -115,6 +124,7 @@ async function updateUser(req, res, next) {
   if (req.params.id === req.user.id && (user.role !== "admin" || !user.isActive)) return res.status(409).json({ error: "SELF_LOCKOUT", message: "You cannot demote or deactivate your own account." });
   const client = await pool.connect();
   try {
+    if (!await professorDepartmentExists(user)) return res.status(422).json({ error: "INVALID_DEPARTMENT", message: "Select an active department for this professor." });
     await client.query("BEGIN");
     await client.query(`SELECT pg_advisory_xact_lock(hashtextextended('user-management', 0))`);
     const currentResult = await client.query(`SELECT * FROM public.profiles WHERE user_id=$1 FOR UPDATE`, [req.params.id]);
@@ -124,8 +134,8 @@ async function updateUser(req, res, next) {
       const activeAdmins = await client.query(`SELECT user_id FROM public.profiles WHERE role='admin' AND is_active=true ORDER BY user_id FOR UPDATE`);
       if (activeAdmins.rowCount <= 1) { await client.query("ROLLBACK"); return res.status(409).json({ error: "LAST_ADMIN", message: "The last active Admin cannot be demoted or deactivated." }); }
     }
-    const result = await client.query(`UPDATE public.profiles SET full_name=$2, role=$3, student_id=$4, is_active=$5, updated_at=now()
-      WHERE user_id=$1 RETURNING *`, [req.params.id, user.fullName, user.role, user.role === "student" ? user.studentId : null, user.isActive]);
+    const result = await client.query(`UPDATE public.profiles SET full_name=$2, role=$3, student_id=$4, is_active=$5,department_id=$6,updated_at=now()
+      WHERE user_id=$1 RETURNING *`, [req.params.id, user.fullName, user.role, user.role === "student" ? user.studentId : null, user.isActive, user.role === "professor" ? user.departmentId : null]);
     if (current.role === "student" && user.role !== "student") {
       await client.query(`UPDATE public.profiles SET qr_status='revoked', qr_version=qr_version+1,
         qr_revoked_at=now(), qr_revocation_reason='Account role changed from Student', updated_at=now() WHERE user_id=$1`, [req.params.id]);
