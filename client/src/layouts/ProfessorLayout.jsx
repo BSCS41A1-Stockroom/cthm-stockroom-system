@@ -12,13 +12,7 @@ export default function ProfessorLayout() {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
     return (
-        <div
-            className={`layout ${
-                sidebarCollapsed
-                    ? "sidebar-is-collapsed"
-                    : ""
-            }`}
-        >
+        <div className={`layout ${sidebarCollapsed ? "sidebar-is-collapsed" : ""}`}>
             <Sidebar
                 sidebarOpen={sidebarOpen}
                 setSidebarOpen={setSidebarOpen}
@@ -26,20 +20,12 @@ export default function ProfessorLayout() {
                 variant="professor"
             />
 
-            <div
-                className={`main-content ${
-                    sidebarCollapsed
-                        ? "expanded"
-                        : ""
-                }`}
-            >
+            <div className={`main-content ${sidebarCollapsed ? "expanded" : ""}`}>
                 <Topbar
                     sidebarOpen={sidebarOpen}
                     setSidebarOpen={setSidebarOpen}
                     sidebarCollapsed={sidebarCollapsed}
-                    setSidebarCollapsed={
-                        setSidebarCollapsed
-                    }
+                    setSidebarCollapsed={setSidebarCollapsed}
                     variant="professor"
                 />
 

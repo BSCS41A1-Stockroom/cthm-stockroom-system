@@ -36,6 +36,8 @@ import Reports from "../pages/admin/Reports";
 import AuditLogs from "../pages/admin/AuditLogs";
 import Users from "../pages/admin/Users";
 import ScanQr from "../pages/admin/ScanQr";
+import SignatureSettings from "../pages/admin/SignatureSettings";
+import AuthorizationReview from "../pages/admin/AuthorizationReview";
 import MobileQrScanner from "../pages/admin/MobileQrScanner";
 
 // =========================================================
@@ -159,6 +161,16 @@ export default function AppRoutes() {
                     <Route
                         path="/professor/requests"
                         element={<ProfessorPendingRequests />}
+                    />
+
+                    <Route
+                        path="/professor/signature"
+                        element={<SignatureSettings />}
+                    />
+
+                    <Route
+                        path="/authorize/:token"
+                        element={<AuthorizationReview />}
                     />
 
                 </Route>

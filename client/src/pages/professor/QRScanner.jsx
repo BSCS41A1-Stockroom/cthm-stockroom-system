@@ -1,358 +1,74 @@
-import { useState } from "react";
-import {
-    FaQrcode,
-    FaCamera,
-    FaKeyboard,
-    FaCheckCircle,
-    FaTimesCircle,
-    FaSearch,
-} from "react-icons/fa";
-
+import { useCallback, useEffect, useRef, useState } from "react";
+import { FaCamera, FaKeyboard, FaQrcode, FaSearch } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
 import "../../styles/professor.css";
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function authorizationToken(value) {
+  const input = String(value || "").trim();
+  if (UUID.test(input)) return input;
+  try {
+    const url = new URL(input, window.location.origin);
+    const match = url.pathname.match(/^\/authorize\/([^/]+)\/?$/);
+    return match && UUID.test(match[1]) ? match[1] : null;
+  } catch { return null; }
+}
+
 export default function QRScanner() {
-    const [mode, setMode] = useState("camera");
-    const [code, setCode] = useState("");
-    const [result, setResult] = useState(null);
+  const navigate = useNavigate();
+  const scanner = useRef(null);
+  const handled = useRef(false);
+  const [mode, setMode] = useState("camera");
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+  const [cameraState, setCameraState] = useState("Starting camera...");
 
-    const handleVerify = () => {
-        if (!code.trim()) return;
+  const openReview = useCallback((value) => {
+    const token = authorizationToken(value);
+    if (!token) { setError("This is not a valid borrowing-authorization QR code."); return; }
+    if (handled.current) return;
+    handled.current = true;
+    navigate(`/authorize/${token}`);
+  }, [navigate]);
 
-        // Temporary result.
-        // Actual QR verification will be connected to the database later.
-        setResult({
-            valid: true,
-            student: "Juan Dela Cruz",
-            studentId: "2024-00125",
-            program: "BS Hospitality Management",
-            request: "Food & Beverage Laboratory",
-            date: "September 20, 2026",
-            time: "9:00 AM – 11:00 AM",
-            status: "Pending Professor Confirmation",
-        });
+  useEffect(() => {
+    if (mode !== "camera") return undefined;
+    let cancelled = false;
+    handled.current = false;
+    (async () => {
+      try {
+        const { Html5Qrcode } = await import("html5-qrcode");
+        if (cancelled) return;
+        const instance = new Html5Qrcode("professor-authorization-reader");
+        scanner.current = instance;
+        await instance.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 240, height: 240 } }, openReview, () => {});
+        if (!cancelled) setCameraState("Position the authorization QR code inside the frame.");
+      } catch (cameraError) {
+        if (!cancelled) {
+          setCameraState("");
+          setError(cameraError?.message?.includes("Permission") ? "Camera access was denied. Allow camera permission or use manual entry." : "The camera could not be started. Use manual entry or try another browser.");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      const activeScanner = scanner.current;
+      scanner.current = null;
+      if (activeScanner?.isScanning) activeScanner.stop().catch(() => {}).finally(() => activeScanner.clear());
+      else activeScanner?.clear?.();
     };
-
-    const clearResult = () => {
-        setResult(null);
-        setCode("");
-    };
-
-    return (
-        <div className="professor-qr-page">
-
-            {/* HEADER */}
-            <div className="professor-page-header">
-                <div>
-                    <div className="professor-page-eyebrow">
-                        PROFESSOR PORTAL
-                    </div>
-
-                    <h1>Student QR Verification</h1>
-
-                    <p>
-                        Scan a student's QR code to verify
-                        their borrowing request.
-                    </p>
-                </div>
-            </div>
-
-
-            {/* MODE SWITCHER */}
-            <div className="professor-qr-mode-bar">
-
-                <button
-                    type="button"
-                    className={
-                        mode === "camera"
-                            ? "active"
-                            : ""
-                    }
-                    onClick={() => {
-                        setMode("camera");
-                        setResult(null);
-                    }}
-                >
-                    <FaCamera />
-                    Camera Scanner
-                </button>
-
-                <button
-                    type="button"
-                    className={
-                        mode === "manual"
-                            ? "active"
-                            : ""
-                    }
-                    onClick={() => {
-                        setMode("manual");
-                        setResult(null);
-                    }}
-                >
-                    <FaKeyboard />
-                    Enter QR Code
-                </button>
-
-            </div>
-
-
-            <div className="professor-qr-layout">
-
-                {/* SCANNER */}
-                <div className="professor-qr-card">
-
-                    <div className="professor-qr-card-header">
-                        <div>
-                            <h2>
-                                {mode === "camera"
-                                    ? "Scan QR Code"
-                                    : "Enter QR Code"}
-                            </h2>
-
-                            <p>
-                                {mode === "camera"
-                                    ? "Position the student's QR code inside the scanner."
-                                    : "Enter the QR code provided by the student."}
-                            </p>
-                        </div>
-
-                        <FaQrcode />
-                    </div>
-
-
-                    {mode === "camera" ? (
-                        <div className="professor-qr-camera">
-
-                            <div className="professor-qr-frame">
-
-                                <div className="qr-corner qr-tl" />
-                                <div className="qr-corner qr-tr" />
-                                <div className="qr-corner qr-bl" />
-                                <div className="qr-corner qr-br" />
-
-                                <div className="qr-scan-line" />
-
-                                <FaQrcode />
-
-                            </div>
-
-                            <span>
-                                Camera scanner ready
-                            </span>
-
-                            <small>
-                                Allow camera access when prompted.
-                            </small>
-
-                        </div>
-                    ) : (
-                        <div className="professor-qr-manual">
-
-                            <label>
-                                QR Code
-                            </label>
-
-                            <div className="professor-qr-input">
-
-                                <FaQrcode />
-
-                                <input
-                                    type="text"
-                                    value={code}
-                                    onChange={(e) =>
-                                        setCode(
-                                            e.target.value
-                                        )
-                                    }
-                                    onKeyDown={(e) => {
-                                        if (
-                                            e.key ===
-                                            "Enter"
-                                        ) {
-                                            handleVerify();
-                                        }
-                                    }}
-                                    placeholder="Enter QR code..."
-                                />
-
-                            </div>
-
-                            <button
-                                type="button"
-                                className="professor-qr-verify-btn"
-                                onClick={
-                                    handleVerify
-                                }
-                            >
-                                <FaSearch />
-                                Verify Code
-                            </button>
-
-                        </div>
-                    )}
-
-                </div>
-
-
-                {/* RESULT */}
-                <div className="professor-qr-card">
-
-                    <div className="professor-qr-card-header">
-                        <div>
-                            <h2>
-                                Verification Result
-                            </h2>
-
-                            <p>
-                                Student and request information
-                            </p>
-                        </div>
-                    </div>
-
-
-                    {!result ? (
-                        <div className="professor-qr-empty">
-
-                            <FaQrcode />
-
-                            <strong>
-                                Waiting for QR scan
-                            </strong>
-
-                            <span>
-                                Scan a student QR code to
-                                display the request.
-                            </span>
-
-                        </div>
-                    ) : (
-                        <div className="professor-qr-result">
-
-                            {result.valid ? (
-                                <div className="professor-qr-result-status valid">
-                                    <FaCheckCircle />
-
-                                    <div>
-                                        <strong>
-                                            QR Code Verified
-                                        </strong>
-
-                                        <span>
-                                            Student record found.
-                                        </span>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="professor-qr-result-status invalid">
-                                    <FaTimesCircle />
-
-                                    <div>
-                                        <strong>
-                                            Invalid QR Code
-                                        </strong>
-
-                                        <span>
-                                            No matching record found.
-                                        </span>
-                                    </div>
-                                </div>
-                            )}
-
-
-                            {result.valid && (
-                                <>
-                                    <div className="professor-qr-student">
-
-                                        <div className="professor-qr-avatar">
-                                            {result.student.charAt(
-                                                0
-                                            )}
-                                        </div>
-
-                                        <div>
-                                            <strong>
-                                                {result.student}
-                                            </strong>
-
-                                            <span>
-                                                {result.studentId}
-                                            </span>
-
-                                            <small>
-                                                {result.program}
-                                            </small>
-                                        </div>
-
-                                    </div>
-
-
-                                    <div className="professor-qr-details">
-
-                                        <div>
-                                            <span>
-                                                Activity
-                                            </span>
-
-                                            <strong>
-                                                {result.request}
-                                            </strong>
-                                        </div>
-
-                                        <div>
-                                            <span>
-                                                Date
-                                            </span>
-
-                                            <strong>
-                                                {result.date}
-                                            </strong>
-                                        </div>
-
-                                        <div>
-                                            <span>
-                                                Time
-                                            </span>
-
-                                            <strong>
-                                                {result.time}
-                                            </strong>
-                                        </div>
-
-                                        <div>
-                                            <span>
-                                                Status
-                                            </span>
-
-                                            <strong>
-                                                {result.status}
-                                            </strong>
-                                        </div>
-
-                                    </div>
-
-
-                                    <div className="professor-qr-result-actions">
-
-                                        <button
-                                            type="button"
-                                            className="professor-qr-clear"
-                                            onClick={
-                                                clearResult
-                                            }
-                                        >
-                                            Scan Another
-                                        </button>
-
-                                    </div>
-                                </>
-                            )}
-
-                        </div>
-                    )}
-
-                </div>
-
-            </div>
-
-        </div>
-    );
+  }, [mode, openReview]);
+
+  return <div className="professor-qr-page">
+    <div className="professor-page-header"><div><div className="professor-page-eyebrow">PROFESSOR PORTAL</div><h1>Authorization QR Scanner</h1><p>Scan the QR generated for a borrowing request, then review and sign it securely.</p></div></div>
+    <div className="professor-qr-mode-bar"><button type="button" className={mode === "camera" ? "active" : ""} onClick={() => { setError(""); setCameraState("Starting camera..."); setMode("camera"); }}><FaCamera /> Camera Scanner</button><button type="button" className={mode === "manual" ? "active" : ""} onClick={() => { setMode("manual"); setError(""); }}><FaKeyboard /> Enter QR Code</button></div>
+    <div className="professor-qr-layout">
+      <div className="professor-qr-card"><div className="professor-qr-card-header"><div><h2>{mode === "camera" ? "Scan QR Code" : "Enter QR Code"}</h2><p>Only borrowing-authorization QR codes are accepted.</p></div><FaQrcode /></div>
+        {mode === "camera" ? <div className="professor-qr-camera"><div id="professor-authorization-reader" className="professor-authorization-reader" /><span>{cameraState}</span></div> : <div className="professor-qr-manual"><label htmlFor="professor-authorization-code">Authorization link or token</label><div className="professor-qr-input"><FaQrcode /><input id="professor-authorization-code" value={code} onChange={(event) => setCode(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") openReview(code); }} placeholder="Paste QR link or UUID..." /></div><button type="button" className="professor-qr-verify-btn" onClick={() => openReview(code)}><FaSearch /> Open Request</button></div>}
+        {error && <p className="form-error" role="alert">{error}</p>}
+      </div>
+      <div className="professor-qr-card"><div className="professor-qr-empty"><FaQrcode /><strong>Scanning does not sign the request</strong><span>You will always see the official form and must explicitly confirm before your saved signature is applied.</span></div></div>
+    </div>
+  </div>;
 }

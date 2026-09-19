@@ -4,9 +4,11 @@ import { authenticatedFetch } from "../../lib/api";
 import { supabase } from "../../lib/supabase";
 import ReceiptModal from "../../components/ReceiptModal";
 import { FaReceipt } from "react-icons/fa";
+import AuthorizationQr from "../../components/AuthorizationQr";
 
 const STATUS_META = {
   pending: { label: "Pending", className: "badge-pending" },
+  validated: { label: "Professor Authorized", className: "badge-pending" },
   approved: { label: "Ready for Claim", className: "badge-approved" },
   borrowed: { label: "Borrowed", className: "badge-approved" },
   rejected: { label: "Rejected", className: "badge-rejected" },
@@ -102,7 +104,7 @@ export default function MyRequests() {
           </div>
 
           <div className="status-tabs">
-            {["all", "pending", "approved", "borrowed", "rejected", "expired", "returned"].map((s) => (
+            {["all", "pending", "validated", "approved", "borrowed", "rejected", "expired", "returned"].map((s) => (
               <button
                 key={s}
                 type="button"
@@ -233,6 +235,7 @@ export default function MyRequests() {
               <h3>Purpose</h3>
               <p>{activeRequest.purpose || "—"}</p>
             </div>
+            {activeRequest.status === "pending" && <AuthorizationQr token={activeRequest.authorizationToken} />}
             {activeRequest.actualReturnedAt && <div className="modal-section"><h3>Completed return</h3><p>{new Date(activeRequest.actualReturnedAt).toLocaleString()}</p></div>}
             <div className="request-detail-actions">
               <button type="button" className="detail-secondary-btn" onClick={() => setActiveRequest(null)}>Close</button>

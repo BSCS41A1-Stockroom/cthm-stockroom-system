@@ -15,6 +15,7 @@ const qrRoutes = require("./routes/qrRoutes");
 const reconciliationRoutes = require("./routes/reconciliationRoutes");
 const receiptRoutes = require("./routes/receiptRoutes");
 const accountabilityRoutes = require("./routes/accountabilityRoutes");
+const authorizationRoutes = require("./routes/authorizationRoutes");
 
 const app = express();
 
@@ -37,7 +38,7 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: "100kb" }));
+app.use(express.json({ limit: "400kb" }));
 
 app.get("/", (req, res) => {
   res.send("CTHM Stockroom Backend Running");
@@ -57,6 +58,7 @@ app.use("/api/qr", qrRoutes);
 app.use("/api/reconciliations", reconciliationRoutes);
 app.use("/api/receipts", receiptRoutes);
 app.use("/api/accountability", accountabilityRoutes);
+app.use("/api/authorizations", authorizationRoutes);
 
 app.use((error, req, res, next) => {
   console.error(error);

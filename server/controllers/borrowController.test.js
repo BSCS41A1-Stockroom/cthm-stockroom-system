@@ -62,7 +62,7 @@ test("status approval does not execute serialized return processing", async () =
   const calls = [];
   const client = { async query(sql) {
     calls.push(sql);
-    if (sql.includes("SELECT * FROM borrow_requests")) return { rowCount: 1, rows: [{ id: 5, status: "Pending", user_id: "student", student_name: "Student", borrow_date: "2030-01-01", return_date: "2030-01-02" }] };
+    if (sql.includes("SELECT * FROM borrow_requests")) return { rowCount: 1, rows: [{ id: 5, status: "Validated", user_id: "student", student_name: "Student", borrow_date: "2030-01-01", return_date: "2030-01-02" }] };
     if (sql.includes("SELECT inventory_id, quantity")) return { rowCount: 0, rows: [] };
     if (sql.includes("UPDATE borrow_requests")) return { rowCount: 1, rows: [{ id: 5, status: "Approved" }] };
     return { rowCount: 1, rows: [] };
@@ -272,6 +272,10 @@ test("serializes database borrowing rows for the student request page", () => {
     requestedAt: "2026-08-19T00:00:00Z",
     actualReturnedAt: null,
     overdue: false,
+    authorizationStatus: null,
+    authorizationToken: null,
+    authorizedBy: null,
+    authorizedAt: null,
     items: [{ name: "Pan", quantity: 2 }],
   });
 });
@@ -508,6 +512,7 @@ test("commits a valid request only after all policy constraints pass", async () 
       if (sql.includes("COALESCE(SUM")) return { rows: [] };
       if (sql.includes("FROM borrow_requests br")) return { rows: [] };
       if (sql.includes("INSERT INTO borrow_requests")) return { rows: [{ id: 101 }] };
+      if (sql.includes("INSERT INTO public.borrow_request_authorizations")) return { rows: [{ review_token: "00000000-0000-4000-8000-000000000101" }] };
       return { rows: [] };
     },
     release() {},

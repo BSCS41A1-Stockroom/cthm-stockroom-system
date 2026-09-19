@@ -5,6 +5,7 @@ import {
     FaCalendarAlt,
     FaClipboardList,
     FaQrcode,
+    FaSignature,
     FaShieldAlt,
     FaTimes,
 } from "react-icons/fa";
@@ -51,6 +52,11 @@ const PROFESSOR_NAV = [
         end: true,
     },
     {
+        to: "/professor/signature",
+        label: "Signature Settings",
+        icon: FaSignature,
+    },
+    {
         to: "/professor/qr",
         label: "QR Scanner",
         icon: FaQrcode,
@@ -64,7 +70,6 @@ const PROFESSOR_NAV = [
         to: "/professor/requests",
         label: "Pending Requests",
         icon: FaClipboardList,
-        badge: true,
     },
 ];
 
@@ -165,12 +170,6 @@ export default function Sidebar({
                                     </span>
                                 )}
 
-                                {!sidebarCollapsed &&
-                                    item.badge && (
-                                        <span className="sidebar-nav-badge">
-                                            0
-                                        </span>
-                                    )}
                             </NavLink>
                         );
                     })}
