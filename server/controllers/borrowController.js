@@ -1038,9 +1038,23 @@ async function updateBorrowRequestStatus(req, res, next) {
     }
 
     const request = requestResult.rows[0];
+    if (req.user.role === "professor" && String(request.assigned_professor_user_id ?? "") !== String(req.user.id)) {
+      await writeAuditLog(client, req.user, { action: "borrowing_assignment_access_denied", entityType: "borrowing_request", entityId: requestId,
+        metadata: { attemptedStatus: nextStatus, reason: request.assigned_professor_user_id ? "NOT_ASSIGNED_PROFESSOR" : "PROFESSOR_NOT_ASSIGNED" } });
+      await client.query("COMMIT");
+      return res.status(request.assigned_professor_user_id ? 403 : 409).json({
+        error: request.assigned_professor_user_id ? "NOT_ASSIGNED_PROFESSOR" : "PROFESSOR_NOT_ASSIGNED",
+        message: request.assigned_professor_user_id ? "This request is assigned to another professor." : "This request has no assigned professor.",
+      });
+    }
     if (nextStatus === "Approved" && req.user.role !== "admin") {
       await client.query("ROLLBACK");
       return res.status(403).json({ error: "ADMIN_APPROVAL_REQUIRED", message: "Only an administrator can give final approval." });
+    }
+    if (nextStatus === "Rejected" && req.user.role === "professor"
+      && String(req.body?.reason ?? "").trim().length < 5) {
+      await client.query("ROLLBACK");
+      return res.status(422).json({ error: "REJECTION_REASON_REQUIRED", message: "Provide a rejection reason of at least 5 characters." });
     }
     const allowed = STATUS_TRANSITIONS[request.status];
     if (!allowed || !allowed.has(nextStatus)) {
