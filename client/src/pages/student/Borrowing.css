@@ -3533,3 +3533,505 @@
   }
 }
 
+
+
+/* ============================================================
+   BORROWING PAGE - UPDATED INVENTORY TOOLBAR / PRINT PREVIEW
+   ============================================================ */
+
+.inventory-section {
+    width: 100%;
+    margin-top: 22px;
+}
+
+.inventory-section-title {
+    margin: 0 0 12px;
+}
+
+.inventory-section-title h2 {
+    margin: 0;
+    color: var(--borrow-navy);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.inventory-section-title p {
+    margin: 5px 0 0;
+    color: var(--borrow-muted);
+    font-size: 11px;
+}
+
+.inventory-toolbar {
+    width: 100%;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 9px;
+    background: var(--borrow-white, #ffffff);
+    border: 1px solid var(--borrow-border);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(23, 38, 60, 0.035);
+    box-sizing: border-box;
+}
+
+.inventory-toolbar .inventory-search {
+    flex: 1 1 auto;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    height: 38px;
+    margin: 0;
+}
+
+.inventory-search-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    margin-left: 11px;
+    color: var(--borrow-muted);
+    font-size: 17px;
+    line-height: 1;
+}
+
+.inventory-search input {
+    height: 100%;
+    padding: 0 36px 0 8px;
+    font-size: 11px;
+}
+
+.inventory-search-clear {
+    right: 7px;
+    width: 24px;
+    height: 24px;
+}
+
+.inventory-toolbar .inventory-view-controls {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+}
+
+.inventory-toolbar .inventory-view-btn {
+    height: 38px;
+    padding: 0 13px;
+    border-radius: 7px;
+    font-size: 11px;
+}
+
+.inventory-table-expand-row {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 7px;
+    margin-bottom: 7px;
+}
+
+.expand-table-btn {
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px;
+    border: 1px solid var(--borrow-border);
+    border-radius: 6px;
+    background: #ffffff;
+    color: var(--borrow-muted);
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.expand-table-btn:hover {
+    background: var(--borrow-hover, #faf8f2);
+    border-color: rgba(182, 155, 98, 0.55);
+    color: var(--borrow-navy);
+}
+
+/* Keep the general search controls visually consistent with the page. */
+.inventory-section .search-field,
+.inventory-section .filter-bar {
+    margin: 0;
+}
+
+/* ============================================================
+   BORROWER'S FORM PRINT PREVIEW
+   ============================================================ */
+
+.print-preview-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    background: rgba(17, 27, 41, 0.74);
+    backdrop-filter: blur(5px);
+    box-sizing: border-box;
+}
+
+.print-preview-modal {
+    width: min(1120px, 100%);
+    height: min(900px, 94vh);
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #eef0f2;
+    border-radius: 12px;
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.30);
+}
+
+.print-preview-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 17px 20px;
+    background: #ffffff;
+    border-bottom: 1px solid var(--borrow-border);
+}
+
+.print-preview-label {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--borrow-gold);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1.3px;
+}
+
+.print-preview-header h2 {
+    margin: 0;
+    color: var(--borrow-navy);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.print-preview-header p {
+    margin: 4px 0 0;
+    color: var(--borrow-muted);
+    font-size: 10px;
+}
+
+.print-preview-close {
+    width: 33px;
+    height: 33px;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--borrow-border);
+    border-radius: 50%;
+    background: #ffffff;
+    color: var(--borrow-muted);
+    font-size: 21px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.print-preview-close:hover {
+    background: var(--borrow-navy);
+    border-color: var(--borrow-navy);
+    color: #ffffff;
+}
+
+.print-preview-workspace {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 25px;
+    box-sizing: border-box;
+}
+
+.print-paper {
+    width: 794px;
+    min-height: 1123px;
+    flex: 0 0 auto;
+    padding: 48px 50px;
+    box-sizing: border-box;
+    background: #ffffff;
+    color: #111111;
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.16);
+}
+
+.print-paper-school {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 13px;
+    text-align: center;
+}
+
+.print-paper-logo {
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #17263c;
+    border-radius: 50%;
+    color: #17263c;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.print-paper-school h3 {
+    margin: 0;
+    color: #17263c;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 16px;
+    letter-spacing: 0.35px;
+}
+
+.print-paper-school p {
+    margin: 3px 0 0;
+    color: #555555;
+    font-size: 8px;
+}
+
+.print-paper-line {
+    height: 2px;
+    margin: 18px 0 17px;
+    background: #17263c;
+}
+
+.print-paper-title {
+    margin-bottom: 22px;
+    text-align: center;
+}
+
+.print-paper-title h1 {
+    margin: 0;
+    color: #17263c;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 19px;
+    letter-spacing: 0.9px;
+}
+
+.print-paper-title p {
+    margin: 4px 0 0;
+    color: #777777;
+    font-size: 8px;
+}
+
+.print-paper-information {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 20px;
+    border: 1px solid #c7c7c7;
+}
+
+.print-paper-information > div {
+    min-height: 44px;
+    padding: 7px 9px;
+    box-sizing: border-box;
+}
+
+.print-paper-information > div:nth-child(odd) {
+    border-right: 1px solid #d5d5d5;
+}
+
+.print-paper-information > div:nth-child(n + 3) {
+    border-top: 1px solid #d5d5d5;
+}
+
+.print-paper-information span {
+    display: block;
+    margin-bottom: 3px;
+    color: #777777;
+    font-size: 7px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.print-paper-information strong {
+    display: block;
+    color: #222222;
+    font-size: 9px;
+    font-weight: 600;
+    word-break: break-word;
+}
+
+.print-paper-items {
+    width: 100%;
+    overflow: hidden;
+    margin-bottom: 35px;
+    border: 1px solid #999999;
+}
+
+.print-paper-items table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.print-paper-items th {
+    height: 31px;
+    padding: 4px 3px;
+    background: #f1f1f1;
+    border-right: 1px solid #999999;
+    border-bottom: 1px solid #999999;
+    color: #222222;
+    font-size: 6.5px;
+    font-weight: 800;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.print-paper-items td {
+    height: 32px;
+    padding: 4px 3px;
+    border-right: 1px solid #c4c4c4;
+    border-bottom: 1px solid #c4c4c4;
+    color: #222222;
+    font-size: 7.5px;
+    text-align: center;
+    vertical-align: middle;
+    word-break: break-word;
+}
+
+.print-paper-items th:last-child,
+.print-paper-items td:last-child {
+    border-right: none;
+}
+
+.print-paper-items th:nth-child(1) { width: 6%; }
+.print-paper-items th:nth-child(2) { width: 29%; }
+.print-paper-items th:nth-child(3),
+.print-paper-items th:nth-child(4),
+.print-paper-items th:nth-child(5),
+.print-paper-items th:nth-child(6) { width: 11%; }
+.print-paper-items th:nth-child(7) { width: 21%; }
+
+.print-paper-signatures {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px;
+    margin-top: 62px;
+}
+
+.print-paper-signatures > div {
+    text-align: center;
+}
+
+.signature-line {
+    height: 28px;
+    margin-bottom: 5px;
+    border-bottom: 1px solid #333333;
+}
+
+.print-paper-signatures span {
+    color: #444444;
+    font-size: 7.5px;
+    font-weight: 600;
+}
+
+.print-paper-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    margin-top: 35px;
+    padding-top: 7px;
+    border-top: 1px solid #d0d0d0;
+    color: #888888;
+    font-size: 6.5px;
+}
+
+.print-preview-footer {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 11px 17px;
+    background: #ffffff;
+    border-top: 1px solid var(--borrow-border);
+}
+
+.print-preview-cancel,
+.print-preview-confirm {
+    height: 35px;
+    padding: 0 14px;
+    border-radius: 7px;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.print-preview-cancel {
+    background: #ffffff;
+    border: 1px solid var(--borrow-border);
+    color: var(--borrow-muted);
+}
+
+.print-preview-cancel:hover {
+    background: var(--borrow-ivory, #f5f3ee);
+    color: var(--borrow-navy);
+}
+
+.print-preview-confirm {
+    background: var(--borrow-navy);
+    border: 1px solid var(--borrow-navy);
+    color: #ffffff;
+    box-shadow: 0 3px 8px rgba(23, 38, 60, 0.15);
+}
+
+.print-preview-confirm:hover {
+    background: #213650;
+    border-color: #213650;
+}
+
+@media (max-width: 700px) {
+    .inventory-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .inventory-toolbar .inventory-view-controls {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .inventory-toolbar .inventory-view-btn {
+        width: 100%;
+    }
+
+    .inventory-table-expand-row {
+        justify-content: flex-start;
+    }
+
+    .print-preview-overlay {
+        padding: 8px;
+    }
+
+    .print-preview-modal {
+        height: 96vh;
+        border-radius: 9px;
+    }
+
+    .print-preview-workspace {
+        padding: 10px;
+    }
+
+    .print-paper {
+        transform-origin: top center;
+    }
+}

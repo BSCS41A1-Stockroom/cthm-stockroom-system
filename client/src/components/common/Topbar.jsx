@@ -1,3 +1,5 @@
+// Topbar.jsx
+
 import { useEffect, useState } from "react";
 import { FaBars } from "react-icons/fa";
 
@@ -12,7 +14,7 @@ export default function Topbar({
     variant = "student",
 }) {
     const [isMobile, setIsMobile] = useState(
-        window.innerWidth <= 900
+        () => window.innerWidth <= 900
     );
 
     useEffect(() => {
@@ -20,10 +22,7 @@ export default function Topbar({
             setIsMobile(window.innerWidth <= 900);
         };
 
-        window.addEventListener(
-            "resize",
-            handleResize
-        );
+        window.addEventListener("resize", handleResize);
 
         return () => {
             window.removeEventListener(
@@ -37,28 +36,26 @@ export default function Topbar({
 
     const toggleSidebar = () => {
         if (isMobile) {
-            setSidebarOpen(!sidebarOpen);
-        } else {
-            setSidebarCollapsed(
-                !sidebarCollapsed
-            );
+            setSidebarOpen((current) => !current);
+            return;
         }
+
+        setSidebarCollapsed((current) => !current);
     };
 
     return (
         <header className="topbar">
             <div className="topbar-left">
-
                 <button
                     type="button"
-                    className={`topbar-menu ${
-                        sidebarOpen ||
-                        !sidebarCollapsed
-                            ? "active"
-                            : ""
-                    }`}
+                    className="topbar-menu"
                     onClick={toggleSidebar}
                     aria-label="Toggle navigation"
+                    aria-expanded={
+                        isMobile
+                            ? sidebarOpen
+                            : !sidebarCollapsed
+                    }
                 >
                     <FaBars />
                 </button>
@@ -74,11 +71,9 @@ export default function Topbar({
                             : "Student Portal"}
                     </span>
                 </div>
-
             </div>
 
             <div className="topbar-right">
-
                 <NotificationCenter />
 
                 <div className="topbar-divider" />
@@ -90,7 +85,6 @@ export default function Topbar({
                             : "student"
                     }
                 />
-
             </div>
         </header>
     );

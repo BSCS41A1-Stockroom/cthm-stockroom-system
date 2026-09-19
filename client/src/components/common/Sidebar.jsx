@@ -1,3 +1,5 @@
+// Sidebar.jsx
+
 import { NavLink } from "react-router-dom";
 import {
     FaHome,
@@ -95,19 +97,20 @@ export default function Sidebar({
                 <div
                     className="sidebar-overlay"
                     onClick={closeSidebar}
+                    aria-hidden="true"
                 />
             )}
 
             <aside
-                className={`sidebar ${
-                    sidebarOpen
-                        ? "sidebar--open"
-                        : ""
-                } ${
+                className={[
+                    "sidebar",
+                    sidebarOpen ? "sidebar--open" : "",
                     sidebarCollapsed
                         ? "sidebar--collapsed"
-                        : ""
-                }`}
+                        : "",
+                ]
+                    .filter(Boolean)
+                    .join(" ")}
             >
                 {/* BRAND */}
                 <div className="sidebar-brand">
@@ -115,14 +118,10 @@ export default function Sidebar({
                         C
                     </div>
 
-                    {!sidebarCollapsed && (
-                        <div className="sidebar-brand-text">
-                            <strong>CTHM</strong>
-                            <span>
-                                STOCK ROOM
-                            </span>
-                        </div>
-                    )}
+                    <div className="sidebar-brand-text">
+                        <strong>CTHM</strong>
+                        <span>STOCK ROOM</span>
+                    </div>
 
                     <button
                         type="button"
@@ -133,15 +132,6 @@ export default function Sidebar({
                         <FaTimes />
                     </button>
                 </div>
-
-                {/* PORTAL */}
-                {!sidebarCollapsed && (
-                    <div className="sidebar-portal-label">
-                        {isProfessor
-                            ? "PROFESSOR PORTAL"
-                            : "STUDENT PORTAL"}
-                    </div>
-                )}
 
                 {/* NAVIGATION */}
                 <nav className="sidebar-nav">
@@ -154,30 +144,32 @@ export default function Sidebar({
                                 to={item.to}
                                 end={item.end}
                                 className={({ isActive }) =>
-                                    `sidebar-nav-link ${
+                                    [
+                                        "sidebar-nav-link",
                                         isActive
                                             ? "active"
-                                            : ""
-                                    }`
+                                            : "",
+                                    ]
+                                        .filter(Boolean)
+                                        .join(" ")
                                 }
                                 onClick={closeSidebar}
                             >
-                                <Icon />
+                                <span className="sidebar-nav-icon">
+                                    <Icon />
+                                </span>
 
-                                {!sidebarCollapsed && (
-                                    <span>
-                                        {item.label}
-                                    </span>
-                                )}
-
+                                <span className="sidebar-nav-label">
+                                    {item.label}
+                                </span>
                             </NavLink>
                         );
                     })}
                 </nav>
 
                 {/* BOTTOM */}
-                {!sidebarCollapsed && (
-                    <div className="sidebar-bottom">
+                <div className="sidebar-bottom">
+                    <div className="sidebar-bottom-content">
                         <div className="sidebar-bottom-label">
                             CTHM STOCK ROOM
                         </div>
@@ -186,7 +178,7 @@ export default function Sidebar({
                             Academic Inventory System
                         </div>
                     </div>
-                )}
+                </div>
             </aside>
         </>
     );

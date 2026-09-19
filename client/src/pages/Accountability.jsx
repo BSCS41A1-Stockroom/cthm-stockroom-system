@@ -1,72 +1,861 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { FaCheckCircle, FaExclamationTriangle, FaEye, FaSearch, FaShieldAlt, FaTimes } from "react-icons/fa";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  FaCheckCircle,
+  FaExclamationTriangle,
+  FaEye,
+  FaSearch,
+  FaShieldAlt,
+  FaTimes,
+} from "react-icons/fa";
 import { useAuth } from "../auth/useAuth";
 import { authenticatedFetch } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import "../styles/accountability.css";
 
-const LABELS = { open: "Open", under_review: "Under Review", resolved: "Resolved", waived: "Waived" };
-const RESOLUTIONS = {
-  damaged: [["repaired", "Item repaired"], ["replaced", "Item replaced"], ["payment_recorded", "Payment recorded"], ["waived", "Waived by administrator"]],
-  missing: [["recovered", "Item recovered"], ["replaced", "Item replaced"], ["payment_recorded", "Payment recorded"], ["waived", "Waived by administrator"]],
-  overdue: [["returned", "Outstanding items returned"], ["waived", "Waived by administrator"]],
+const STATUS_META = {
+  active: {
+    label: "Active",
+    className: "accountability-badge-active",
+  },
+  under_review: {
+    label: "Under Review",
+    className: "accountability-badge-review",
+  },
+  resolved: {
+    label: "Resolved",
+    className: "accountability-badge-resolved",
+  },
+  closed: {
+    label: "Closed",
+    className: "accountability-badge-closed",
+  },
 };
-const dateTime = (value) => value ? new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "—";
+
+function formatDate(value) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatDateTime(value) {
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString("en-PH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function StatusBadge({ status }) {
+  const normalized = String(status || "").toLowerCase();
+
+  const meta =
+    STATUS_META[normalized] || {
+      label: status || "Unknown",
+      className: "accountability-badge-unknown",
+    };
+
+  return (
+    <span className={`accountability-status ${meta.className}`}>
+      {meta.label}
+    </span>
+  );
+}
+
+function getStudentName(item) {
+  return (
+    item.student_name ||
+    item.studentName ||
+    item.full_name ||
+    item.name ||
+    "Unknown Student"
+  );
+}
+
+function getStudentId(item) {
+  return (
+    item.student_id ||
+    item.studentId ||
+    item.user_student_id ||
+    "—"
+  );
+}
+
+function getDescription(item) {
+  return (
+    item.description ||
+    item.reason ||
+    item.issue ||
+    item.details ||
+    "No description provided."
+  );
+}
 
 export default function Accountability() {
   const { profile } = useAuth();
-  const staff = ["professor", "admin"].includes(profile?.role);
+
+  const staff = ["professor", "admin"].includes(
+    profile?.role
+  );
+
   const admin = profile?.role === "admin";
+
   const [cases, setCases] = useState([]);
-  const [filter, setFilter] = useState("active");
-  const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState(null);
-  const [resolution, setResolution] = useState({ status: "resolved", resolutionType: "repaired", resolutionNote: "", amount: "", confirmPayment: false });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState(
+    "active"
+  );
+
+  const [selectedCase, setSelectedCase] = useState(null);
+
+  const [reviewStatus, setReviewStatus] =
+    useState("under_review");
+
+  const [resolution, setResolution] = useState("");
+
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [saveError, setSaveError] = useState("");
 
   const loadCases = useCallback(async () => {
-    setLoading(true); setError("");
-    try { const response = await authenticatedFetch("/api/accountability"); const body = await response.json(); if (!response.ok) throw new Error(body.message || "Unable to load accountability cases."); setCases(body.cases || []); }
-    catch (caught) { setError(caught.message); }
-    finally { setLoading(false); }
+    setLoading(true);
+    setLoadError("");
+
+    try {
+      const response = await authenticatedFetch(
+        "/api/accountability"
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.message ||
+            "Unable to load accountability records."
+        );
+      }
+
+      const records = Array.isArray(result)
+        ? result
+        : result.cases ||
+          result.accountability ||
+          result.data ||
+          [];
+
+      setCases(records);
+    } catch (error) {
+      console.error("Accountability load error:", error);
+
+      setLoadError(
+        error.message ||
+          "Unable to load accountability records."
+      );
+    } finally {
+      setLoading(false);
+    }
   }, []);
-  useEffect(() => { const timer = window.setTimeout(loadCases, 0); const channel = supabase.channel("accountability-cases").on("postgres_changes", { event: "*", schema: "public", table: "accountability_cases" }, loadCases).subscribe(); return () => { window.clearTimeout(timer); supabase.removeChannel(channel); }; }, [loadCases]);
 
-  const visible = useMemo(() => cases.filter((entry) => {
-    if (filter === "active" && !["open", "under_review"].includes(entry.status)) return false;
-    if (filter === "closed" && !["resolved", "waived"].includes(entry.status)) return false;
+  useEffect(() => {
+    loadCases();
+
+    const channel = supabase
+      .channel("accountability-cases-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "accountability_cases",
+        },
+        () => {
+          loadCases();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadCases]);
+
+  const filteredCases = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return !query || [entry.case_number, entry.item_name, entry.student_name, entry.student_id].some((value) => String(value || "").toLowerCase().includes(query));
-  }), [cases, filter, search]);
-  const openCount = cases.filter((entry) => ["open", "under_review"].includes(entry.status)).length;
 
-  async function beginReview(entry) {
-    setSaving(true); setError("");
-    try { const response = await authenticatedFetch(`/api/accountability/${entry.id}`, { method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:"under_review"}) }); const body=await response.json(); if(!response.ok) throw new Error(body.reasons?.[0] || body.message); await loadCases(); setSelected((current) => current ? {...current,status:"under_review"} : current); }
-    catch(caught){setError(caught.message);} finally{setSaving(false);}
-  }
-  async function closeCase(event) {
-    event.preventDefault(); setSaving(true); setError("");
-    const payload = { ...resolution, status: resolution.resolutionType === "waived" ? "waived" : "resolved" };
-    try { const response=await authenticatedFetch(`/api/accountability/${selected.id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); const body=await response.json(); if(!response.ok) throw new Error(body.reasons?.[0] || body.message); setSelected(null); await loadCases(); }
-    catch(caught){setError(caught.message);} finally{setSaving(false);}
-  }
+    return cases.filter((item) => {
+      const status = String(
+        item.status || "active"
+      ).toLowerCase();
 
-  return <div className="accountability-page">
-    <header><div><span className="accountability-icon"><FaShieldAlt /></span><div><h1>{staff ? "Accountability Cases" : "My Accountability"}</h1><p>{staff ? "Review damage or loss cases and record a fair, documented resolution." : "View any equipment concerns and the steps needed to restore borrowing access."}</p></div></div><div className={openCount ? "case-count attention" : "case-count"}><strong>{openCount}</strong><span>Active</span></div></header>
-    {!staff && openCount > 0 && <div className="accountability-guidance"><FaExclamationTriangle /><div><strong>Borrowing is temporarily unavailable</strong><p>Contact the stockroom and reference the case number below. Access returns automatically after all active cases are resolved or waived.</p></div></div>}
-    {!staff && openCount === 0 && !loading && <div className="accountability-guidance clear"><FaCheckCircle /><div><strong>No unresolved accountability cases</strong><p>Your account has no damage or loss restrictions.</p></div></div>}
-    <section className="accountability-panel"><div className="accountability-tools"><div><FaSearch /><input value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="Search cases or items" /></div><select value={filter} onChange={(event)=>setFilter(event.target.value)}><option value="active">Active cases</option><option value="closed">Resolved history</option><option value="all">All cases</option></select></div>
-      {error && <p className="accountability-error" role="alert">{error}</p>}{loading && <p className="accountability-empty">Loading cases…</p>}
-      {!loading && visible.length===0 && <p className="accountability-empty">No cases match this view.</p>}
-      {!loading && visible.length>0 && <div className="accountability-list">{visible.map((entry)=><article key={entry.id}><div className={`case-mark ${entry.incident_type}`}>{entry.incident_type === "damaged" ? "D" : entry.incident_type === "missing" ? "M" : "O"}</div><div className="case-main"><div><strong>{entry.case_number}</strong><span className={`case-status ${entry.status}`}>{LABELS[entry.status]}</span></div><h2>{entry.item_name}</h2><p>{entry.affected_quantity} {entry.incident_type} unit(s) · Request BR-{String(entry.request_id).padStart(3,"0")}</p>{staff && <small>{entry.student_name} · {entry.student_id}</small>}</div><button title="View case" onClick={()=>{setSelected(entry);setError("");setResolution({status:"resolved",resolutionType:RESOLUTIONS[entry.incident_type][0][0],resolutionNote:"",amount:"",confirmPayment:false});}}><FaEye /></button></article>)}</div>}
-    </section>
-    {selected && <div className="modal-overlay" onClick={()=>!saving&&setSelected(null)}><section className="accountability-dialog" onClick={(event)=>event.stopPropagation()} role="dialog" aria-modal="true"><header><div><span>{selected.case_number}</span><h2>{selected.item_name}</h2></div><button onClick={()=>setSelected(null)} aria-label="Close"><FaTimes /></button></header>{error&&<p className="accountability-error" role="alert">{error}</p>}<div className="case-details"><dl>{staff&&<div><dt>Borrower</dt><dd>{selected.student_name} ({selected.student_id})</dd></div>}<div><dt>Issue</dt><dd>{selected.affected_quantity} {selected.incident_type} unit(s)</dd></div><div><dt>Status</dt><dd>{LABELS[selected.status]}</dd></div><div><dt>Opened</dt><dd>{dateTime(selected.created_at)}</dd></div></dl><div><span>Description / evidence</span><p>{selected.description}</p></div>{selected.resolution_note&&<div><span>Resolution</span><p>{selected.resolution_note}</p></div>}</div>
-      {!staff && ["open","under_review"].includes(selected.status)&&<div className="student-next-step"><strong>What should I do?</strong><p>Contact the stockroom, provide this case number, and bring the affected item or supporting information if available.</p></div>}
-      {admin && selected.status==="open"&&<div className="case-quick-action"><button disabled={saving} onClick={()=>beginReview(selected)}>Mark as Under Review</button></div>}
-      {admin && ["open","under_review"].includes(selected.status)&&<form onSubmit={closeCase}><h3>Close this case</h3><label>Resolution<select value={resolution.resolutionType} onChange={(event)=>setResolution({...resolution,resolutionType:event.target.value,confirmPayment:false})}>{RESOLUTIONS[selected.incident_type].map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></label>{resolution.resolutionType==="payment_recorded"&&<><label>Confirmed amount<input type="number" min="0" step="0.01" required value={resolution.amount} onChange={(event)=>setResolution({...resolution,amount:event.target.value})}/></label><label className="confirmation-check"><input type="checkbox" required checked={resolution.confirmPayment} onChange={(event)=>setResolution({...resolution,confirmPayment:event.target.checked})}/><span>I confirm that staff verified this payment. The system does not calculate or impose this amount automatically.</span></label></>}<label>Resolution notes<textarea required minLength="5" maxLength="1000" rows="3" value={resolution.resolutionNote} onChange={(event)=>setResolution({...resolution,resolutionNote:event.target.value})} placeholder="Describe what was verified and how the case was settled." /></label><button disabled={saving}>{saving?"Saving…":"Confirm and Close Case"}</button></form>}
-    </section></div>}
-  </div>;
+      const matchesStatus =
+        statusFilter === "all" ||
+        status === statusFilter;
+
+      if (!matchesStatus) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      const searchable = [
+        getStudentName(item),
+        getStudentId(item),
+        getDescription(item),
+        item.item_name,
+        item.itemName,
+        item.request_id,
+        item.requestId,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return searchable.includes(query);
+    });
+  }, [cases, search, statusFilter]);
+
+  const counts = useMemo(() => {
+    return {
+      active: cases.filter(
+        (item) =>
+          String(item.status || "active").toLowerCase() ===
+          "active"
+      ).length,
+
+      review: cases.filter(
+        (item) =>
+          String(item.status || "").toLowerCase() ===
+          "under_review"
+      ).length,
+
+      resolved: cases.filter(
+        (item) =>
+          String(item.status || "").toLowerCase() ===
+          "resolved"
+      ).length,
+
+      closed: cases.filter(
+        (item) =>
+          String(item.status || "").toLowerCase() ===
+          "closed"
+      ).length,
+    };
+  }, [cases]);
+
+  const openCase = (item) => {
+    setSelectedCase(item);
+
+    setReviewStatus(
+      item.status === "closed"
+        ? "closed"
+        : item.status === "resolved"
+        ? "resolved"
+        : "under_review"
+    );
+
+    setResolution(
+      item.resolution ||
+        item.resolution_notes ||
+        item.resolutionNotes ||
+        ""
+    );
+
+    setSaveError("");
+  };
+
+  const closeModal = () => {
+    if (saving) return;
+
+    setSelectedCase(null);
+    setSaveError("");
+    setResolution("");
+  };
+
+  const handleUpdate = async () => {
+    if (!selectedCase || !admin) {
+      return;
+    }
+
+    setSaving(true);
+    setSaveError("");
+
+    try {
+      const id =
+        selectedCase.id ||
+        selectedCase.case_id ||
+        selectedCase.caseId;
+
+      const response = await authenticatedFetch(
+        `/api/accountability/${id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            status: reviewStatus,
+            resolution: resolution.trim(),
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.message ||
+            "Unable to update the accountability case."
+        );
+      }
+
+      setSelectedCase(null);
+      setResolution("");
+      setSaveError("");
+
+      await loadCases();
+    } catch (error) {
+      console.error(
+        "Accountability update error:",
+        error
+      );
+
+      setSaveError(
+        error.message ||
+          "Unable to update the accountability case."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <main className="accountability-page">
+      <header className="accountability-header">
+        <div>
+          <span className="accountability-eyebrow">
+            CTHM STOCKROOM
+          </span>
+
+          <h1>
+            {staff
+              ? "Accountability Cases"
+              : "My Accountability"}
+          </h1>
+
+          <p className="accountability-subtitle">
+            {staff
+              ? "Review and monitor student accountability records."
+              : "Review your outstanding accountability records and their current status."}
+          </p>
+        </div>
+
+        <div className="accountability-header-icon">
+          <FaShieldAlt />
+        </div>
+      </header>
+
+      <section className="accountability-summary">
+        <div className="accountability-summary-card">
+          <div className="accountability-summary-icon">
+            <FaExclamationTriangle />
+          </div>
+
+          <div>
+            <span>Active Cases</span>
+            <strong>{counts.active}</strong>
+          </div>
+        </div>
+
+        <div className="accountability-summary-card">
+          <div className="accountability-summary-icon">
+            <FaEye />
+          </div>
+
+          <div>
+            <span>Under Review</span>
+            <strong>{counts.review}</strong>
+          </div>
+        </div>
+
+        <div className="accountability-summary-card">
+          <div className="accountability-summary-icon">
+            <FaCheckCircle />
+          </div>
+
+          <div>
+            <span>Resolved</span>
+            <strong>{counts.resolved}</strong>
+          </div>
+        </div>
+
+        <div className="accountability-summary-card">
+          <div className="accountability-summary-icon">
+            <FaShieldAlt />
+          </div>
+
+          <div>
+            <span>Closed</span>
+            <strong>{counts.closed}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section className="accountability-panel">
+        <div className="accountability-toolbar">
+          <div className="accountability-search">
+            <FaSearch />
+
+            <input
+              type="text"
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+              placeholder={
+                staff
+                  ? "Search student, ID, or case..."
+                  : "Search your accountability records..."
+              }
+              aria-label="Search accountability records"
+            />
+
+            {search && (
+              <button
+                type="button"
+                className="accountability-search-clear"
+                onClick={() => setSearch("")}
+                aria-label="Clear search"
+              >
+                <FaTimes />
+              </button>
+            )}
+          </div>
+
+          <div className="accountability-filters">
+            {[
+              ["active", "Active"],
+              ["under_review", "Under Review"],
+              ["resolved", "Resolved"],
+              ["closed", "Closed"],
+              ["all", "All"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={`accountability-filter ${
+                  statusFilter === value
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() =>
+                  setStatusFilter(value)
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {loading && (
+          <div className="accountability-state">
+            <div className="accountability-loading-spinner" />
+            <p>Loading accountability records...</p>
+          </div>
+        )}
+
+        {loadError && !loading && (
+          <div className="accountability-state accountability-state-error">
+            <FaExclamationTriangle />
+
+            <p>{loadError}</p>
+
+            <button
+              type="button"
+              onClick={loadCases}
+              className="accountability-retry-btn"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {!loading &&
+          !loadError &&
+          filteredCases.length === 0 && (
+            <div className="accountability-empty">
+              <div className="accountability-empty-icon">
+                <FaCheckCircle />
+              </div>
+
+              <h3>No accountability records found</h3>
+
+              <p>
+                {search
+                  ? "Try a different search term or status filter."
+                  : "There are no accountability records matching the selected status."}
+              </p>
+            </div>
+          )}
+
+        {!loading &&
+          !loadError &&
+          filteredCases.length > 0 && (
+            <div className="accountability-table-wrap">
+              <table className="accountability-table">
+                <thead>
+                  <tr>
+                    {staff && <th>Student</th>}
+                    <th>Item / Case</th>
+                    <th>Issue</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {filteredCases.map((item) => (
+                    <tr
+                      key={
+                        item.id ||
+                        item.case_id ||
+                        item.caseId
+                      }
+                    >
+                      {staff && (
+                        <td>
+                          <div className="accountability-student">
+                            <strong>
+                              {getStudentName(item)}
+                            </strong>
+
+                            <span>
+                              {getStudentId(item)}
+                            </span>
+                          </div>
+                        </td>
+                      )}
+
+                      <td>
+                        <div className="accountability-item">
+                          <strong>
+                            {item.item_name ||
+                              item.itemName ||
+                              item.case_type ||
+                              item.caseType ||
+                              "Accountability Case"}
+                          </strong>
+
+                          {item.request_id && (
+                            <span>
+                              Request #{item.request_id}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td>
+                        <span className="accountability-issue">
+                          {getDescription(item)}
+                        </span>
+                      </td>
+
+                      <td>
+                        <span className="accountability-date">
+                          {formatDate(
+                            item.created_at ||
+                              item.createdAt ||
+                              item.date
+                          )}
+                        </span>
+                      </td>
+
+                      <td>
+                        <StatusBadge
+                          status={
+                            item.status || "active"
+                          }
+                        />
+                      </td>
+
+                      <td>
+                        <button
+                          type="button"
+                          className="accountability-view-btn"
+                          onClick={() =>
+                            openCase(item)
+                          }
+                        >
+                          <FaEye />
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+      </section>
+
+      {selectedCase && (
+        <div
+          className="accountability-modal-overlay"
+          onMouseDown={(event) => {
+            if (
+              event.target === event.currentTarget
+            ) {
+              closeModal();
+            }
+          }}
+        >
+          <section
+            className="accountability-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="accountability-modal-title"
+          >
+            <header className="accountability-modal-header">
+              <div>
+                <span className="accountability-modal-eyebrow">
+                  ACCOUNTABILITY RECORD
+                </span>
+
+                <h2 id="accountability-modal-title">
+                  Case Details
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                className="accountability-modal-close"
+                onClick={closeModal}
+                aria-label="Close"
+              >
+                <FaTimes />
+              </button>
+            </header>
+
+            <div className="accountability-modal-body">
+              <div className="accountability-modal-status">
+                <StatusBadge
+                  status={
+                    selectedCase.status || "active"
+                  }
+                />
+
+                <span>
+                  Created{" "}
+                  {formatDateTime(
+                    selectedCase.created_at ||
+                      selectedCase.createdAt ||
+                      selectedCase.date
+                  )}
+                </span>
+              </div>
+
+              {staff && (
+                <section className="accountability-detail-section">
+                  <h3>Student Information</h3>
+
+                  <div className="accountability-detail-grid">
+                    <div>
+                      <span>Student Name</span>
+                      <strong>
+                        {getStudentName(
+                          selectedCase
+                        )}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Student ID</span>
+                      <strong>
+                        {getStudentId(
+                          selectedCase
+                        )}
+                      </strong>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              <section className="accountability-detail-section">
+                <h3>Case Information</h3>
+
+                <div className="accountability-detail-grid">
+                  <div>
+                    <span>Item / Case</span>
+                    <strong>
+                      {selectedCase.item_name ||
+                        selectedCase.itemName ||
+                        selectedCase.case_type ||
+                        selectedCase.caseType ||
+                        "Accountability Case"}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Request ID</span>
+                    <strong>
+                      {selectedCase.request_id ||
+                        selectedCase.requestId ||
+                        "—"}
+                    </strong>
+                  </div>
+
+                  <div className="full">
+                    <span>Issue</span>
+                    <strong>
+                      {getDescription(
+                        selectedCase
+                      )}
+                    </strong>
+                  </div>
+                </div>
+              </section>
+
+              <section className="accountability-detail-section">
+                <h3>Resolution</h3>
+
+                <div className="accountability-resolution-box">
+                  {selectedCase.resolution ||
+                  selectedCase.resolution_notes ||
+                  selectedCase.resolutionNotes ? (
+                    <p>
+                      {selectedCase.resolution ||
+                        selectedCase.resolution_notes ||
+                        selectedCase.resolutionNotes}
+                    </p>
+                  ) : (
+                    <p className="muted">
+                      No resolution has been recorded yet.
+                    </p>
+                  )}
+                </div>
+              </section>
+
+              {admin && (
+                <section className="accountability-admin-section">
+                  <div className="accountability-admin-heading">
+                    <div>
+                      <span className="accountability-modal-eyebrow">
+                        ADMIN REVIEW
+                      </span>
+
+                      <h3>Update Case</h3>
+                    </div>
+                  </div>
+
+                  <label className="accountability-form-group">
+                    <span>Status</span>
+
+                    <select
+                      value={reviewStatus}
+                      onChange={(event) =>
+                        setReviewStatus(
+                          event.target.value
+                        )
+                      }
+                      disabled={saving}
+                    >
+                      <option value="under_review">
+                        Under Review
+                      </option>
+
+                      <option value="resolved">
+                        Resolved
+                      </option>
+
+                      <option value="closed">
+                        Closed
+                      </option>
+                    </select>
+                  </label>
+
+                  <label className="accountability-form-group">
+                    <span>Resolution / Notes</span>
+
+                    <textarea
+                      value={resolution}
+                      onChange={(event) =>
+                        setResolution(
+                          event.target.value
+                        )
+                      }
+                      placeholder="Enter the resolution or review notes..."
+                      rows={5}
+                      disabled={saving}
+                    />
+                  </label>
+
+                  {saveError && (
+                    <div className="accountability-form-error">
+                      <FaExclamationTriangle />
+                      <span>{saveError}</span>
+                    </div>
+                  )}
+                </section>
+              )}
+            </div>
+
+            <footer className="accountability-modal-footer">
+              <button
+                type="button"
+                className="accountability-secondary-btn"
+                onClick={closeModal}
+                disabled={saving}
+              >
+                Close
+              </button>
+
+              {admin && (
+                <button
+                  type="button"
+                  className="accountability-primary-btn"
+                  onClick={handleUpdate}
+                  disabled={saving}
+                >
+                  <FaCheckCircle />
+
+                  {saving
+                    ? "Saving..."
+                    : "Save Changes"}
+                </button>
+              )}
+            </footer>
+          </section>
+        </div>
+      )}
+    </main>
+  );
 }

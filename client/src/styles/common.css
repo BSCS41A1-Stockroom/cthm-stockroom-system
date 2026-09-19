@@ -1,18 +1,52 @@
 /* =========================================================
-   CTHM COMMON LAYOUT
-   Shared Student + Professor UI
+   COMMON CTHM LAYOUT
+   STUDENT + PROFESSOR
+   MODERN ACADEMIC LUXURY
    ========================================================= */
 
 :root {
     --common-navy: #17263c;
+    --common-navy-deep: #101b2d;
     --common-navy-light: #213650;
+
     --common-ivory: #f5f3ee;
     --common-white: #ffffff;
+
     --common-gold: #b69b62;
+    --common-gold-light: #d4c49f;
+
     --common-text: #1c2430;
     --common-muted: #697381;
+
     --common-border: #e1e4e8;
-    --common-hover: #f4f6f8;
+    --common-border-warm: #e5e0d6;
+
+    --sidebar-width: 245px;
+    --sidebar-collapsed-width: 76px;
+    --topbar-height: 64px;
+
+    --sidebar-transition:
+        width 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+
+    --layout-transition:
+        width 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+        margin-left 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+
+/* =========================================================
+   GLOBAL
+   ========================================================= */
+
+.layout {
+    width: 100%;
+    min-height: 100vh;
+
+    display: flex;
+
+    background: var(--common-ivory);
+    color: var(--common-text);
 }
 
 
@@ -26,26 +60,33 @@
     top: 0;
     left: 0;
 
-    width: 245px;
+    width: var(--sidebar-width);
     height: 100vh;
 
-    z-index: 100;
+    z-index: 200;
 
     display: flex;
     flex-direction: column;
 
-    background: var(--common-navy);
+    overflow: hidden;
 
-    color: #ffffff;
+    background:
+        linear-gradient(
+            180deg,
+            var(--common-navy) 0%,
+            var(--common-navy-deep) 100%
+        );
+
+    color: var(--common-white);
 
     box-shadow:
-        8px 0 30px rgba(23, 38, 60, 0.08);
+        10px 0 35px rgba(23, 38, 60, 0.10);
 
     box-sizing: border-box;
 
-    transition:
-        width 0.2s ease,
-        transform 0.2s ease;
+    transition: var(--sidebar-transition);
+
+    will-change: width, transform;
 }
 
 
@@ -54,7 +95,7 @@
    ========================================================= */
 
 .sidebar.sidebar--collapsed {
-    width: 76px;
+    width: var(--sidebar-collapsed-width);
 }
 
 
@@ -63,6 +104,9 @@
    ========================================================= */
 
 .sidebar-brand {
+    position: relative;
+
+    width: 100%;
     height: 76px;
 
     display: flex;
@@ -78,6 +122,8 @@
         rgba(255, 255, 255, 0.08);
 
     box-sizing: border-box;
+
+    overflow: hidden;
 }
 
 .sidebar--collapsed .sidebar-brand {
@@ -87,6 +133,10 @@
 }
 
 
+/* =========================================================
+   BRAND MARK
+   ========================================================= */
+
 .sidebar-brand-mark {
     width: 36px;
     height: 36px;
@@ -95,10 +145,12 @@
     align-items: center;
     justify-content: center;
 
-    flex-shrink: 0;
+    flex: 0 0 36px;
 
     border: 1px solid
         rgba(182, 155, 98, 0.65);
+
+    border-radius: 6px;
 
     color: var(--common-gold);
 
@@ -108,21 +160,48 @@
         serif;
 
     font-size: 17px;
+    font-weight: 500;
 
-    border-radius: 6px;
+    box-sizing: border-box;
 }
 
+
+/* =========================================================
+   BRAND TEXT
+   ========================================================= */
 
 .sidebar-brand-text {
     min-width: 0;
 
+    width: 150px;
+
     display: flex;
     flex-direction: column;
+
+    flex-shrink: 0;
+
+    opacity: 1;
+    visibility: visible;
+
+    transform: translateX(0);
+
+    transition:
+        opacity 0.18s ease,
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        visibility 0.28s ease;
 }
 
+.sidebar--collapsed .sidebar-brand-text {
+    opacity: 0;
+    visibility: hidden;
+
+    transform: translateX(-8px);
+
+    pointer-events: none;
+}
 
 .sidebar-brand-text strong {
-    color: #ffffff;
+    color: var(--common-white);
 
     font-family:
         Georgia,
@@ -133,11 +212,14 @@
     font-weight: 600;
 
     letter-spacing: 0.8px;
+
+    line-height: 1.1;
+
+    white-space: nowrap;
 }
 
-
 .sidebar-brand-text span {
-    margin-top: 2px;
+    margin-top: 3px;
 
     color: #aeb8c4;
 
@@ -145,6 +227,8 @@
     font-weight: 700;
 
     letter-spacing: 1.4px;
+
+    line-height: 1;
 
     white-space: nowrap;
 }
@@ -165,7 +249,11 @@
     align-items: center;
     justify-content: center;
 
+    flex-shrink: 0;
+
     border: none;
+
+    border-radius: 6px;
 
     background: transparent;
 
@@ -173,25 +261,19 @@
 
     font-family: inherit;
 
-    font-size: 22px;
+    font-size: 18px;
 
     cursor: pointer;
+
+    transition:
+        background 0.18s ease,
+        color 0.18s ease;
 }
 
+.sidebar-mobile-close:hover {
+    background: rgba(255, 255, 255, 0.08);
 
-/* =========================================================
-   PORTAL LABEL
-   ========================================================= */
-
-.sidebar-portal-label {
-    padding: 22px 20px 9px;
-
-    color: var(--common-gold);
-
-    font-size: 8px;
-    font-weight: 700;
-
-    letter-spacing: 1.5px;
+    color: #ffffff;
 }
 
 
@@ -200,19 +282,29 @@
    ========================================================= */
 
 .sidebar-nav {
+    width: 100%;
+
     display: flex;
     flex-direction: column;
 
     gap: 3px;
 
-    padding: 0 12px;
+    padding: 18px 12px 0;
+
+    box-sizing: border-box;
 }
 
+
+/* =========================================================
+   NAV LINK
+   ========================================================= */
 
 .sidebar-nav-link {
     position: relative;
 
+    width: 100%;
     min-height: 44px;
+    height: 44px;
 
     display: flex;
     align-items: center;
@@ -220,6 +312,8 @@
     gap: 12px;
 
     padding: 0 12px;
+
+    flex-shrink: 0;
 
     border-radius: 7px;
 
@@ -230,44 +324,104 @@
     font-size: 11px;
     font-weight: 600;
 
+    box-sizing: border-box;
+
+    overflow: hidden;
+
     transition:
-        background 0.16s ease,
-        color 0.16s ease;
+        background 0.18s ease,
+        color 0.18s ease;
 }
 
 
-.sidebar-nav-link svg {
+/* =========================================================
+   NAV ICON
+   ========================================================= */
+
+.sidebar-nav-icon {
+    width: 20px;
+    height: 20px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex: 0 0 20px;
+
+    color: inherit;
+
+    transition:
+        color 0.18s ease,
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sidebar-nav-icon svg {
     width: 15px;
+    height: 15px;
 
-    flex-shrink: 0;
-
-    font-size: 13px;
+    display: block;
 }
 
+
+/* =========================================================
+   NAV LABEL
+   ========================================================= */
+
+.sidebar-nav-label {
+    min-width: 0;
+
+    white-space: nowrap;
+
+    opacity: 1;
+    visibility: visible;
+
+    transform: translateX(0);
+
+    transition:
+        opacity 0.16s ease,
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        visibility 0.28s ease;
+}
+
+.sidebar--collapsed .sidebar-nav-label {
+    opacity: 0;
+    visibility: hidden;
+
+    transform: translateX(-8px);
+
+    pointer-events: none;
+}
+
+
+/* =========================================================
+   HOVER
+   ========================================================= */
 
 .sidebar-nav-link:hover {
-    background: rgba(
-        255,
-        255,
-        255,
-        0.06
-    );
+    background: rgba(255, 255, 255, 0.055);
 
     color: #ffffff;
 }
 
+
+/* =========================================================
+   ACTIVE
+   GOLD ONLY
+   ========================================================= */
 
 .sidebar-nav-link.active {
-    background: rgba(
-        182,
-        155,
-        98,
-        0.14
-    );
+    background:
+        linear-gradient(
+            90deg,
+            rgba(182, 155, 98, 0.17),
+            rgba(182, 155, 98, 0.08)
+        );
 
     color: #ffffff;
 }
 
+
+/* GOLD INDICATOR */
 
 .sidebar-nav-link.active::before {
     content: "";
@@ -275,7 +429,6 @@
     position: absolute;
 
     left: 0;
-
     top: 8px;
     bottom: 8px;
 
@@ -287,22 +440,49 @@
 }
 
 
-/* COLLAPSED NAV */
+/*
+   REMOVE ANY OLD BLUE / LIGHT-BLUE INDICATOR
+*/
+
+.sidebar-nav-link::after {
+    content: none !important;
+    display: none !important;
+}
+
+
+/* =========================================================
+   COLLAPSED NAV
+   ICONS EXACTLY CENTERED
+   ========================================================= */
 
 .sidebar--collapsed .sidebar-nav {
-    padding: 0 10px;
+    padding-left: 10px;
+    padding-right: 10px;
 }
-
 
 .sidebar--collapsed .sidebar-nav-link {
+    width: 56px;
+
+    margin-left: auto;
+    margin-right: auto;
+
     justify-content: center;
 
-    padding: 0;
+    gap: 0;
+
+    padding-left: 0;
+    padding-right: 0;
 }
 
+.sidebar--collapsed .sidebar-nav-icon {
+    width: 20px;
+    height: 20px;
 
-.sidebar--collapsed .sidebar-nav-link.active::before {
-    left: 0;
+    flex: 0 0 20px;
+
+    margin: 0;
+
+    transform: none;
 }
 
 
@@ -311,14 +491,49 @@
    ========================================================= */
 
 .sidebar-bottom {
+    width: 100%;
+
     margin-top: auto;
 
-    padding: 15px 20px 20px;
+    padding: 14px 20px 18px;
 
     border-top: 1px solid
         rgba(255, 255, 255, 0.08);
+
+    box-sizing: border-box;
+
+    overflow: hidden;
 }
 
+.sidebar-bottom-content {
+    width: 170px;
+
+    opacity: 1;
+    visibility: visible;
+
+    transform: translateX(0);
+
+    transition:
+        opacity 0.18s ease,
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        visibility 0.28s ease;
+}
+
+.sidebar--collapsed .sidebar-bottom {
+    padding-left: 0;
+    padding-right: 0;
+
+    border-top-color: transparent;
+}
+
+.sidebar--collapsed .sidebar-bottom-content {
+    opacity: 0;
+    visibility: hidden;
+
+    transform: translateX(-8px);
+
+    pointer-events: none;
+}
 
 .sidebar-bottom-label {
     color: #ffffff;
@@ -332,8 +547,9 @@
     font-weight: 600;
 
     letter-spacing: 0.8px;
-}
 
+    white-space: nowrap;
+}
 
 .sidebar-bottom-version {
     margin-top: 4px;
@@ -343,711 +559,8 @@
     font-size: 8px;
 
     line-height: 1.4;
-}
 
-
-/* =========================================================
-   OVERLAY
-   ========================================================= */
-
-.sidebar-overlay {
-    display: none;
-}
-
-
-/* =========================================================
-   TOPBAR
-   ========================================================= */
-
-.topbar {
-    position: sticky;
-
-    top: 0;
-
-    height: 64px;
-
-    z-index: 80;
-
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-
-    padding: 0 26px;
-
-    background: #ffffff;
-
-    border-bottom: 1px solid
-        var(--common-border);
-
-    box-sizing: border-box;
-}
-
-
-/* =========================================================
-   TOPBAR LEFT
-   ========================================================= */
-
-.topbar-left {
-    display: flex;
-    align-items: center;
-
-    gap: 14px;
-
-    min-width: 0;
-}
-
-
-.topbar-menu {
-    width: 34px;
-    height: 34px;
-
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-
-    gap: 4px;
-
-    flex-shrink: 0;
-
-    padding: 0;
-
-    border: 1px solid
-        var(--common-border);
-
-    border-radius: 6px;
-
-    background: #ffffff;
-
-    cursor: pointer;
-
-    transition:
-        background 0.16s ease,
-        border-color 0.16s ease;
-}
-
-
-.topbar-menu:hover {
-    background: var(--common-hover);
-
-    border-color: #cbd1d8;
-}
-
-
-.topbar-menu span {
-    width: 13px;
-    height: 1.5px;
-
-    display: block;
-
-    background: var(--common-navy);
-
-    transition:
-        transform 0.16s ease,
-        opacity 0.16s ease;
-}
-
-
-/* =========================================================
-   TOPBAR TITLE
-   ========================================================= */
-
-.topbar-title {
-    min-width: 0;
-
-    display: flex;
-    flex-direction: column;
-}
-
-
-.topbar-title-main {
-    color: var(--common-navy);
-
-    font-family:
-        Georgia,
-        "Times New Roman",
-        serif;
-
-    font-size: 14px;
-    font-weight: 600;
-
-    letter-spacing: 0.2px;
-}
-
-
-.topbar-title-sub {
-    margin-top: 2px;
-
-    color: var(--common-muted);
-
-    font-size: 8px;
-    font-weight: 700;
-
-    letter-spacing: 1px;
-
-    text-transform: uppercase;
-}
-
-
-/* =========================================================
-   TOPBAR RIGHT
-   ========================================================= */
-
-.topbar-right {
-    display: flex;
-    align-items: center;
-
-    gap: 12px;
-}
-
-
-.topbar-divider {
-    width: 1px;
-    height: 25px;
-
-    background: var(--common-border);
-}
-
-
-/* =========================================================
-   STUDENT / PROFESSOR ACTIONS
-   ========================================================= */
-
-.student-topbar-actions {
-    display: flex;
-    align-items: center;
-
-    gap: 12px;
-}
-
-
-/* =========================================================
-   MAIN LAYOUT SUPPORT
-   ========================================================= */
-
-/*
-   Use these classes if your layout needs a shared
-   main container.
-*/
-
-.common-main {
-    width: calc(100% - 245px);
-
-    min-height: 100vh;
-
-    margin-left: 245px;
-
-    display: flex;
-    flex-direction: column;
-
-    transition:
-        width 0.2s ease,
-        margin-left 0.2s ease;
-}
-
-
-/* =========================================================
-   COLLAPSED MAIN
-   ========================================================= */
-
-.common-layout.sidebar-is-collapsed
-    .common-main {
-    width: calc(100% - 76px);
-
-    margin-left: 76px;
-}
-
-
-/* =========================================================
-   CONTENT
-   ========================================================= */
-
-.common-content {
-    flex: 1;
-
-    min-width: 0;
-
-    padding: 28px 30px 34px;
-
-    background: var(--common-ivory);
-
-    box-sizing: border-box;
-}
-
-
-/* =========================================================
-   MOBILE
-   ========================================================= */
-
-@media (max-width: 900px) {
-
-    .sidebar {
-        width: 245px;
-
-        transform: translateX(-100%);
-
-        transition:
-            transform 0.2s ease;
-    }
-
-    .sidebar.sidebar--open {
-        transform: translateX(0);
-    }
-
-    .sidebar--collapsed {
-        width: 245px;
-    }
-
-    .sidebar--collapsed .sidebar-brand {
-        justify-content: flex-start;
-
-        padding: 0 20px;
-    }
-
-    .sidebar--collapsed .sidebar-brand-text {
-        display: flex;
-    }
-
-    .sidebar--collapsed .sidebar-portal-label {
-        display: block;
-    }
-
-    .sidebar--collapsed .sidebar-nav {
-        padding: 0 12px;
-    }
-
-    .sidebar--collapsed .sidebar-nav-link {
-        justify-content: flex-start;
-
-        padding: 0 12px;
-    }
-
-    .sidebar--collapsed .sidebar-nav-link span {
-        display: inline;
-    }
-
-    .sidebar-mobile-close {
-        display: inline-flex;
-    }
-
-    .sidebar-overlay {
-        position: fixed;
-
-        inset: 0;
-
-        z-index: 90;
-
-        display: block;
-
-        background: rgba(
-            23,
-            38,
-            60,
-            0.45
-        );
-    }
-
-    .common-main,
-    .common-layout.sidebar-is-collapsed
-        .common-main {
-        width: 100%;
-
-        margin-left: 0;
-    }
-
-    .topbar {
-        padding: 0 18px;
-    }
-
-    .common-content {
-        padding: 22px 18px 28px;
-    }
-}
-
-
-/* =========================================================
-   SMALL MOBILE
-   ========================================================= */
-
-@media (max-width: 520px) {
-
-    .topbar {
-        height: 60px;
-
-        padding: 0 14px;
-    }
-
-    .topbar-title-main {
-        font-size: 13px;
-    }
-
-    .topbar-title-sub {
-        display: none;
-    }
-
-    .topbar-divider {
-        display: none;
-    }
-
-    .topbar-right {
-        gap: 7px;
-    }
-
-    .common-content {
-        padding: 18px 14px 24px;
-    }
-}
-
-/* =========================================================
-   COMMON CTHM LAYOUT
-   PROFESSOR + STUDENT
-   ========================================================= */
-
-.layout {
-    width: 100%;
-    min-height: 100vh;
-
-    display: flex;
-
-    background: var(--common-ivory, #f5f3ee);
-
-    color: var(--common-text, #1c2430);
-}
-
-
-/* =========================================================
-   SIDEBAR
-   ========================================================= */
-
-.sidebar {
-    position: fixed;
-
-    top: 0;
-    left: 0;
-
-    width: 245px;
-    height: 100vh;
-
-    z-index: 100;
-
-    display: flex;
-    flex-direction: column;
-
-    background: #17263c;
-    color: #ffffff;
-
-    box-shadow:
-        8px 0 30px rgba(23, 38, 60, 0.08);
-
-    box-sizing: border-box;
-
-    transition:
-        width 0.2s ease,
-        transform 0.2s ease;
-}
-
-
-/* COLLAPSED */
-
-.sidebar.sidebar--collapsed {
-    width: 76px;
-}
-
-
-/* =========================================================
-   BRAND
-   ========================================================= */
-
-.sidebar-brand {
-    height: 76px;
-
-    display: flex;
-    align-items: center;
-
-    gap: 11px;
-
-    padding: 0 20px;
-
-    flex-shrink: 0;
-
-    border-bottom: 1px solid
-        rgba(255, 255, 255, 0.08);
-
-    box-sizing: border-box;
-}
-
-.sidebar--collapsed .sidebar-brand {
-    justify-content: center;
-
-    padding: 0;
-}
-
-.sidebar-brand-mark {
-    width: 36px;
-    height: 36px;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    flex-shrink: 0;
-
-    border: 1px solid
-        rgba(182, 155, 98, 0.65);
-
-    color: #b69b62;
-
-    font-family:
-        Georgia,
-        "Times New Roman",
-        serif;
-
-    font-size: 17px;
-
-    border-radius: 6px;
-}
-
-.sidebar-brand-text {
-    min-width: 0;
-
-    display: flex;
-    flex-direction: column;
-}
-
-.sidebar-brand-text strong {
-    color: #ffffff;
-
-    font-family:
-        Georgia,
-        "Times New Roman",
-        serif;
-
-    font-size: 15px;
-    font-weight: 600;
-
-    letter-spacing: 0.8px;
-}
-
-.sidebar-brand-text span {
-    margin-top: 2px;
-
-    color: #aeb8c4;
-
-    font-size: 8px;
-    font-weight: 700;
-
-    letter-spacing: 1.4px;
-}
-
-
-/* =========================================================
-   MOBILE CLOSE
-   ========================================================= */
-
-.sidebar-mobile-close {
-    display: none;
-
-    margin-left: auto;
-
-    width: 32px;
-    height: 32px;
-
-    align-items: center;
-    justify-content: center;
-
-    border: none;
-
-    background: transparent;
-
-    color: #c8d0d9;
-
-    cursor: pointer;
-}
-
-
-/* =========================================================
-   PORTAL LABEL
-   ========================================================= */
-
-.sidebar-portal-label {
-    padding: 22px 20px 9px;
-
-    color: #b69b62;
-
-    font-size: 8px;
-    font-weight: 700;
-
-    letter-spacing: 1.5px;
-}
-
-
-/* =========================================================
-   NAVIGATION
-   ========================================================= */
-
-.sidebar-nav {
-    display: flex;
-    flex-direction: column;
-
-    gap: 3px;
-
-    padding: 0 12px;
-}
-
-.sidebar-nav-link {
-    position: relative;
-
-    min-height: 44px;
-
-    display: flex;
-    align-items: center;
-
-    gap: 12px;
-
-    padding: 0 12px;
-
-    border-radius: 7px;
-
-    color: #b9c2cd;
-
-    text-decoration: none;
-
-    font-size: 11px;
-    font-weight: 600;
-
-    transition:
-        background 0.16s ease,
-        color 0.16s ease;
-}
-
-.sidebar-nav-link svg {
-    width: 15px;
-
-    flex-shrink: 0;
-
-    font-size: 13px;
-}
-
-.sidebar-nav-link:hover {
-    background: rgba(
-        255,
-        255,
-        255,
-        0.06
-    );
-
-    color: #ffffff;
-}
-
-.sidebar-nav-link.active {
-    background: rgba(
-        182,
-        155,
-        98,
-        0.14
-    );
-
-    color: #ffffff;
-}
-
-.sidebar-nav-link.active::before {
-    content: "";
-
-    position: absolute;
-
-    left: 0;
-
-    top: 8px;
-    bottom: 8px;
-
-    width: 3px;
-
-    border-radius: 0 3px 3px 0;
-
-    background: #b69b62;
-}
-
-
-/* BADGE */
-
-.sidebar-nav-badge {
-    min-width: 20px;
-    height: 20px;
-
-    margin-left: auto;
-
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-
-    padding: 0 5px;
-
-    border-radius: 10px;
-
-    background: rgba(
-        182,
-        155,
-        98,
-        0.18
-    );
-
-    color: #d5bf91;
-
-    font-size: 9px;
-    font-weight: 700;
-}
-
-
-/* COLLAPSED NAV */
-
-.sidebar--collapsed .sidebar-nav {
-    padding: 0 10px;
-}
-
-.sidebar--collapsed .sidebar-nav-link {
-    justify-content: center;
-
-    padding: 0;
-}
-
-.sidebar--collapsed .sidebar-nav-link.active::before {
-    left: 0;
-}
-
-
-/* =========================================================
-   SIDEBAR BOTTOM
-   ========================================================= */
-
-.sidebar-bottom {
-    margin-top: auto;
-
-    padding: 14px 20px 18px;
-
-    border-top: 1px solid
-        rgba(255, 255, 255, 0.08);
-}
-
-.sidebar-bottom-label {
-    color: #ffffff;
-
-    font-family:
-        Georgia,
-        "Times New Roman",
-        serif;
-
-    font-size: 9px;
-    font-weight: 600;
-
-    letter-spacing: 0.8px;
-}
-
-.sidebar-bottom-version {
-    margin-top: 4px;
-
-    color: #8793a0;
-
-    font-size: 8px;
+    white-space: nowrap;
 }
 
 
@@ -1065,39 +578,47 @@
    ========================================================= */
 
 .main-content {
-    width: calc(100% - 245px);
+    width: calc(100% - var(--sidebar-width));
 
     min-height: 100vh;
 
-    margin-left: 245px;
+    margin-left: var(--sidebar-width);
 
     display: flex;
     flex-direction: column;
 
-    transition:
-        width 0.2s ease,
-        margin-left 0.2s ease;
+    box-sizing: border-box;
+
+    transition: var(--layout-transition);
 }
 
 .main-content.expanded {
-    width: calc(100% - 76px);
+    width: calc(100% - var(--sidebar-collapsed-width));
 
-    margin-left: 76px;
+    margin-left: var(--sidebar-collapsed-width);
 }
 
 
 /* =========================================================
    TOPBAR
+   FIXED
+   SIDEBAR IS ABOVE IT
    ========================================================= */
 
 .topbar {
-    position: sticky;
+    position: fixed;
 
     top: 0;
+    right: 0;
+    left: var(--sidebar-width);
 
-    height: 64px;
+    width: auto;
+    height: var(--topbar-height);
 
-    z-index: 80;
+    /*
+       BELOW SIDEBAR
+    */
+    z-index: 150;
 
     display: flex;
     align-items: center;
@@ -1105,17 +626,33 @@
 
     padding: 0 26px;
 
-    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.98);
 
-    background: #ffffff;
+    border-bottom: 1px solid
+        var(--common-border);
 
-    border-bottom: 1px solid #e1e4e8;
+    box-shadow:
+        0 2px 12px rgba(23, 38, 60, 0.035);
 
     box-sizing: border-box;
+
+    transition:
+        left 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+
+    will-change: left;
 }
 
 
-/* LEFT */
+/* collapsed sidebar */
+
+.main-content.expanded .topbar {
+    left: var(--sidebar-collapsed-width);
+}
+
+
+/* =========================================================
+   TOPBAR LEFT
+   ========================================================= */
 
 .topbar-left {
     display: flex;
@@ -1127,7 +664,11 @@
 }
 
 
-/* MENU */
+/* =========================================================
+   BURGER
+   GOLD ONLY
+   NO WHITE BOX
+   ========================================================= */
 
 .topbar-menu {
     width: 34px;
@@ -1137,34 +678,48 @@
     align-items: center;
     justify-content: center;
 
-    flex-shrink: 0;
+    flex: 0 0 34px;
 
-    border: 1px solid #e1e4e8;
-    border-radius: 6px;
+    padding: 0;
 
-    background: #ffffff;
+    border: none;
 
-    color: #17263c;
+    border-radius: 0;
+
+    background: transparent;
+
+    color: var(--common-gold);
 
     cursor: pointer;
 
+    box-sizing: border-box;
+
     transition:
-        background 0.16s ease,
-        border-color 0.16s ease;
+        color 0.18s ease,
+        transform 0.18s ease;
 }
 
 .topbar-menu:hover {
-    background: #f4f6f8;
+    background: transparent;
 
-    border-color: #cbd1d8;
+    border-color: transparent;
+
+    color: var(--common-gold-light);
+}
+
+.topbar-menu:active {
+    transform: scale(0.92);
 }
 
 .topbar-menu svg {
-    font-size: 12px;
+    width: 17px;
+    height: 17px;
 }
 
 
-/* TITLE */
+/* =========================================================
+   TOPBAR TITLE
+   ========================================================= */
 
 .topbar-title {
     min-width: 0;
@@ -1174,7 +729,7 @@
 }
 
 .topbar-title-main {
-    color: #17263c;
+    color: var(--common-navy);
 
     font-family:
         Georgia,
@@ -1185,41 +740,110 @@
     font-weight: 600;
 
     letter-spacing: 0.8px;
+
+    line-height: 1.15;
+
+    white-space: nowrap;
 }
 
 .topbar-title-sub {
-    margin-top: 2px;
+    margin-top: 3px;
 
-    color: #697381;
+    color: var(--common-muted);
 
     font-size: 8px;
     font-weight: 700;
 
     letter-spacing: 1px;
 
+    line-height: 1;
+
     text-transform: uppercase;
+
+    white-space: nowrap;
 }
 
 
-/* RIGHT */
+/* =========================================================
+   TOPBAR RIGHT
+   ========================================================= */
 
 .topbar-right {
     display: flex;
     align-items: center;
 
     gap: 12px;
+
+    flex-shrink: 0;
 }
 
 .topbar-divider {
     width: 1px;
     height: 25px;
 
-    background: #e1e4e8;
+    flex: 0 0 1px;
+
+    background: var(--common-border);
 }
 
 
 /* =========================================================
-   PAGE CONTENT
+   NOTIFICATION
+   GOLD / NO WHITE BOX
+   ========================================================= */
+
+/*
+   NotificationCenter may have its own button class.
+   These selectors remove the surrounding white button
+   without changing its functionality.
+*/
+
+.topbar-right button {
+    border: none !important;
+
+    background: transparent !important;
+
+    box-shadow: none !important;
+
+    color: var(--common-gold);
+}
+
+.topbar-right button:hover {
+    background: transparent !important;
+
+    color: var(--common-gold-light);
+}
+
+
+/*
+   Common notification button class names
+   if present inside NotificationCenter.
+*/
+
+.notification-button,
+.notification-btn,
+.notification-trigger,
+.notification-center-button {
+    border: none !important;
+
+    background: transparent !important;
+
+    box-shadow: none !important;
+
+    color: var(--common-gold) !important;
+}
+
+.notification-button svg,
+.notification-btn svg,
+.notification-trigger svg,
+.notification-center-button svg {
+    color: var(--common-gold) !important;
+}
+
+
+/* =========================================================
+   CONTENT
+   FIXED TOPBAR = CONTENT STARTS BELOW IT
    ========================================================= */
 
 .page-content {
@@ -1227,11 +851,74 @@
 
     min-width: 0;
 
-    padding: 28px 30px 34px;
+    min-height: 100vh;
 
-    background: #f5f3ee;
+    /*
+       THIS IS THE IMPORTANT PART.
+       Page starts BELOW the fixed topbar.
+    */
+
+    padding:
+        calc(var(--topbar-height) + 28px)
+        30px
+        34px;
+
+    background: var(--common-ivory);
 
     box-sizing: border-box;
+}
+
+.common-content {
+    flex: 1;
+
+    min-width: 0;
+
+    min-height: 100vh;
+
+    padding:
+        calc(var(--topbar-height) + 28px)
+        30px
+        34px;
+
+    background: var(--common-ivory);
+
+    box-sizing: border-box;
+}
+
+
+/* =========================================================
+   OPTIONAL COMMON MAIN
+   ========================================================= */
+
+.common-main {
+    width: calc(100% - var(--sidebar-width));
+
+    min-height: 100vh;
+
+    margin-left: var(--sidebar-width);
+
+    display: flex;
+    flex-direction: column;
+
+    box-sizing: border-box;
+
+    transition: var(--layout-transition);
+}
+
+.common-layout.sidebar-is-collapsed .common-main {
+    width: calc(100% - var(--sidebar-collapsed-width));
+
+    margin-left: var(--sidebar-collapsed-width);
+}
+
+.common-main .topbar {
+    left: var(--sidebar-width);
+}
+
+.common-layout.sidebar-is-collapsed
+.common-main
+.topbar {
+    left: var(--sidebar-collapsed-width);
 }
 
 
@@ -1241,10 +928,29 @@
 
 @media (max-width: 900px) {
 
+    :root {
+        --topbar-height: 64px;
+    }
+
+
+    /* SIDEBAR */
+
     .sidebar {
-        width: 245px;
+        width: var(--sidebar-width);
 
         transform: translateX(-100%);
+
+        transition:
+            transform 0.32s cubic-bezier(
+                0.22,
+                1,
+                0.36,
+                1
+            );
+
+        box-shadow:
+            12px 0 35px
+            rgba(23, 38, 60, 0.18);
     }
 
     .sidebar.sidebar--open {
@@ -1252,7 +958,7 @@
     }
 
     .sidebar--collapsed {
-        width: 245px;
+        width: var(--sidebar-width);
     }
 
     .sidebar--collapsed .sidebar-brand {
@@ -1261,36 +967,91 @@
         padding: 0 20px;
     }
 
+    .sidebar--collapsed .sidebar-brand-text {
+        width: 150px;
+
+        opacity: 1;
+        visibility: visible;
+
+        transform: translateX(0);
+    }
+
     .sidebar--collapsed .sidebar-nav {
-        padding: 0 12px;
+        padding-left: 12px;
+        padding-right: 12px;
     }
 
     .sidebar--collapsed .sidebar-nav-link {
+        width: 100%;
+
+        margin-left: 0;
+        margin-right: 0;
+
         justify-content: flex-start;
 
-        padding: 0 12px;
+        gap: 12px;
+
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .sidebar--collapsed .sidebar-nav-label {
+        opacity: 1;
+        visibility: visible;
+
+        transform: translateX(0);
+
+        pointer-events: auto;
+    }
+
+    .sidebar--collapsed .sidebar-nav-icon {
+        transform: translateX(0);
+    }
+
+    .sidebar--collapsed .sidebar-bottom {
+        padding: 14px 20px 18px;
+
+        border-top-color:
+            rgba(255, 255, 255, 0.08);
+    }
+
+    .sidebar--collapsed .sidebar-bottom-content {
+        width: 170px;
+
+        opacity: 1;
+        visibility: visible;
+
+        transform: translateX(0);
+
+        pointer-events: auto;
     }
 
     .sidebar-mobile-close {
         display: inline-flex;
     }
 
+
+    /* OVERLAY */
+
     .sidebar-overlay {
         position: fixed;
 
         inset: 0;
 
-        z-index: 90;
+        z-index: 180;
 
         display: block;
 
-        background: rgba(
-            23,
-            38,
-            60,
-            0.45
-        );
+        background:
+            rgba(16, 27, 45, 0.48);
+
+        backdrop-filter: blur(1.5px);
+
+        -webkit-backdrop-filter: blur(1.5px);
     }
+
+
+    /* MAIN */
 
     .main-content,
     .main-content.expanded {
@@ -1299,12 +1060,54 @@
         margin-left: 0;
     }
 
-    .topbar {
-        padding: 0 18px;
+    .common-main,
+    .common-layout.sidebar-is-collapsed
+    .common-main {
+        width: 100%;
+
+        margin-left: 0;
     }
 
+
+    /* TOPBAR */
+
+    .topbar {
+        left: 0 !important;
+
+        right: 0;
+
+        width: 100%;
+
+        height: var(--topbar-height);
+
+        padding: 0 18px;
+
+        z-index: 150;
+    }
+
+    .main-content.expanded .topbar,
+    .common-main .topbar,
+    .common-layout.sidebar-is-collapsed
+    .common-main
+    .topbar {
+        left: 0;
+    }
+
+
+    /* CONTENT BELOW FIXED TOPBAR */
+
     .page-content {
-        padding: 22px 18px 28px;
+        padding:
+            calc(var(--topbar-height) + 22px)
+            18px
+            28px;
+    }
+
+    .common-content {
+        padding:
+            calc(var(--topbar-height) + 22px)
+            18px
+            28px;
     }
 }
 
@@ -1315,14 +1118,36 @@
 
 @media (max-width: 520px) {
 
+    :root {
+        --topbar-height: 60px;
+    }
+
     .topbar {
-        height: 60px;
+        height: var(--topbar-height);
 
         padding: 0 14px;
     }
 
+    .topbar-left {
+        gap: 10px;
+    }
+
+    .topbar-menu {
+        width: 32px;
+        height: 32px;
+
+        flex-basis: 32px;
+    }
+
+    .topbar-menu svg {
+        width: 16px;
+        height: 16px;
+    }
+
     .topbar-title-main {
         font-size: 12px;
+
+        letter-spacing: 0.6px;
     }
 
     .topbar-title-sub {
@@ -1333,7 +1158,982 @@
         display: none;
     }
 
+    .topbar-right {
+        gap: 7px;
+    }
+
     .page-content {
-        padding: 18px 14px 24px;
+        padding:
+            calc(var(--topbar-height) + 18px)
+            14px
+            24px;
+    }
+
+    .common-content {
+        padding:
+            calc(var(--topbar-height) + 18px)
+            14px
+            24px;
+    }
+}
+
+
+/* =========================================================
+   ACCESSIBILITY
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+    .sidebar,
+    .sidebar-brand-text,
+    .sidebar-nav-label,
+    .sidebar-nav-icon,
+    .sidebar-bottom-content,
+    .topbar,
+    .main-content,
+    .common-main,
+    .topbar-menu {
+        transition: none !important;
+    }
+}
+
+/* =========================================================
+   FINAL SIDEBAR / TOPBAR / NAVIGATION POLISH
+   MODERN ACADEMIC LUXURY
+   ========================================================= */
+
+
+/* =========================================================
+   1. TRANSITION TIMING
+   ========================================================= */
+
+:root {
+    /*
+       Sidebar moves first.
+       Content follows slightly after.
+    */
+
+    --sidebar-motion:
+        0.30s cubic-bezier(0.22, 1, 0.36, 1);
+
+    --content-motion:
+        0.34s cubic-bezier(0.22, 1, 0.36, 1);
+
+    --content-motion-delay: 0.06s;
+}
+
+
+/* =========================================================
+   2. SIDEBAR
+   HIGHEST LAYER
+   ========================================================= */
+
+.sidebar {
+    position: fixed !important;
+
+    top: 0 !important;
+    left: 0 !important;
+
+    width: var(--sidebar-width);
+
+    height: 100vh;
+
+    z-index: 9999 !important;
+
+    box-sizing: border-box;
+
+    /*
+       Sidebar itself moves immediately.
+    */
+
+    transition:
+        width var(--sidebar-motion),
+        transform var(--sidebar-motion) !important;
+
+    will-change: width, transform;
+
+    /*
+       Keep sidebar visually clean.
+    */
+
+    background:
+        linear-gradient(
+            180deg,
+            var(--common-navy) 0%,
+            var(--common-navy-deep) 100%
+        ) !important;
+}
+
+
+/* =========================================================
+   3. COLLAPSED SIDEBAR
+   ========================================================= */
+
+.sidebar.sidebar--collapsed {
+    width: var(--sidebar-collapsed-width) !important;
+}
+
+
+/* =========================================================
+   4. NAVIGATION
+   NO BLUE
+   NO BOX
+   NO CIRCLE
+   ========================================================= */
+
+.sidebar-nav-link {
+    position: relative !important;
+
+    background: transparent !important;
+
+    border: none !important;
+
+    border-radius: 0 !important;
+
+    box-shadow: none !important;
+
+    color: #b9c2cd !important;
+
+    /*
+       Do not animate a background because there is
+       intentionally no hover/active background.
+    */
+
+    transition:
+        color 0.18s ease,
+        width var(--sidebar-motion),
+        padding var(--sidebar-motion),
+        margin var(--sidebar-motion),
+        gap var(--sidebar-motion) !important;
+}
+
+
+/* =========================================================
+   5. HOVER
+   COMPLETELY CLEAN
+   ========================================================= */
+
+.sidebar-nav-link:hover,
+.sidebar-nav-link:focus,
+.sidebar-nav-link:focus-visible {
+    background: transparent !important;
+
+    border: none !important;
+
+    border-radius: 0 !important;
+
+    box-shadow: none !important;
+
+    color: #ffffff !important;
+
+    outline: none !important;
+}
+
+
+/* =========================================================
+   6. ACTIVE PAGE
+   GOLD INDICATOR ONLY
+   ========================================================= */
+
+.sidebar-nav-link.active {
+    background: transparent !important;
+
+    color: #ffffff !important;
+
+    border: none !important;
+
+    border-radius: 0 !important;
+
+    box-shadow: none !important;
+}
+
+
+/*
+   Remove ANY old indicator.
+*/
+
+.sidebar-nav-link::after {
+    content: none !important;
+
+    display: none !important;
+
+    width: 0 !important;
+    height: 0 !important;
+
+    background: transparent !important;
+
+    border: none !important;
+
+    box-shadow: none !important;
+}
+
+
+/*
+   The ONLY active indicator.
+*/
+
+.sidebar-nav-link.active::before {
+    content: "" !important;
+
+    position: absolute !important;
+
+    left: 0 !important;
+
+    top: 8px !important;
+    bottom: 8px !important;
+
+    width: 3px !important;
+
+    background: var(--common-gold) !important;
+
+    border: none !important;
+
+    border-radius: 0 2px 2px 0 !important;
+
+    box-shadow: none !important;
+
+    opacity: 1 !important;
+}
+
+
+/* =========================================================
+   7. NAV ICON
+   NO BOX / NO CIRCLE
+   ========================================================= */
+
+.sidebar-nav-icon {
+    position: relative;
+
+    background: transparent !important;
+
+    border: none !important;
+
+    border-radius: 0 !important;
+
+    box-shadow: none !important;
+
+    color: inherit !important;
+
+    transition:
+        color 0.18s ease,
+        transform var(--sidebar-motion),
+        width var(--sidebar-motion),
+        margin var(--sidebar-motion) !important;
+}
+
+
+/*
+   Prevent any icon wrapper from receiving
+   a background from another stylesheet.
+*/
+
+.sidebar-nav-icon:hover,
+.sidebar-nav-icon:focus {
+    background: transparent !important;
+
+    border: none !important;
+
+    box-shadow: none !important;
+}
+
+
+/* =========================================================
+   8. NAV LABEL
+   ========================================================= */
+
+.sidebar-nav-label {
+    background: transparent !important;
+
+    border: none !important;
+
+    box-shadow: none !important;
+
+    transition:
+        opacity 0.16s ease,
+        transform var(--sidebar-motion),
+        visibility var(--sidebar-motion) !important;
+}
+
+
+/* =========================================================
+   9. COLLAPSED SIDEBAR NAV
+   PERFECT CENTER
+   ========================================================= */
+
+.sidebar.sidebar--collapsed .sidebar-nav {
+    width: 100% !important;
+
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+
+    align-items: center !important;
+}
+
+
+/*
+   The entire nav item occupies exactly the sidebar width.
+*/
+
+.sidebar.sidebar--collapsed .sidebar-nav-link {
+    position: relative !important;
+
+    width: var(--sidebar-collapsed-width) !important;
+
+    min-width: var(--sidebar-collapsed-width) !important;
+
+    max-width: var(--sidebar-collapsed-width) !important;
+
+    height: 44px !important;
+
+    min-height: 44px !important;
+
+    margin: 0 !important;
+
+    padding: 0 !important;
+
+    display: flex !important;
+
+    align-items: center !important;
+
+    justify-content: center !important;
+
+    gap: 0 !important;
+
+    background: transparent !important;
+
+    border-radius: 0 !important;
+}
+
+
+/*
+   Mathematical center of the 76px sidebar.
+*/
+
+.sidebar.sidebar--collapsed .sidebar-nav-icon {
+    position: absolute !important;
+
+    left: 50% !important;
+    top: 50% !important;
+
+    width: 20px !important;
+    height: 20px !important;
+
+    margin: 0 !important;
+
+    display: flex !important;
+
+    align-items: center !important;
+    justify-content: center !important;
+
+    transform:
+        translate(-50%, -50%) !important;
+
+    flex: none !important;
+
+    background: transparent !important;
+
+    border: none !important;
+
+    border-radius: 0 !important;
+
+    box-shadow: none !important;
+}
+
+
+/*
+   Keep the actual icon simple.
+*/
+
+.sidebar.sidebar--collapsed .sidebar-nav-icon svg {
+    width: 15px !important;
+    height: 15px !important;
+
+    display: block !important;
+
+    background: transparent !important;
+
+    border: none !important;
+
+    box-shadow: none !important;
+}
+
+
+/*
+   Hide label.
+*/
+
+.sidebar.sidebar--collapsed .sidebar-nav-label {
+    position: absolute !important;
+
+    width: 1px !important;
+    height: 1px !important;
+
+    padding: 0 !important;
+    margin: -1px !important;
+
+    overflow: hidden !important;
+
+    clip: rect(0, 0, 0, 0) !important;
+
+    white-space: nowrap !important;
+
+    border: 0 !important;
+
+    opacity: 0 !important;
+
+    visibility: hidden !important;
+
+    pointer-events: none !important;
+}
+
+
+/* =========================================================
+   10. SIDEBAR BRAND
+   ========================================================= */
+
+.sidebar-brand {
+    transition:
+        padding var(--sidebar-motion),
+        gap var(--sidebar-motion) !important;
+}
+
+
+.sidebar-brand-mark {
+    transition:
+        transform var(--sidebar-motion) !important;
+}
+
+
+.sidebar-brand-text {
+    transition:
+        opacity 0.16s ease,
+        transform var(--sidebar-motion),
+        visibility var(--sidebar-motion) !important;
+}
+
+
+/* =========================================================
+   11. SIDEBAR BOTTOM
+   ========================================================= */
+
+.sidebar-bottom {
+    transition:
+        padding var(--sidebar-motion),
+        border-color 0.18s ease !important;
+}
+
+
+.sidebar-bottom-content {
+    transition:
+        opacity 0.16s ease,
+        transform var(--sidebar-motion),
+        visibility var(--sidebar-motion) !important;
+}
+
+
+/* =========================================================
+   12. MAIN CONTENT
+   SIDEBAR MOVES FIRST
+   CONTENT FOLLOWS
+   ========================================================= */
+
+.main-content,
+.common-main {
+    transition:
+        width var(--content-motion),
+        margin-left var(--content-motion) !important;
+
+    transition-delay:
+        var(--content-motion-delay) !important;
+
+    will-change:
+        width,
+        margin-left;
+}
+
+
+/* =========================================================
+   13. TOPBAR
+   FOLLOWS SIDEBAR
+   ========================================================= */
+
+.topbar {
+    position: fixed !important;
+
+    top: 0 !important;
+
+    right: 0 !important;
+
+    left: var(--sidebar-width) !important;
+
+    z-index: 1000 !important;
+
+    transition:
+        left var(--content-motion) !important;
+
+    transition-delay:
+        var(--content-motion-delay) !important;
+
+    will-change: left;
+
+    transform: translateZ(0);
+
+    backface-visibility: hidden;
+}
+
+
+/*
+   Collapsed sidebar.
+*/
+
+.main-content.expanded .topbar {
+    left: var(--sidebar-collapsed-width) !important;
+}
+
+
+.common-layout.sidebar-is-collapsed
+.common-main
+.topbar {
+    left: var(--sidebar-collapsed-width) !important;
+}
+
+
+/* =========================================================
+   14. NO WHITE / BLUE FLASH
+   ========================================================= */
+
+.layout,
+.common-layout,
+.main-content,
+.common-main {
+    background: var(--common-ivory) !important;
+}
+
+
+/*
+   Do not allow layout containers to create another
+   fixed-position containing block.
+*/
+
+.layout,
+.main-content,
+.common-main {
+    transform: none !important;
+
+    filter: none !important;
+
+    perspective: none !important;
+}
+
+
+/* =========================================================
+   15. TOPBAR CONTROLS
+   GOLD ONLY
+   ========================================================= */
+
+.topbar-menu {
+    width: 34px !important;
+    height: 34px !important;
+
+    display: flex !important;
+
+    align-items: center !important;
+    justify-content: center !important;
+
+    padding: 0 !important;
+
+    border: none !important;
+
+    border-radius: 0 !important;
+
+    background: transparent !important;
+
+    box-shadow: none !important;
+
+    outline: none !important;
+
+    color: var(--common-gold) !important;
+
+    transition:
+        color 0.18s ease,
+        transform 0.18s ease !important;
+}
+
+
+.topbar-menu:hover,
+.topbar-menu:focus,
+.topbar-menu:focus-visible {
+    background: transparent !important;
+
+    border: none !important;
+
+    border-radius: 0 !important;
+
+    box-shadow: none !important;
+
+    outline: none !important;
+
+    color: var(--common-gold-light) !important;
+}
+
+
+.topbar-menu:active {
+    transform: scale(0.92);
+}
+
+
+.topbar-menu svg {
+    width: 17px !important;
+    height: 17px !important;
+
+    color: var(--common-gold) !important;
+
+    background: transparent !important;
+}
+
+
+/* =========================================================
+   16. NOTIFICATION
+   NO WHITE BOX
+   ========================================================= */
+
+.topbar-right button,
+.topbar-right button:hover,
+.topbar-right button:focus,
+.topbar-right button:focus-visible {
+    border: none !important;
+
+    outline: none !important;
+
+    background: transparent !important;
+
+    border-radius: 0 !important;
+
+    box-shadow: none !important;
+
+    color: var(--common-gold) !important;
+}
+
+
+.topbar-right button svg {
+    color: var(--common-gold) !important;
+
+    background: transparent !important;
+}
+
+
+.notification-button,
+.notification-btn,
+.notification-trigger,
+.notification-center-button {
+    border: none !important;
+
+    outline: none !important;
+
+    background: transparent !important;
+
+    border-radius: 0 !important;
+
+    box-shadow: none !important;
+
+    color: var(--common-gold) !important;
+}
+
+
+.notification-button:hover,
+.notification-btn:hover,
+.notification-trigger:hover,
+.notification-center-button:hover {
+    background: transparent !important;
+
+    border: none !important;
+
+    box-shadow: none !important;
+
+    color: var(--common-gold-light) !important;
+}
+
+
+.notification-button svg,
+.notification-btn svg,
+.notification-trigger svg,
+.notification-center-button svg {
+    color: var(--common-gold) !important;
+
+    background: transparent !important;
+}
+
+
+/* =========================================================
+   17. CONTENT POSITION
+   ========================================================= */
+
+.page-content {
+    padding-top:
+        calc(var(--topbar-height) + 28px) !important;
+}
+
+
+.common-content {
+    padding-top:
+        calc(var(--topbar-height) + 28px) !important;
+}
+
+
+/* =========================================================
+   18. NORMAL DOCUMENT SCROLL
+   ========================================================= */
+
+html,
+body,
+#root {
+    min-height: 100%;
+}
+
+
+html {
+    overflow-x: hidden;
+}
+
+
+body {
+    margin: 0;
+
+    overflow-x: hidden;
+
+    overflow-y: auto;
+}
+
+
+/* =========================================================
+   19. MOBILE
+   ========================================================= */
+
+@media (max-width: 900px) {
+
+    /*
+       Mobile sidebar slides instead of resizing.
+    */
+
+    .sidebar {
+        width: var(--sidebar-width) !important;
+
+        transform: translateX(-100%);
+
+        transition:
+            transform var(--sidebar-motion) !important;
+
+        z-index: 9999 !important;
+    }
+
+
+    .sidebar.sidebar--open {
+        transform: translateX(0);
+    }
+
+
+    /*
+       Overlay sits below sidebar but above page.
+    */
+
+    .sidebar-overlay {
+        position: fixed !important;
+
+        inset: 0 !important;
+
+        z-index: 9000 !important;
+
+        display: block;
+
+        background:
+            rgba(16, 27, 45, 0.48);
+    }
+
+
+    /*
+       Mobile content does not resize.
+    */
+
+    .main-content,
+    .main-content.expanded,
+    .common-main,
+    .common-layout.sidebar-is-collapsed .common-main {
+        width: 100% !important;
+
+        margin-left: 0 !important;
+
+        transition: none !important;
+    }
+
+
+    /*
+       Topbar remains fixed.
+    */
+
+    .topbar {
+        position: fixed !important;
+
+        top: 0 !important;
+
+        left: 0 !important;
+        right: 0 !important;
+
+        width: 100% !important;
+
+        z-index: 1000 !important;
+
+        transition: none !important;
+    }
+
+
+    /*
+       Mobile sidebar is visually above topbar.
+    */
+
+    .sidebar.sidebar--open {
+        z-index: 9999 !important;
+    }
+
+
+    /*
+       Mobile sidebar should look expanded.
+    */
+
+    .sidebar--collapsed .sidebar-nav {
+        padding-left: 12px !important;
+
+        padding-right: 12px !important;
+
+        align-items: stretch !important;
+    }
+
+
+    .sidebar--collapsed .sidebar-nav-link {
+        width: 100% !important;
+
+        min-width: 0 !important;
+
+        max-width: none !important;
+
+        margin: 0 !important;
+
+        padding-left: 12px !important;
+
+        padding-right: 12px !important;
+
+        justify-content: flex-start !important;
+
+        gap: 12px !important;
+
+        background: transparent !important;
+    }
+
+
+    .sidebar--collapsed .sidebar-nav-icon {
+        position: static !important;
+
+        width: 20px !important;
+
+        height: 20px !important;
+
+        margin: 0 !important;
+
+        transform: none !important;
+
+        flex: 0 0 20px !important;
+    }
+
+
+    .sidebar--collapsed .sidebar-nav-label {
+        position: static !important;
+
+        width: auto !important;
+
+        height: auto !important;
+
+        padding: 0 !important;
+
+        margin: 0 !important;
+
+        overflow: visible !important;
+
+        clip: auto !important;
+
+        opacity: 1 !important;
+
+        visibility: visible !important;
+
+        transform: none !important;
+
+        pointer-events: auto !important;
+
+        white-space: nowrap !important;
+    }
+
+
+    .page-content {
+        padding-top:
+            calc(var(--topbar-height) + 22px) !important;
+    }
+
+
+    .common-content {
+        padding-top:
+            calc(var(--topbar-height) + 22px) !important;
+    }
+}
+
+
+/* =========================================================
+   20. SMALL MOBILE
+   ========================================================= */
+
+@media (max-width: 520px) {
+
+    :root {
+        --topbar-height: 60px;
+    }
+
+
+    .topbar {
+        height: var(--topbar-height) !important;
+
+        padding: 0 14px !important;
+    }
+
+
+    .page-content {
+        padding-top:
+            calc(var(--topbar-height) + 18px) !important;
+    }
+
+
+    .common-content {
+        padding-top:
+            calc(var(--topbar-height) + 18px) !important;
+    }
+}
+
+
+/* =========================================================
+   21. REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+    .sidebar,
+    .sidebar-brand,
+    .sidebar-brand-mark,
+    .sidebar-brand-text,
+    .sidebar-nav-link,
+    .sidebar-nav-icon,
+    .sidebar-nav-label,
+    .sidebar-bottom,
+    .sidebar-bottom-content,
+    .main-content,
+    .common-main,
+    .topbar,
+    .topbar-menu {
+        transition: none !important;
     }
 }
