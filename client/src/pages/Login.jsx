@@ -21,14 +21,33 @@ export default function Login() {
         new URLSearchParams(location.search).get("reason") ===
         "session-expired";
 
+    // =========================================================
+    // SAFE DESTINATION
+    // =========================================================
+
     const safeDestination = (value) => {
-        return (
+        if (
             typeof value === "string" &&
             value.startsWith("/") &&
             !value.startsWith("//")
-        )
-            ? value
-            : null;
+        ) {
+            return value;
+        }
+
+        return null;
+    };
+
+    // =========================================================
+    // ROLE NORMALIZATION
+    // =========================================================
+
+    const normalizeRole = (role) => {
+        if (!role) return null;
+
+        return String(role)
+            .trim()
+            .toLowerCase()
+            .replace(/[\s_-]+/g, "");
     };
 
     // =========================================================
@@ -36,14 +55,19 @@ export default function Login() {
     // =========================================================
 
     const getRoleDestination = (role) => {
-        switch (role) {
+        const normalizedRole = normalizeRole(role);
+
+        switch (normalizedRole) {
             case "student":
                 return "/";
 
             case "professor":
+            case "faculty":
+            case "teacher":
                 return "/professor";
 
             case "admin":
+            case "administrator":
                 return "/admin";
 
             default:
@@ -56,10 +80,72 @@ export default function Login() {
     // =========================================================
 
     if (!loading && user && profile) {
-        const destination =
+        const roleDestination = getRoleDestination(profile.role);
+
+        console.log("LOGIN REDIRECT DEBUG:", {
+            user: user.email,
+            profile,
+            originalRole: profile.role,
+            normalizedRole: normalizeRole(profile.role),
+            roleDestination,
+            queryDestination,
+            from: location.state?.from,
+        });
+
+        const requestedDestination =
             safeDestination(location.state?.from) ||
-            safeDestination(queryDestination) ||
-            getRoleDestination(profile.role);
+            safeDestination(queryDestination);
+
+        /*
+         * IMPORTANT:
+         *
+         * Do not allow a destination from another role.
+         *
+         * Example:
+         * Professor logs in but previous URL was /admin.
+         * We ignore /admin and send professor to /professor.
+         */
+
+        const isProfessor =
+            ["professor", "faculty", "teacher"].includes(
+                normalizeRole(profile.role)
+            );
+
+        const isStudent =
+            normalizeRole(profile.role) === "student";
+
+        const isAdmin =
+            ["admin", "administrator"].includes(
+                normalizeRole(profile.role)
+            );
+
+        let destination = roleDestination;
+
+        if (requestedDestination) {
+            if (
+                isProfessor &&
+                requestedDestination.startsWith("/professor")
+            ) {
+                destination = requestedDestination;
+            } else if (
+                isStudent &&
+                (
+                    requestedDestination === "/" ||
+                    requestedDestination.startsWith("/borrowing") ||
+                    requestedDestination.startsWith("/calendar") ||
+                    requestedDestination.startsWith("/my-requests") ||
+                    requestedDestination.startsWith("/my-qr") ||
+                    requestedDestination.startsWith("/my-accountability")
+                )
+            ) {
+                destination = requestedDestination;
+            } else if (
+                isAdmin &&
+                requestedDestination.startsWith("/admin")
+            ) {
+                destination = requestedDestination;
+            }
+        }
 
         return (
             <Navigate
@@ -87,7 +173,17 @@ export default function Login() {
 
         if (signInError) {
             setError(signInError.message);
+            setSubmitting("");
+            return;
         }
+
+        /*
+         * Do not manually navigate here.
+         *
+         * useAuth() will update after Supabase login,
+         * then the redirect logic above will determine
+         * the correct portal based on profile.role.
+         */
 
         setSubmitting("");
     }
@@ -137,12 +233,10 @@ export default function Login() {
 
     return (
         <main className="login-page">
-
             <form
                 className="login-card"
                 onSubmit={handleSubmit}
             >
-
                 <div className="login-brand">
                     CTHM Stockroom
                 </div>
@@ -239,7 +333,6 @@ export default function Login() {
                         ? "Signing in..."
                         : "Sign in"}
                 </button>
-
             </form>
         </main>
     );

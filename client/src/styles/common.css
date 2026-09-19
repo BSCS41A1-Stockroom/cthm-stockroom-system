@@ -1,0 +1,1339 @@
+/* =========================================================
+   CTHM COMMON LAYOUT
+   Shared Student + Professor UI
+   ========================================================= */
+
+:root {
+    --common-navy: #17263c;
+    --common-navy-light: #213650;
+    --common-ivory: #f5f3ee;
+    --common-white: #ffffff;
+    --common-gold: #b69b62;
+    --common-text: #1c2430;
+    --common-muted: #697381;
+    --common-border: #e1e4e8;
+    --common-hover: #f4f6f8;
+}
+
+
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
+
+.sidebar {
+    position: fixed;
+
+    top: 0;
+    left: 0;
+
+    width: 245px;
+    height: 100vh;
+
+    z-index: 100;
+
+    display: flex;
+    flex-direction: column;
+
+    background: var(--common-navy);
+
+    color: #ffffff;
+
+    box-shadow:
+        8px 0 30px rgba(23, 38, 60, 0.08);
+
+    box-sizing: border-box;
+
+    transition:
+        width 0.2s ease,
+        transform 0.2s ease;
+}
+
+
+/* =========================================================
+   COLLAPSED SIDEBAR
+   ========================================================= */
+
+.sidebar.sidebar--collapsed {
+    width: 76px;
+}
+
+
+/* =========================================================
+   BRAND
+   ========================================================= */
+
+.sidebar-brand {
+    height: 76px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 11px;
+
+    padding: 0 20px;
+
+    flex-shrink: 0;
+
+    border-bottom: 1px solid
+        rgba(255, 255, 255, 0.08);
+
+    box-sizing: border-box;
+}
+
+.sidebar--collapsed .sidebar-brand {
+    justify-content: center;
+
+    padding: 0;
+}
+
+
+.sidebar-brand-mark {
+    width: 36px;
+    height: 36px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    border: 1px solid
+        rgba(182, 155, 98, 0.65);
+
+    color: var(--common-gold);
+
+    font-family:
+        Georgia,
+        "Times New Roman",
+        serif;
+
+    font-size: 17px;
+
+    border-radius: 6px;
+}
+
+
+.sidebar-brand-text {
+    min-width: 0;
+
+    display: flex;
+    flex-direction: column;
+}
+
+
+.sidebar-brand-text strong {
+    color: #ffffff;
+
+    font-family:
+        Georgia,
+        "Times New Roman",
+        serif;
+
+    font-size: 15px;
+    font-weight: 600;
+
+    letter-spacing: 0.8px;
+}
+
+
+.sidebar-brand-text span {
+    margin-top: 2px;
+
+    color: #aeb8c4;
+
+    font-size: 8px;
+    font-weight: 700;
+
+    letter-spacing: 1.4px;
+
+    white-space: nowrap;
+}
+
+
+/* =========================================================
+   MOBILE CLOSE
+   ========================================================= */
+
+.sidebar-mobile-close {
+    display: none;
+
+    margin-left: auto;
+
+    width: 32px;
+    height: 32px;
+
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+
+    background: transparent;
+
+    color: #c8d0d9;
+
+    font-family: inherit;
+
+    font-size: 22px;
+
+    cursor: pointer;
+}
+
+
+/* =========================================================
+   PORTAL LABEL
+   ========================================================= */
+
+.sidebar-portal-label {
+    padding: 22px 20px 9px;
+
+    color: var(--common-gold);
+
+    font-size: 8px;
+    font-weight: 700;
+
+    letter-spacing: 1.5px;
+}
+
+
+/* =========================================================
+   NAVIGATION
+   ========================================================= */
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+
+    gap: 3px;
+
+    padding: 0 12px;
+}
+
+
+.sidebar-nav-link {
+    position: relative;
+
+    min-height: 44px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 12px;
+
+    padding: 0 12px;
+
+    border-radius: 7px;
+
+    color: #b9c2cd;
+
+    text-decoration: none;
+
+    font-size: 11px;
+    font-weight: 600;
+
+    transition:
+        background 0.16s ease,
+        color 0.16s ease;
+}
+
+
+.sidebar-nav-link svg {
+    width: 15px;
+
+    flex-shrink: 0;
+
+    font-size: 13px;
+}
+
+
+.sidebar-nav-link:hover {
+    background: rgba(
+        255,
+        255,
+        255,
+        0.06
+    );
+
+    color: #ffffff;
+}
+
+
+.sidebar-nav-link.active {
+    background: rgba(
+        182,
+        155,
+        98,
+        0.14
+    );
+
+    color: #ffffff;
+}
+
+
+.sidebar-nav-link.active::before {
+    content: "";
+
+    position: absolute;
+
+    left: 0;
+
+    top: 8px;
+    bottom: 8px;
+
+    width: 3px;
+
+    border-radius: 0 3px 3px 0;
+
+    background: var(--common-gold);
+}
+
+
+/* COLLAPSED NAV */
+
+.sidebar--collapsed .sidebar-nav {
+    padding: 0 10px;
+}
+
+
+.sidebar--collapsed .sidebar-nav-link {
+    justify-content: center;
+
+    padding: 0;
+}
+
+
+.sidebar--collapsed .sidebar-nav-link.active::before {
+    left: 0;
+}
+
+
+/* =========================================================
+   SIDEBAR BOTTOM
+   ========================================================= */
+
+.sidebar-bottom {
+    margin-top: auto;
+
+    padding: 15px 20px 20px;
+
+    border-top: 1px solid
+        rgba(255, 255, 255, 0.08);
+}
+
+
+.sidebar-bottom-label {
+    color: #ffffff;
+
+    font-family:
+        Georgia,
+        "Times New Roman",
+        serif;
+
+    font-size: 9px;
+    font-weight: 600;
+
+    letter-spacing: 0.8px;
+}
+
+
+.sidebar-bottom-version {
+    margin-top: 4px;
+
+    color: #8793a0;
+
+    font-size: 8px;
+
+    line-height: 1.4;
+}
+
+
+/* =========================================================
+   OVERLAY
+   ========================================================= */
+
+.sidebar-overlay {
+    display: none;
+}
+
+
+/* =========================================================
+   TOPBAR
+   ========================================================= */
+
+.topbar {
+    position: sticky;
+
+    top: 0;
+
+    height: 64px;
+
+    z-index: 80;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 26px;
+
+    background: #ffffff;
+
+    border-bottom: 1px solid
+        var(--common-border);
+
+    box-sizing: border-box;
+}
+
+
+/* =========================================================
+   TOPBAR LEFT
+   ========================================================= */
+
+.topbar-left {
+    display: flex;
+    align-items: center;
+
+    gap: 14px;
+
+    min-width: 0;
+}
+
+
+.topbar-menu {
+    width: 34px;
+    height: 34px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    gap: 4px;
+
+    flex-shrink: 0;
+
+    padding: 0;
+
+    border: 1px solid
+        var(--common-border);
+
+    border-radius: 6px;
+
+    background: #ffffff;
+
+    cursor: pointer;
+
+    transition:
+        background 0.16s ease,
+        border-color 0.16s ease;
+}
+
+
+.topbar-menu:hover {
+    background: var(--common-hover);
+
+    border-color: #cbd1d8;
+}
+
+
+.topbar-menu span {
+    width: 13px;
+    height: 1.5px;
+
+    display: block;
+
+    background: var(--common-navy);
+
+    transition:
+        transform 0.16s ease,
+        opacity 0.16s ease;
+}
+
+
+/* =========================================================
+   TOPBAR TITLE
+   ========================================================= */
+
+.topbar-title {
+    min-width: 0;
+
+    display: flex;
+    flex-direction: column;
+}
+
+
+.topbar-title-main {
+    color: var(--common-navy);
+
+    font-family:
+        Georgia,
+        "Times New Roman",
+        serif;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    letter-spacing: 0.2px;
+}
+
+
+.topbar-title-sub {
+    margin-top: 2px;
+
+    color: var(--common-muted);
+
+    font-size: 8px;
+    font-weight: 700;
+
+    letter-spacing: 1px;
+
+    text-transform: uppercase;
+}
+
+
+/* =========================================================
+   TOPBAR RIGHT
+   ========================================================= */
+
+.topbar-right {
+    display: flex;
+    align-items: center;
+
+    gap: 12px;
+}
+
+
+.topbar-divider {
+    width: 1px;
+    height: 25px;
+
+    background: var(--common-border);
+}
+
+
+/* =========================================================
+   STUDENT / PROFESSOR ACTIONS
+   ========================================================= */
+
+.student-topbar-actions {
+    display: flex;
+    align-items: center;
+
+    gap: 12px;
+}
+
+
+/* =========================================================
+   MAIN LAYOUT SUPPORT
+   ========================================================= */
+
+/*
+   Use these classes if your layout needs a shared
+   main container.
+*/
+
+.common-main {
+    width: calc(100% - 245px);
+
+    min-height: 100vh;
+
+    margin-left: 245px;
+
+    display: flex;
+    flex-direction: column;
+
+    transition:
+        width 0.2s ease,
+        margin-left 0.2s ease;
+}
+
+
+/* =========================================================
+   COLLAPSED MAIN
+   ========================================================= */
+
+.common-layout.sidebar-is-collapsed
+    .common-main {
+    width: calc(100% - 76px);
+
+    margin-left: 76px;
+}
+
+
+/* =========================================================
+   CONTENT
+   ========================================================= */
+
+.common-content {
+    flex: 1;
+
+    min-width: 0;
+
+    padding: 28px 30px 34px;
+
+    background: var(--common-ivory);
+
+    box-sizing: border-box;
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 900px) {
+
+    .sidebar {
+        width: 245px;
+
+        transform: translateX(-100%);
+
+        transition:
+            transform 0.2s ease;
+    }
+
+    .sidebar.sidebar--open {
+        transform: translateX(0);
+    }
+
+    .sidebar--collapsed {
+        width: 245px;
+    }
+
+    .sidebar--collapsed .sidebar-brand {
+        justify-content: flex-start;
+
+        padding: 0 20px;
+    }
+
+    .sidebar--collapsed .sidebar-brand-text {
+        display: flex;
+    }
+
+    .sidebar--collapsed .sidebar-portal-label {
+        display: block;
+    }
+
+    .sidebar--collapsed .sidebar-nav {
+        padding: 0 12px;
+    }
+
+    .sidebar--collapsed .sidebar-nav-link {
+        justify-content: flex-start;
+
+        padding: 0 12px;
+    }
+
+    .sidebar--collapsed .sidebar-nav-link span {
+        display: inline;
+    }
+
+    .sidebar-mobile-close {
+        display: inline-flex;
+    }
+
+    .sidebar-overlay {
+        position: fixed;
+
+        inset: 0;
+
+        z-index: 90;
+
+        display: block;
+
+        background: rgba(
+            23,
+            38,
+            60,
+            0.45
+        );
+    }
+
+    .common-main,
+    .common-layout.sidebar-is-collapsed
+        .common-main {
+        width: 100%;
+
+        margin-left: 0;
+    }
+
+    .topbar {
+        padding: 0 18px;
+    }
+
+    .common-content {
+        padding: 22px 18px 28px;
+    }
+}
+
+
+/* =========================================================
+   SMALL MOBILE
+   ========================================================= */
+
+@media (max-width: 520px) {
+
+    .topbar {
+        height: 60px;
+
+        padding: 0 14px;
+    }
+
+    .topbar-title-main {
+        font-size: 13px;
+    }
+
+    .topbar-title-sub {
+        display: none;
+    }
+
+    .topbar-divider {
+        display: none;
+    }
+
+    .topbar-right {
+        gap: 7px;
+    }
+
+    .common-content {
+        padding: 18px 14px 24px;
+    }
+}
+
+/* =========================================================
+   COMMON CTHM LAYOUT
+   PROFESSOR + STUDENT
+   ========================================================= */
+
+.layout {
+    width: 100%;
+    min-height: 100vh;
+
+    display: flex;
+
+    background: var(--common-ivory, #f5f3ee);
+
+    color: var(--common-text, #1c2430);
+}
+
+
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
+
+.sidebar {
+    position: fixed;
+
+    top: 0;
+    left: 0;
+
+    width: 245px;
+    height: 100vh;
+
+    z-index: 100;
+
+    display: flex;
+    flex-direction: column;
+
+    background: #17263c;
+    color: #ffffff;
+
+    box-shadow:
+        8px 0 30px rgba(23, 38, 60, 0.08);
+
+    box-sizing: border-box;
+
+    transition:
+        width 0.2s ease,
+        transform 0.2s ease;
+}
+
+
+/* COLLAPSED */
+
+.sidebar.sidebar--collapsed {
+    width: 76px;
+}
+
+
+/* =========================================================
+   BRAND
+   ========================================================= */
+
+.sidebar-brand {
+    height: 76px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 11px;
+
+    padding: 0 20px;
+
+    flex-shrink: 0;
+
+    border-bottom: 1px solid
+        rgba(255, 255, 255, 0.08);
+
+    box-sizing: border-box;
+}
+
+.sidebar--collapsed .sidebar-brand {
+    justify-content: center;
+
+    padding: 0;
+}
+
+.sidebar-brand-mark {
+    width: 36px;
+    height: 36px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    border: 1px solid
+        rgba(182, 155, 98, 0.65);
+
+    color: #b69b62;
+
+    font-family:
+        Georgia,
+        "Times New Roman",
+        serif;
+
+    font-size: 17px;
+
+    border-radius: 6px;
+}
+
+.sidebar-brand-text {
+    min-width: 0;
+
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-brand-text strong {
+    color: #ffffff;
+
+    font-family:
+        Georgia,
+        "Times New Roman",
+        serif;
+
+    font-size: 15px;
+    font-weight: 600;
+
+    letter-spacing: 0.8px;
+}
+
+.sidebar-brand-text span {
+    margin-top: 2px;
+
+    color: #aeb8c4;
+
+    font-size: 8px;
+    font-weight: 700;
+
+    letter-spacing: 1.4px;
+}
+
+
+/* =========================================================
+   MOBILE CLOSE
+   ========================================================= */
+
+.sidebar-mobile-close {
+    display: none;
+
+    margin-left: auto;
+
+    width: 32px;
+    height: 32px;
+
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+
+    background: transparent;
+
+    color: #c8d0d9;
+
+    cursor: pointer;
+}
+
+
+/* =========================================================
+   PORTAL LABEL
+   ========================================================= */
+
+.sidebar-portal-label {
+    padding: 22px 20px 9px;
+
+    color: #b69b62;
+
+    font-size: 8px;
+    font-weight: 700;
+
+    letter-spacing: 1.5px;
+}
+
+
+/* =========================================================
+   NAVIGATION
+   ========================================================= */
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+
+    gap: 3px;
+
+    padding: 0 12px;
+}
+
+.sidebar-nav-link {
+    position: relative;
+
+    min-height: 44px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 12px;
+
+    padding: 0 12px;
+
+    border-radius: 7px;
+
+    color: #b9c2cd;
+
+    text-decoration: none;
+
+    font-size: 11px;
+    font-weight: 600;
+
+    transition:
+        background 0.16s ease,
+        color 0.16s ease;
+}
+
+.sidebar-nav-link svg {
+    width: 15px;
+
+    flex-shrink: 0;
+
+    font-size: 13px;
+}
+
+.sidebar-nav-link:hover {
+    background: rgba(
+        255,
+        255,
+        255,
+        0.06
+    );
+
+    color: #ffffff;
+}
+
+.sidebar-nav-link.active {
+    background: rgba(
+        182,
+        155,
+        98,
+        0.14
+    );
+
+    color: #ffffff;
+}
+
+.sidebar-nav-link.active::before {
+    content: "";
+
+    position: absolute;
+
+    left: 0;
+
+    top: 8px;
+    bottom: 8px;
+
+    width: 3px;
+
+    border-radius: 0 3px 3px 0;
+
+    background: #b69b62;
+}
+
+
+/* BADGE */
+
+.sidebar-nav-badge {
+    min-width: 20px;
+    height: 20px;
+
+    margin-left: auto;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 0 5px;
+
+    border-radius: 10px;
+
+    background: rgba(
+        182,
+        155,
+        98,
+        0.18
+    );
+
+    color: #d5bf91;
+
+    font-size: 9px;
+    font-weight: 700;
+}
+
+
+/* COLLAPSED NAV */
+
+.sidebar--collapsed .sidebar-nav {
+    padding: 0 10px;
+}
+
+.sidebar--collapsed .sidebar-nav-link {
+    justify-content: center;
+
+    padding: 0;
+}
+
+.sidebar--collapsed .sidebar-nav-link.active::before {
+    left: 0;
+}
+
+
+/* =========================================================
+   SIDEBAR BOTTOM
+   ========================================================= */
+
+.sidebar-bottom {
+    margin-top: auto;
+
+    padding: 14px 20px 18px;
+
+    border-top: 1px solid
+        rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-bottom-label {
+    color: #ffffff;
+
+    font-family:
+        Georgia,
+        "Times New Roman",
+        serif;
+
+    font-size: 9px;
+    font-weight: 600;
+
+    letter-spacing: 0.8px;
+}
+
+.sidebar-bottom-version {
+    margin-top: 4px;
+
+    color: #8793a0;
+
+    font-size: 8px;
+}
+
+
+/* =========================================================
+   OVERLAY
+   ========================================================= */
+
+.sidebar-overlay {
+    display: none;
+}
+
+
+/* =========================================================
+   MAIN CONTENT
+   ========================================================= */
+
+.main-content {
+    width: calc(100% - 245px);
+
+    min-height: 100vh;
+
+    margin-left: 245px;
+
+    display: flex;
+    flex-direction: column;
+
+    transition:
+        width 0.2s ease,
+        margin-left 0.2s ease;
+}
+
+.main-content.expanded {
+    width: calc(100% - 76px);
+
+    margin-left: 76px;
+}
+
+
+/* =========================================================
+   TOPBAR
+   ========================================================= */
+
+.topbar {
+    position: sticky;
+
+    top: 0;
+
+    height: 64px;
+
+    z-index: 80;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 0 26px;
+
+    flex-shrink: 0;
+
+    background: #ffffff;
+
+    border-bottom: 1px solid #e1e4e8;
+
+    box-sizing: border-box;
+}
+
+
+/* LEFT */
+
+.topbar-left {
+    display: flex;
+    align-items: center;
+
+    gap: 14px;
+
+    min-width: 0;
+}
+
+
+/* MENU */
+
+.topbar-menu {
+    width: 34px;
+    height: 34px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    border: 1px solid #e1e4e8;
+    border-radius: 6px;
+
+    background: #ffffff;
+
+    color: #17263c;
+
+    cursor: pointer;
+
+    transition:
+        background 0.16s ease,
+        border-color 0.16s ease;
+}
+
+.topbar-menu:hover {
+    background: #f4f6f8;
+
+    border-color: #cbd1d8;
+}
+
+.topbar-menu svg {
+    font-size: 12px;
+}
+
+
+/* TITLE */
+
+.topbar-title {
+    min-width: 0;
+
+    display: flex;
+    flex-direction: column;
+}
+
+.topbar-title-main {
+    color: #17263c;
+
+    font-family:
+        Georgia,
+        "Times New Roman",
+        serif;
+
+    font-size: 13px;
+    font-weight: 600;
+
+    letter-spacing: 0.8px;
+}
+
+.topbar-title-sub {
+    margin-top: 2px;
+
+    color: #697381;
+
+    font-size: 8px;
+    font-weight: 700;
+
+    letter-spacing: 1px;
+
+    text-transform: uppercase;
+}
+
+
+/* RIGHT */
+
+.topbar-right {
+    display: flex;
+    align-items: center;
+
+    gap: 12px;
+}
+
+.topbar-divider {
+    width: 1px;
+    height: 25px;
+
+    background: #e1e4e8;
+}
+
+
+/* =========================================================
+   PAGE CONTENT
+   ========================================================= */
+
+.page-content {
+    flex: 1;
+
+    min-width: 0;
+
+    padding: 28px 30px 34px;
+
+    background: #f5f3ee;
+
+    box-sizing: border-box;
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 900px) {
+
+    .sidebar {
+        width: 245px;
+
+        transform: translateX(-100%);
+    }
+
+    .sidebar.sidebar--open {
+        transform: translateX(0);
+    }
+
+    .sidebar--collapsed {
+        width: 245px;
+    }
+
+    .sidebar--collapsed .sidebar-brand {
+        justify-content: flex-start;
+
+        padding: 0 20px;
+    }
+
+    .sidebar--collapsed .sidebar-nav {
+        padding: 0 12px;
+    }
+
+    .sidebar--collapsed .sidebar-nav-link {
+        justify-content: flex-start;
+
+        padding: 0 12px;
+    }
+
+    .sidebar-mobile-close {
+        display: inline-flex;
+    }
+
+    .sidebar-overlay {
+        position: fixed;
+
+        inset: 0;
+
+        z-index: 90;
+
+        display: block;
+
+        background: rgba(
+            23,
+            38,
+            60,
+            0.45
+        );
+    }
+
+    .main-content,
+    .main-content.expanded {
+        width: 100%;
+
+        margin-left: 0;
+    }
+
+    .topbar {
+        padding: 0 18px;
+    }
+
+    .page-content {
+        padding: 22px 18px 28px;
+    }
+}
+
+
+/* =========================================================
+   SMALL MOBILE
+   ========================================================= */
+
+@media (max-width: 520px) {
+
+    .topbar {
+        height: 60px;
+
+        padding: 0 14px;
+    }
+
+    .topbar-title-main {
+        font-size: 12px;
+    }
+
+    .topbar-title-sub {
+        display: none;
+    }
+
+    .topbar-divider {
+        display: none;
+    }
+
+    .page-content {
+        padding: 18px 14px 24px;
+    }
+}
