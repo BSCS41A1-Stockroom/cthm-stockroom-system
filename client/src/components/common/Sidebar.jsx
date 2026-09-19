@@ -1,66 +1,194 @@
 import { NavLink } from "react-router-dom";
 import {
-  FaHome,
-  FaBoxOpen,
-  FaCalendarAlt,
-  FaClipboardList,
-  FaQrcode,
-  FaShieldAlt,
+    FaHome,
+    FaBoxOpen,
+    FaCalendarAlt,
+    FaClipboardList,
+    FaQrcode,
+    FaShieldAlt,
+    FaTimes,
 } from "react-icons/fa";
 
+const STUDENT_NAV = [
+    {
+        to: "/",
+        label: "Home",
+        icon: FaHome,
+        end: true,
+    },
+    {
+        to: "/borrowing",
+        label: "Borrowing",
+        icon: FaBoxOpen,
+    },
+    {
+        to: "/calendar",
+        label: "Calendar",
+        icon: FaCalendarAlt,
+    },
+    {
+        to: "/my-requests",
+        label: "My Requests",
+        icon: FaClipboardList,
+    },
+    {
+        to: "/my-qr",
+        label: "My QR",
+        icon: FaQrcode,
+    },
+    {
+        to: "/my-accountability",
+        label: "Accountability",
+        icon: FaShieldAlt,
+    },
+];
+
+const PROFESSOR_NAV = [
+    {
+        to: "/professor",
+        label: "Dashboard",
+        icon: FaHome,
+        end: true,
+    },
+    {
+        to: "/professor/qr",
+        label: "QR Scanner",
+        icon: FaQrcode,
+    },
+    {
+        to: "/professor/calendar",
+        label: "Calendar",
+        icon: FaCalendarAlt,
+    },
+    {
+        to: "/professor/requests",
+        label: "Pending Requests",
+        icon: FaClipboardList,
+        badge: true,
+    },
+];
+
 export default function Sidebar({
-  sidebarOpen,
-  setSidebarOpen,
-  sidebarCollapsed,
+    sidebarOpen,
+    setSidebarOpen,
+    sidebarCollapsed,
+    variant = "student",
 }) {
-  return (
-    <>
-      {sidebarOpen && (
-        <div
-          className="overlay"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+    const isProfessor = variant === "professor";
 
-      <aside
-        className={`sidebar ${
-          sidebarOpen ? "show" : ""
-        } ${sidebarCollapsed ? "collapsed" : ""}`}
-      >
-        <div className="sidebar-header">
-          {!sidebarCollapsed && <h2>CTHM</h2>}
-        </div>
+    const navigation = isProfessor
+        ? PROFESSOR_NAV
+        : STUDENT_NAV;
 
-        <nav>
-          <NavLink to="/">
-            <FaHome />
-            {!sidebarCollapsed && <span>Home</span>}
-          </NavLink>
+    const closeSidebar = () => {
+        setSidebarOpen(false);
+    };
 
-          <NavLink to="/borrowing">
-            <FaBoxOpen />
-            {!sidebarCollapsed && <span>Borrowing</span>}
-          </NavLink>
+    return (
+        <>
+            {sidebarOpen && (
+                <div
+                    className="sidebar-overlay"
+                    onClick={closeSidebar}
+                />
+            )}
 
-          <NavLink to="/calendar">
-            <FaCalendarAlt />
-            {!sidebarCollapsed && <span>Calendar</span>}
-          </NavLink>
+            <aside
+                className={`sidebar ${
+                    sidebarOpen
+                        ? "sidebar--open"
+                        : ""
+                } ${
+                    sidebarCollapsed
+                        ? "sidebar--collapsed"
+                        : ""
+                }`}
+            >
+                {/* BRAND */}
+                <div className="sidebar-brand">
+                    <div className="sidebar-brand-mark">
+                        C
+                    </div>
 
-          <NavLink to="/my-requests">
-            <FaClipboardList />
-            {!sidebarCollapsed && <span>My Requests</span>}
-          </NavLink>
-          <NavLink to="/my-qr">
-            <FaQrcode />
-            {!sidebarCollapsed && <span>My QR</span>}
-          </NavLink>
-          <NavLink to="/my-accountability">
-            <FaShieldAlt />
-            {!sidebarCollapsed && <span>Accountability</span>}
-          </NavLink>
-        </nav>
-      </aside>
-    </>
-  );
+                    {!sidebarCollapsed && (
+                        <div className="sidebar-brand-text">
+                            <strong>CTHM</strong>
+                            <span>
+                                STOCK ROOM
+                            </span>
+                        </div>
+                    )}
+
+                    <button
+                        type="button"
+                        className="sidebar-mobile-close"
+                        onClick={closeSidebar}
+                        aria-label="Close navigation"
+                    >
+                        <FaTimes />
+                    </button>
+                </div>
+
+                {/* PORTAL */}
+                {!sidebarCollapsed && (
+                    <div className="sidebar-portal-label">
+                        {isProfessor
+                            ? "PROFESSOR PORTAL"
+                            : "STUDENT PORTAL"}
+                    </div>
+                )}
+
+                {/* NAVIGATION */}
+                <nav className="sidebar-nav">
+                    {navigation.map((item) => {
+                        const Icon = item.icon;
+
+                        return (
+                            <NavLink
+                                key={item.to}
+                                to={item.to}
+                                end={item.end}
+                                className={({ isActive }) =>
+                                    `sidebar-nav-link ${
+                                        isActive
+                                            ? "active"
+                                            : ""
+                                    }`
+                                }
+                                onClick={closeSidebar}
+                            >
+                                <Icon />
+
+                                {!sidebarCollapsed && (
+                                    <span>
+                                        {item.label}
+                                    </span>
+                                )}
+
+                                {!sidebarCollapsed &&
+                                    item.badge && (
+                                        <span className="sidebar-nav-badge">
+                                            0
+                                        </span>
+                                    )}
+                            </NavLink>
+                        );
+                    })}
+                </nav>
+
+                {/* BOTTOM */}
+                {!sidebarCollapsed && (
+                    <div className="sidebar-bottom">
+                        <div className="sidebar-bottom-label">
+                            CTHM STOCK ROOM
+                        </div>
+
+                        <div className="sidebar-bottom-version">
+                            Academic Inventory System
+                        </div>
+                    </div>
+                )}
+            </aside>
+        </>
+    );
 }
