@@ -15,6 +15,7 @@ const {
   serializeBorrowRequest,
   updateBorrowRequestStatus,
   validateClaimWindow,
+  validateAcademicAssignment,
   validatePolicyConstraints,
   withValidation,
 } = require("./borrowController");
@@ -33,6 +34,15 @@ test("exposes the authoritative borrowing limits to the student form", () => {
     maxQuantityPerRequest: 10,
     leadTimeDays: 2,
   });
+});
+
+test("accepts only an active professor and section from the selected department", async () => {
+  const professorId = "00000000-0000-4000-8000-000000000004";
+  const validClient = { query: async (sql, params) => { assert.match(sql, /professor\.role='professor'/); assert.deepEqual(params, ["2", "3", professorId]); return { rowCount: 1 }; } };
+  assert.equal(await validateAcademicAssignment(validClient, { departmentId: 2, sectionId: 3, assignedProfessorId: professorId }), null);
+  const invalidClient = { query: async () => ({ rowCount: 0 }) };
+  assert.equal((await validateAcademicAssignment(invalidClient, { departmentId: 2, sectionId: 99, assignedProfessorId: professorId })).code, "INVALID_ACADEMIC_ASSIGNMENT");
+  assert.equal((await validateAcademicAssignment(invalidClient, { departmentId: 2, sectionId: 3, assignedProfessorId: "typed name" })).code, "ACADEMIC_ASSIGNMENT_REQUIRED");
 });
 
 test("normalizes return quantities and rejects invalid return batches", () => {
@@ -193,6 +203,9 @@ test("normalizes camelCase API payloads", () => {
     borrowDate: "2026-08-10",
     returnDate: "2026-08-11",
     purpose: "Lab",
+    departmentId: 2,
+    sectionId: 3,
+    assignedProfessorId: "00000000-0000-4000-8000-000000000004",
     items: [{ inventoryId: 7, quantity: "2" }],
   }), {
     studentName: "Juan Dela Cruz",
@@ -200,6 +213,9 @@ test("normalizes camelCase API payloads", () => {
     borrowDate: "2026-08-10",
     returnDate: "2026-08-11",
     purpose: "Lab",
+    departmentId: 2,
+    sectionId: 3,
+    assignedProfessorId: "00000000-0000-4000-8000-000000000004",
     items: [{ inventoryId: 7, quantity: 2 }],
   });
 });
@@ -211,6 +227,9 @@ test("normalizes snake_case database-style payloads", () => {
     borrow_date: "2026-08-10",
     return_date: "2026-08-11",
     purpose: "Lab",
+    department_id: 2,
+    section_id: 3,
+    assigned_professor_user_id: "00000000-0000-4000-8000-000000000004",
     items: [{ inventory_id: 7, quantity: 2 }],
   }), {
     studentName: "Juan Dela Cruz",
@@ -218,6 +237,9 @@ test("normalizes snake_case database-style payloads", () => {
     borrowDate: "2026-08-10",
     returnDate: "2026-08-11",
     purpose: "Lab",
+    departmentId: 2,
+    sectionId: 3,
+    assignedProfessorId: "00000000-0000-4000-8000-000000000004",
     items: [{ inventoryId: 7, quantity: 2 }],
   });
 });
@@ -258,6 +280,13 @@ test("serializes database borrowing rows for the student request page", () => {
     borrow_date: "2026-08-20",
     return_date: "2026-08-21",
     purpose: "Lab",
+    department_id: 2,
+    department_name: "Hospitality Management",
+    department_code: "BSHM",
+    section_id: 3,
+    section_name: "HM-4A",
+    assigned_professor_user_id: "00000000-0000-4000-8000-000000000004",
+    assigned_professor_name: "Prof. Santos",
     status: "Borrowed",
     created_at: "2026-08-19T00:00:00Z",
     items: [{ name: "Pan", quantity: 2 }],
@@ -268,6 +297,13 @@ test("serializes database borrowing rows for the student request page", () => {
     borrowDate: "2026-08-20",
     returnDate: "2026-08-21",
     purpose: "Lab",
+    departmentId: 2,
+    departmentName: "Hospitality Management",
+    departmentCode: "BSHM",
+    sectionId: 3,
+    sectionName: "HM-4A",
+    assignedProfessorId: "00000000-0000-4000-8000-000000000004",
+    assignedProfessorName: "Prof. Santos",
     status: "borrowed",
     requestedAt: "2026-08-19T00:00:00Z",
     actualReturnedAt: null,

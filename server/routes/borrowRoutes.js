@@ -6,6 +6,7 @@ const { authenticate, requireRoles } = require("../middleware/auth");
 const {
   createBorrowRequest,
   getBorrowingPolicy,
+  getAssignmentOptions,
   listBorrowRequests,
   validateBorrowRequest,
   updateBorrowRequestStatus,
@@ -25,6 +26,12 @@ router.get(
   "/policy",
   requireRoles("student"),
   getBorrowingPolicy
+);
+
+router.get(
+  "/assignment-options",
+  requireRoles("student", "admin"),
+  getAssignmentOptions
 );
 
 

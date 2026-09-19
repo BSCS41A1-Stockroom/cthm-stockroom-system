@@ -9,6 +9,7 @@ const EMPTY_FORM = {
   fullName: "",
   role: "student",
   studentId: "",
+  departmentId: "",
   isActive: true,
 };
 
@@ -25,6 +26,7 @@ export default function Users() {
   const [qrUser, setQrUser] = useState(null);
   const [selectedQrUsers, setSelectedQrUsers] = useState([]);
   const [printCards, setPrintCards] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const loadSequence = useRef(0);
 
   const load = useCallback(async () => {
@@ -57,6 +59,12 @@ export default function Users() {
     };
   }, [load]);
 
+  useEffect(() => {
+    authenticatedFetch("/api/borrowings/assignment-options")
+      .then(async (response) => { const body = await response.json(); if (!response.ok) throw new Error(body.message); setDepartments(body.departments || []); })
+      .catch((requestError) => setError(requestError.message || "Unable to load departments."));
+  }, []);
+
   function edit(user) {
     setEditing(user.user_id);
     setForm({
@@ -64,6 +72,7 @@ export default function Users() {
       fullName: user.full_name,
       role: user.role,
       studentId: user.student_id || "",
+      departmentId: user.department_id || "",
       isActive: user.is_active,
     });
     setFormError("");
@@ -162,7 +171,7 @@ export default function Users() {
           <table>
             <thead>
               <tr>
-                <th className="qr-select-column" aria-label="Select QR labels" /><th>User</th><th>Role</th><th>Student ID</th><th>Status</th><th>QR Status</th>
+                <th className="qr-select-column" aria-label="Select QR labels" /><th>User</th><th>Role</th><th>Department</th><th>Student ID</th><th>Status</th><th>QR Status</th>
                 <th aria-label="Actions" />
               </tr>
             </thead>
@@ -172,6 +181,7 @@ export default function Users() {
                   <td>{user.role === "student" && <input type="checkbox" aria-label={`Select ${user.full_name} QR`} checked={selectedQrUsers.includes(user.user_id)} onChange={() => toggleQrUser(user.user_id)} />}</td>
                   <td><strong>{user.full_name}</strong><small>{user.email}</small></td>
                   <td>{user.role}</td>
+                  <td>{user.department_name || "-"}</td>
                   <td>{user.student_id || "-"}</td>
                   <td>
                     <span className={`user-status ${user.is_active ? "active" : "inactive"}`}>
@@ -201,10 +211,11 @@ export default function Users() {
               <label>Email<input type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
             )}
             <label>Full name<input required maxLength="150" value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} /></label>
-            <label>Role<select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value })}><option value="student">Student</option><option value="professor">Professor</option><option value="admin">Admin</option></select></label>
+            <label>Role<select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value, departmentId: event.target.value === "professor" ? form.departmentId : "" })}><option value="student">Student</option><option value="professor">Professor</option><option value="admin">Admin</option></select></label>
             {form.role === "student" && (
               <label>Student ID<input required maxLength="100" value={form.studentId} onChange={(event) => setForm({ ...form, studentId: event.target.value })} /></label>
             )}
+            {form.role === "professor" && <label>Department<select required value={form.departmentId} onChange={(event) => setForm({ ...form, departmentId: event.target.value })}><option value="">Select department</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.code} — {department.name}</option>)}</select></label>}
             <label className="user-active"><input type="checkbox" checked={form.isActive} onChange={(event) => setForm({ ...form, isActive: event.target.checked })} /> Account active</label>
             <div className="modal-actions">
               <button type="button" disabled={saving} onClick={() => setEditing(null)}>Cancel</button>

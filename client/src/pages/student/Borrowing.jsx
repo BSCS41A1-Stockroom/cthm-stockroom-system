@@ -38,6 +38,14 @@ export default function BorrowingInterface() {
   const [borrowDate, setBorrowDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
   const [purpose, setPurpose] = useState("");
+  const [assignmentOptions, setAssignmentOptions] = useState({ departments: [], sections: [], professors: [] });
+  const [departmentId, setDepartmentId] = useState("");
+  const [sectionId, setSectionId] = useState("");
+  const [assignedProfessorId, setAssignedProfessorId] = useState("");
+  const [professorQuery, setProfessorQuery] = useState("");
+  const [professorSuggestionsOpen, setProfessorSuggestionsOpen] = useState(false);
+  const [professorHighlight, setProfessorHighlight] = useState(0);
+  const [assignmentLoading, setAssignmentLoading] = useState(true);
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -61,6 +69,7 @@ export default function BorrowingInterface() {
   useEffect(() => {
     loadInventory();
     loadBorrowingPolicy();
+    loadAssignmentOptions();
 
     const channel = supabase
       .channel("student-borrowing-inventory")
@@ -105,6 +114,20 @@ export default function BorrowingInterface() {
       });
     } catch {
       // Safe defaults mirror the server policy during a temporary API failure.
+    }
+  }
+
+  async function loadAssignmentOptions() {
+    setAssignmentLoading(true);
+    try {
+      const response = await authenticatedFetch("/api/borrowings/assignment-options");
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.message || "Unable to load departments, sections, and professors.");
+      setAssignmentOptions({ departments: body.departments || [], sections: body.sections || [], professors: body.professors || [] });
+    } catch (error) {
+      setFormError(error.message);
+    } finally {
+      setAssignmentLoading(false);
     }
   }
 
@@ -218,6 +241,20 @@ export default function BorrowingInterface() {
     0
   );
 
+  const availableSections = useMemo(() => assignmentOptions.sections.filter((section) => String(section.departmentId) === String(departmentId)), [assignmentOptions.sections, departmentId]);
+  const professorSuggestions = useMemo(() => {
+    const query = professorQuery.trim().toLowerCase();
+    return assignmentOptions.professors.filter((professor) => String(professor.departmentId) === String(departmentId)
+      && (!query || professor.fullName.toLowerCase().includes(query))).slice(0, 8);
+  }, [assignmentOptions.professors, departmentId, professorQuery]);
+
+  function selectProfessor(professor) {
+    setAssignedProfessorId(professor.id);
+    setProfessorQuery(professor.fullName);
+    setProfessorSuggestionsOpen(false);
+    setProfessorHighlight(0);
+  }
+
   /*
    * ============================================================
    * VALIDATION
@@ -232,6 +269,10 @@ export default function BorrowingInterface() {
     if (!studentId.trim()) {
       return "Student ID is required.";
     }
+
+    if (!departmentId) return "Please select your department.";
+    if (!sectionId) return "Please select your section.";
+    if (!assignedProfessorId) return "Select an assigned professor from the official suggestions.";
 
     if (totalItems === 0) {
       return "Please select at least one item.";
@@ -310,6 +351,9 @@ export default function BorrowingInterface() {
             purpose,
             studentName: studentName.trim(),
             studentId: studentId.trim(),
+            departmentId,
+            sectionId,
+            assignedProfessorId,
 
             items: selectedList.map((item) => ({
               inventoryId: item.id,
@@ -340,6 +384,10 @@ export default function BorrowingInterface() {
       setBorrowDate("");
       setReturnDate("");
       setPurpose("");
+      setDepartmentId("");
+      setSectionId("");
+      setAssignedProfessorId("");
+      setProfessorQuery("");
 
       loadInventory();
     } catch (error) {
@@ -811,6 +859,52 @@ export default function BorrowingInterface() {
                 readOnly
               />
 
+            </label>
+
+            <label>
+              Department
+              <select value={departmentId} disabled={assignmentLoading} onChange={(event) => {
+                setDepartmentId(event.target.value);
+                setSectionId("");
+                setAssignedProfessorId("");
+                setProfessorQuery("");
+              }}>
+                <option value="">{assignmentLoading ? "Loading departments..." : "Select department"}</option>
+                {assignmentOptions.departments.map((department) => <option key={department.id} value={department.id}>{department.code} — {department.name}</option>)}
+              </select>
+            </label>
+
+            <label>
+              Section
+              <select value={sectionId} disabled={!departmentId || assignmentLoading} onChange={(event) => setSectionId(event.target.value)}>
+                <option value="">{departmentId ? "Select section" : "Select a department first"}</option>
+                {availableSections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
+              </select>
+            </label>
+
+            <label className="professor-combobox-field">
+              Assigned Professor
+              <div className="professor-combobox">
+                <input type="text" role="combobox" aria-autocomplete="list" aria-expanded={professorSuggestionsOpen} aria-controls="professor-suggestions"
+                  disabled={!departmentId || assignmentLoading} value={professorQuery}
+                  placeholder={departmentId ? "Type the professor's name..." : "Select a department first"}
+                  onFocus={() => setProfessorSuggestionsOpen(true)}
+                  onBlur={() => setProfessorSuggestionsOpen(false)}
+                  onChange={(event) => { setProfessorQuery(event.target.value); setAssignedProfessorId(""); setProfessorHighlight(0); setProfessorSuggestionsOpen(true); }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") setProfessorSuggestionsOpen(false);
+                    if (event.key === "ArrowDown" && professorSuggestions.length) { event.preventDefault(); setProfessorSuggestionsOpen(true); setProfessorHighlight((index) => (index + 1) % professorSuggestions.length); }
+                    if (event.key === "ArrowUp" && professorSuggestions.length) { event.preventDefault(); setProfessorSuggestionsOpen(true); setProfessorHighlight((index) => (index - 1 + professorSuggestions.length) % professorSuggestions.length); }
+                    if (event.key === "Enter" && professorSuggestionsOpen && professorSuggestions[professorHighlight]) { event.preventDefault(); selectProfessor(professorSuggestions[professorHighlight]); }
+                  }} />
+                {professorSuggestionsOpen && departmentId && <div id="professor-suggestions" className="professor-suggestions" role="listbox">
+                  {professorSuggestions.length ? professorSuggestions.map((professor, index) => <button type="button" role="option" aria-selected={assignedProfessorId === professor.id || professorHighlight === index}
+                    key={professor.id} onMouseDown={(event) => event.preventDefault()} onClick={() => selectProfessor(professor)}>
+                    <strong>{professor.fullName}</strong><span>{assignmentOptions.departments.find((department) => String(department.id) === String(professor.departmentId))?.name}</span>
+                  </button>) : <div className="professor-no-results">No active professor matches that name.</div>}
+                </div>}
+              </div>
+              {assignedProfessorId && <small className="professor-selected-hint">Official professor account selected</small>}
             </label>
 
 

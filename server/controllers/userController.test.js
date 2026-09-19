@@ -19,7 +19,8 @@ test("does not send invitations to an unconfigured or insecure redirect", () => 
 test("normalizes managed users and enforces role-specific identity", () => {
   const student = normalizeUser({ email: " STUDENT@EXAMPLE.COM ", full_name: " Student One ", role: "student", student_id: " 2026-1 " });
   assert.equal(student.email, "student@example.com"); assert.deepEqual(userErrors(student, true), []);
-  assert.equal(userErrors(normalizeUser({ fullName: "Professor", role: "professor" })).length, 0);
+  assert.equal(userErrors(normalizeUser({ fullName: "Professor", role: "professor", departmentId: 2 })).length, 0);
+  assert.equal(userErrors(normalizeUser({ fullName: "Professor", role: "professor" })).some((error) => error.includes("department")), true);
   assert.equal(userErrors(normalizeUser({ fullName: "Student", role: "student" })).some((error) => error.includes("student ID")), true);
 });
 

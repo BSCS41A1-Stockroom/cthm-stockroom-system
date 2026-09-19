@@ -221,6 +221,9 @@ export default function MyRequests() {
             </div>
 
             <div className="modal-grid">
+              <div><h3>Department</h3><p>{activeRequest.departmentName || "Not assigned"}</p></div>
+              <div><h3>Section</h3><p>{activeRequest.sectionName || "Not assigned"}</p></div>
+              <div><h3>Assigned professor</h3><p>{activeRequest.assignedProfessorName || "Not assigned"}</p></div>
               <div>
                 <h3>Borrow date</h3>
                 <p>{formatDate(activeRequest.borrowDate)}</p>
