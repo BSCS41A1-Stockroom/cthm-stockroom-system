@@ -155,15 +155,15 @@ async function reportSummary(req, res, next) {
       pool.query(
         `SELECT requests.id, requests.borrow_date, requests.purpose,
                 COALESCE(SUM(items.quantity), 0) AS units
-           FROM borrow_requests requests
-           LEFT JOIN borrow_request_items items ON items.request_id = requests.id
+          FROM borrow_requests requests
+          LEFT JOIN borrow_request_items items ON items.request_id = requests.id
           WHERE requests.borrow_date >= (now() AT TIME ZONE 'Asia/Manila')::date
-            AND ($3::bigint IS NULL OR requests.department_id=$3)
+            AND ($1::bigint IS NULL OR requests.department_id = $1)
             AND requests.status IN ('Approved', 'Borrowed')
-          GROUP BY requests.id
-          ORDER BY requests.borrow_date, requests.id
-          LIMIT 5`,
-        parameters
+        GROUP BY requests.id
+        ORDER BY requests.borrow_date, requests.id
+        LIMIT 5`,
+        [req.user?.role === "staff" ? req.user.department_id : null]
       ),
     ]);
 
