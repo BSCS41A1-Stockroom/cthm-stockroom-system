@@ -5,5 +5,5 @@ const { listCases, updateCase } = require("../controllers/accountabilityControll
 const router = express.Router();
 router.use(authenticate);
 router.get("/", listCases);
-router.patch("/:id", requireRoles("admin"), updateCase);
+router.patch("/:id", requireRoles("staff", "admin"), updateCase);
 module.exports = router;

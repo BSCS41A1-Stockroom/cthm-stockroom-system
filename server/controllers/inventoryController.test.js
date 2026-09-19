@@ -6,10 +6,11 @@ const { inventoryErrors, normalizeInventory, normalizeUnavailability, unavailabi
 
 test("normalizes and validates authoritative inventory mutations", () => {
   const item = normalizeInventory({ item_name: " Pan ", purchase_date: "2026-08-01", quantity: "10", additional_qty: 2,
-    replaces: 1, missing: 0, breakage: 0, defective: 0, total_loss: 0, low_stock_threshold: 2, remarks: " Good " });
+    replaces: 1, missing: 0, breakage: 0, defective: 0, total_loss: 0, low_stock_threshold: 2, remarks: " Good ", room_id: 3 });
   assert.equal(item.item_name, "Pan");
   assert.equal(item.quantity, 10);
   assert.equal(item.remarks, "Good");
+  assert.equal(item.room_id, 3);
   assert.deepEqual(inventoryErrors(item), []);
 });
 

@@ -10,6 +10,7 @@ export default function EditItemModal({
     open,
     onClose,
     item,
+    rooms = [],
     onUpdated
 }) {
     const [form, setForm] = useState(() => ({
@@ -26,6 +27,7 @@ export default function EditItemModal({
         remarks: item?.remarks ?? "",
         tracking_type: item?.tracking_type ?? "bulk",
         image_url: item?.image_url ?? "",
+        room_id: item?.room_id ?? "",
     }));
 
     const [imageFile, setImageFile] = useState(null);
@@ -137,6 +139,7 @@ export default function EditItemModal({
             alert("Please enter an item name.");
             return;
         }
+        if (!form.room_id) { alert("Please select a laboratory room."); return; }
 
         try {
             setSaving(true);
@@ -313,6 +316,14 @@ export default function EditItemModal({
                                 value={form.purchase_date}
                                 onChange={handleChange}
                             />
+                        </div>
+
+                        <div className="form-group">
+                            <label>Laboratory Room</label>
+                            <select name="room_id" value={form.room_id} onChange={handleChange} required>
+                                <option value="">Select laboratory room</option>
+                                {rooms.map((room) => <option key={room.id} value={room.id}>{room.department ? `${room.department.code} — ` : ""}{room.name}</option>)}
+                            </select>
                         </div>
 
                         {/* QUANTITY */}

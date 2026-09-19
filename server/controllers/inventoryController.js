@@ -50,6 +50,8 @@ function normalizeInventory(body = {}) {
       typeof body.image_url === "string"
         ? body.image_url.trim()
         : "",
+
+    room_id: body.room_id ?? body.roomId ?? null,
   };
 
   for (const field of INVENTORY_NUMBER_FIELDS) {
@@ -94,6 +96,10 @@ function inventoryErrors(item) {
     errors.push(
       "Image URL cannot exceed 2000 characters."
     );
+  }
+
+  if (!/^[1-9]\d*$/.test(String(item.room_id ?? ""))) {
+    errors.push("A laboratory room is required.");
   }
 
   for (const field of INVENTORY_NUMBER_FIELDS) {
@@ -195,6 +201,15 @@ async function saveInventory(req, res, next) {
 
   try {
     await client.query("BEGIN");
+
+    const roomResult = await client.query(
+      `SELECT id, department_id FROM public.laboratory_rooms WHERE id=$1 AND is_active=true`,
+      [item.room_id]
+    );
+    if (!roomResult.rowCount || (req.user.role === "staff" && String(roomResult.rows[0].department_id) !== String(req.user.department_id))) {
+      await client.query("ROLLBACK");
+      return res.status(422).json({ error: "INVALID_LABORATORY_ROOM", message: "Select an active laboratory room in your department." });
+    }
 
     let previous = null;
 
@@ -333,6 +348,7 @@ async function saveInventory(req, res, next) {
       item.remarks,
       item.tracking_type,
       item.image_url,
+      item.room_id,
     ];
 
     /* =======================================================
@@ -357,7 +373,8 @@ async function saveInventory(req, res, next) {
               low_stock_threshold,
               remarks,
               tracking_type,
-              image_url
+              image_url,
+              room_id
             )
             VALUES
             (
@@ -373,7 +390,8 @@ async function saveInventory(req, res, next) {
               $10,
               $11,
               $12,
-              $13
+              $13,
+              $14
             )
             RETURNING *
             `,
@@ -401,8 +419,9 @@ async function saveInventory(req, res, next) {
               remarks = $11,
               tracking_type = $12,
               image_url = $13,
+              room_id = $14,
               updated_at = now()
-            WHERE id = $14
+            WHERE id = $15
             RETURNING *
             `,
             [...values, inventoryId]

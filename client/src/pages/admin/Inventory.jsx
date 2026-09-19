@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { authenticatedFetch } from "../../lib/api";
 
 import "../../styles/inventory.css";
 import "../../styles/inspection.css";
@@ -17,6 +18,7 @@ import InventoryFullViewModal from "../../components/admin/Inventory/InventoryFu
 
 export default function Inventory() {
     const [inventory, setInventory] = useState([]);
+    const [rooms, setRooms] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const [openModal, setOpenModal] = useState(false);
@@ -41,6 +43,7 @@ export default function Inventory() {
 
     useEffect(() => {
         loadInventory();
+        loadRooms();
 
         const channel = supabase
             .channel("admin-inventory")
@@ -94,6 +97,16 @@ export default function Inventory() {
         }
 
         setLoading(false);
+    }
+
+    async function loadRooms() {
+        try {
+            const response = await authenticatedFetch("/api/borrowings/assignment-options");
+            const body = await response.json();
+            if (!response.ok) throw new Error(body.message || "Unable to load laboratory rooms.");
+            const departmentById = new Map((body.departments || []).map((department) => [String(department.id), department]));
+            setRooms((body.rooms || []).map((room) => ({ ...room, department: departmentById.get(String(room.departmentId)) })));
+        } catch (error) { console.error("Failed to load laboratory rooms:", error); }
     }
 
     const filteredInventory = useMemo(() => {
@@ -347,6 +360,7 @@ export default function Inventory() {
                     key={selectedItem.id}
                     open={editOpen}
                     item={selectedItem}
+                    rooms={rooms}
                     onClose={() => setEditOpen(false)}
                     onUpdated={loadInventory}
                 />
@@ -359,6 +373,7 @@ export default function Inventory() {
 
             <AddItemModal
                 open={openModal}
+                rooms={rooms}
                 onClose={() => {
                     setOpenModal(false);
                     loadInventory();

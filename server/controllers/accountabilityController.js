@@ -49,9 +49,10 @@ async function listCases(req, res, next) {
          JOIN public.inventory inventory ON inventory.id=accountability.inventory_id
          JOIN public.borrow_requests request ON request.id=accountability.request_id
         WHERE (NOT $1::boolean OR accountability.user_id=$2::uuid)
+          AND ($3::boolean=false OR request.department_id=$4::bigint)
         ORDER BY CASE WHEN accountability.status IN ('open','under_review') THEN 0 ELSE 1 END,
                  accountability.created_at DESC,accountability.id DESC`,
-      [studentOnly, req.user.id]
+      [studentOnly, req.user.id, req.user.role === "staff", req.user.department_id]
     );
     return res.json({ cases: result.rows });
   } catch (error) { return next(error); }
@@ -65,7 +66,10 @@ async function updateCase(req, res, next) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const current = await client.query(`SELECT * FROM public.accountability_cases WHERE id=$1 FOR UPDATE`, [req.params.id]);
+    const current = await client.query(`SELECT accountability.* FROM public.accountability_cases accountability
+      JOIN public.borrow_requests request ON request.id=accountability.request_id
+      WHERE accountability.id=$1 AND ($2::boolean=false OR request.department_id=$3::bigint) FOR UPDATE OF accountability`,
+      [req.params.id, req.user.role === "staff", req.user.department_id]);
     if (!current.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "CASE_NOT_FOUND", message: "Accountability case was not found." }); }
     if (FINAL_STATUSES.has(current.rows[0].status)) { await client.query("ROLLBACK"); return res.status(409).json({ error: "CASE_ALREADY_CLOSED", message: "This case is already closed and cannot be changed." }); }
     const closing = FINAL_STATUSES.has(input.status);

@@ -211,11 +211,11 @@ export default function Users() {
               <label>Email<input type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
             )}
             <label>Full name<input required maxLength="150" value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} /></label>
-            <label>Role<select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value, departmentId: event.target.value === "professor" ? form.departmentId : "" })}><option value="student">Student</option><option value="professor">Professor</option><option value="admin">Admin</option></select></label>
+            <label>Role<select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value, departmentId: ["professor", "staff"].includes(event.target.value) ? form.departmentId : "" })}><option value="student">Student</option><option value="professor">Professor</option><option value="staff">Department Staff</option><option value="admin">General Administrator</option></select></label>
             {form.role === "student" && (
               <label>Student ID<input required maxLength="100" value={form.studentId} onChange={(event) => setForm({ ...form, studentId: event.target.value })} /></label>
             )}
-            {form.role === "professor" && <label>Department<select required value={form.departmentId} onChange={(event) => setForm({ ...form, departmentId: event.target.value })}><option value="">Select department</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.code} — {department.name}</option>)}</select></label>}
+            {["professor", "staff"].includes(form.role) && <label>Department<select required value={form.departmentId} onChange={(event) => setForm({ ...form, departmentId: event.target.value })}><option value="">Select department</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.code} — {department.name}</option>)}</select></label>}
             <label className="user-active"><input type="checkbox" checked={form.isActive} onChange={(event) => setForm({ ...form, isActive: event.target.checked })} /> Account active</label>
             <div className="modal-actions">
               <button type="button" disabled={saving} onClick={() => setEditing(null)}>Cancel</button>
