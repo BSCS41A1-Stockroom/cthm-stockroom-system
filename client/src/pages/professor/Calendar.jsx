@@ -1,44 +1,477 @@
-import { useMemo, useState } from "react";
-import { FaBoxOpen, FaCalendarAlt, FaChevronLeft, FaChevronRight, FaClock, FaMapMarkerAlt, FaUser } from "react-icons/fa";
-import useProfessorData from "../../hooks/useProfessorData";
-import { dateInTimeZone, timeLabel } from "../../utils/professorData";
-import "../../styles/professor.css";
+import { useEffect, useMemo, useState } from "react";
 
-function getWeekDates(date) {
-  const monday = new Date(date);
-  const day = monday.getDay();
-  monday.setDate(monday.getDate() + (day === 0 ? -6 : 1 - day));
-  monday.setHours(0, 0, 0, 0);
-  return Array.from({ length: 7 }, (_, index) => { const result = new Date(monday); result.setDate(monday.getDate() + index); return result; });
+import "../../styles/calendar.css";
+
+import useProfessorData from "../../hooks/useProfessorData";
+
+import {
+    dateInTimeZone,
+} from "../../utils/professorData";
+
+import CalendarToolbar from "../../components/admin/Calendar/CalendarToolbar";
+import LeftSidebar from "../../components/admin/Calendar/LeftSidebar";
+import MonthView from "../../components/admin/Calendar/MonthView";
+import WeekView from "../../components/admin/Calendar/WeekView";
+import DayView from "../../components/admin/Calendar/DayView";
+import ScheduleView from "../../components/admin/Calendar/ScheduleView";
+
+
+/* =========================================================
+   PROFESSOR CALENDAR
+   Same UI / components as Admin Calendar
+   Read-only version
+========================================================= */
+
+function normalizeEvent(event) {
+    return {
+        id: event.id,
+        title: event.title || "Untitled Activity",
+
+        date: event.date || "",
+
+        start: event.start || "",
+        end: event.end || "",
+
+        type: event.type || "activity",
+
+        description: event.description || "",
+
+        roomId:
+            event.roomId ||
+            event.room_id ||
+            "",
+
+        roomName:
+            event.roomName ||
+            event.room ||
+            "",
+
+        room:
+            event.room ||
+            event.roomName ||
+            "",
+
+        student:
+            event.student ||
+            "",
+
+        studentId:
+            event.studentId ||
+            "",
+
+        items:
+            Array.isArray(event.items)
+                ? event.items
+                : [],
+
+        borrowRequestId:
+            event.borrowRequestId ||
+            event.borrow_request_id ||
+            null,
+    };
 }
-function dateString(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
-function fullDate(value) { return new Date(`${value}T00:00:00`).toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric" }); }
-function schedule(event) { return event.start && event.end ? `${timeLabel(event.start)} – ${timeLabel(event.end)}` : "All day"; }
+
+
+function parseDate(value) {
+    if (!value) {
+        return new Date();
+    }
+
+    return new Date(`${value}T00:00:00`);
+}
+
 
 export default function ProfessorCalendar() {
-  const { events, loading, error, reload } = useProfessorData();
-  const [currentDate, setCurrentDate] = useState(() => new Date());
-  const [selectedEvent, setSelectedEvent] = useState(null);
-  const weekDates = useMemo(() => getWeekDates(currentDate), [currentDate]);
-  const today = dateInTimeZone();
-  const upcoming = useMemo(() => events.filter((event) => event.date >= today), [events, today]);
-  const weekLabel = `${weekDates[0].toLocaleDateString("en-PH", { month: "short", day: "numeric" })} – ${weekDates[6].toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" })}`;
-  const moveWeek = (days) => setCurrentDate((previous) => { const next = new Date(previous); next.setDate(next.getDate() + days); return next; });
 
-  return <div className="professor-calendar-page">
-    <header className="professor-page-header"><div><span className="professor-eyebrow">LIVE SCHEDULE</span><h1>Calendar</h1><p>View laboratory activities and approved borrowing schedules from the system calendar.</p></div><div className="professor-calendar-header-icon"><FaCalendarAlt /></div></header>
-    {error && <div className="professor-data-error" role="alert"><span>{error}</span><button type="button" onClick={() => reload()}>Retry</button></div>}
-    <section className="professor-calendar-toolbar"><div className="professor-calendar-navigation"><button type="button" className="professor-calendar-nav-btn" onClick={() => moveWeek(-7)} aria-label="Previous week"><FaChevronLeft /></button><button type="button" className="professor-today-btn" onClick={() => setCurrentDate(new Date())}>Today</button><button type="button" className="professor-calendar-nav-btn" onClick={() => moveWeek(7)} aria-label="Next week"><FaChevronRight /></button></div><h2>{weekLabel}</h2><div className="professor-calendar-view-label">Weekly View</div></section>
-    <section className="professor-calendar-card"><div className="professor-week-grid">{weekDates.map((date) => {
-      const key = dateString(date); const dayEvents = events.filter((event) => event.date === key);
-      return <div className={`professor-day-column ${key === today ? "today" : ""}`} key={key}><div className="professor-day-header"><span className="professor-day-name">{date.toLocaleDateString("en-PH", { weekday: "short" })}</span><span className="professor-day-number">{date.getDate()}</span></div><div className="professor-day-events">{loading ? <div className="professor-empty-day">Loading...</div> : dayEvents.length === 0 ? <div className="professor-empty-day">No activity</div> : dayEvents.map((event) => <button type="button" className="professor-calendar-event" key={event.id} onClick={() => setSelectedEvent(event)}><div className="professor-event-time">{schedule(event)}</div><div className="professor-event-title">{event.title}</div><div className="professor-event-student">{event.student}</div><div className="professor-event-room"><FaMapMarkerAlt />{event.room}</div></button>)}</div></div>;
-    })}</div></section>
-    <section className="professor-upcoming-section"><div className="professor-section-heading"><div><span className="professor-eyebrow">SCHEDULED ACTIVITIES</span><h2>Upcoming Activities</h2></div><span className="professor-upcoming-count">{loading ? "Loading..." : `${upcoming.length} ${upcoming.length === 1 ? "Activity" : "Activities"}`}</span></div><div className="professor-upcoming-list">
-      {!loading && upcoming.length === 0 && <div className="professor-empty-state"><FaCalendarAlt /><strong>No upcoming activities</strong><span>New calendar records will appear here automatically.</span></div>}
-      {upcoming.map((event) => <button type="button" className="professor-upcoming-item" key={event.id} onClick={() => setSelectedEvent(event)}><div className="professor-upcoming-date"><span>{new Date(`${event.date}T00:00:00`).toLocaleDateString("en-PH", { month: "short" })}</span><strong>{new Date(`${event.date}T00:00:00`).getDate()}</strong></div><div className="professor-upcoming-content"><strong>{event.title}</strong><span>{event.student}{event.studentId ? ` · ${event.studentId}` : ""}</span><small>{schedule(event)} · {event.room}</small></div><FaChevronRight className="professor-upcoming-arrow" /></button>)}
-    </div></section>
-    {selectedEvent && <div className="professor-modal-overlay" onClick={() => setSelectedEvent(null)}><div className="professor-event-modal" onClick={(event) => event.stopPropagation()}><div className="professor-modal-header"><div><span className="professor-eyebrow">ACTIVITY DETAILS</span><h2>{selectedEvent.title}</h2></div><button type="button" className="professor-modal-close" onClick={() => setSelectedEvent(null)} aria-label="Close">×</button></div><div className="professor-event-details">
-      <div className="professor-detail-row"><FaCalendarAlt /><div><span>Date</span><strong>{fullDate(selectedEvent.date)}</strong></div></div><div className="professor-detail-row"><FaClock /><div><span>Schedule</span><strong>{schedule(selectedEvent)}</strong></div></div><div className="professor-detail-row"><FaMapMarkerAlt /><div><span>Assigned Laboratory</span><strong>{selectedEvent.room}</strong></div></div><div className="professor-detail-row"><FaUser /><div><span>Student / Activity</span><strong>{selectedEvent.student}</strong>{selectedEvent.studentId && <small>{selectedEvent.studentId}</small>}</div></div><div className="professor-detail-row"><FaBoxOpen /><div><span>Requested Items</span><div className="professor-item-list">{selectedEvent.items.length ? selectedEvent.items.map((item) => <span key={`${item.id}-${item.name}`}>{item.name} × {item.quantity}</span>) : <span>No borrowing items linked</span>}</div></div></div>
-    </div><div className="professor-modal-footer"><button type="button" className="professor-secondary-btn" onClick={() => setSelectedEvent(null)}>Close</button></div></div></div>}
-  </div>;
+    const {
+        events: professorEvents,
+        loading,
+        error,
+        reload,
+    } = useProfessorData();
+
+
+    /* =====================================================
+       NORMALIZE PROFESSOR EVENTS
+    ===================================================== */
+
+    const events = useMemo(() => {
+
+        return (professorEvents || []).map(
+            normalizeEvent
+        );
+
+    }, [professorEvents]);
+
+
+    /* =====================================================
+       CURRENT DATE
+    ===================================================== */
+
+    const today = new Date();
+
+
+    const [currentMonth, setCurrentMonth] =
+        useState(today.getMonth());
+
+
+    const [currentYear, setCurrentYear] =
+        useState(today.getFullYear());
+
+
+    const [selectedDate, setSelectedDate] =
+        useState(today);
+
+
+    const [calendarView, setCalendarView] =
+        useState("Month");
+
+
+    /* =====================================================
+       KEEP SELECTED DATE IN SYNC
+    ===================================================== */
+
+    useEffect(() => {
+
+        if (
+            selectedDate.getMonth() !==
+                currentMonth ||
+            selectedDate.getFullYear() !==
+                currentYear
+        ) {
+
+            const nextDate =
+                new Date(selectedDate);
+
+            nextDate.setMonth(
+                currentMonth
+            );
+
+            nextDate.setFullYear(
+                currentYear
+            );
+
+            setSelectedDate(nextDate);
+        }
+
+    }, [
+        currentMonth,
+        currentYear,
+        selectedDate,
+    ]);
+
+
+    /* =====================================================
+       PROFESSOR DATA RELOAD
+    ===================================================== */
+
+    useEffect(() => {
+
+        if (typeof reload === "function") {
+            reload();
+        }
+
+    }, []);
+
+
+    /* =====================================================
+       TODAY
+    ===================================================== */
+
+    const todayString =
+        dateInTimeZone();
+
+
+    /* =====================================================
+       READ-ONLY TOOLBAR ACTION
+       
+       Admin Calendar requires onAdd.
+       Professor Calendar does not create events.
+    ===================================================== */
+
+    const handleAdd = () => {
+        // Professor calendar is read-only.
+    };
+
+
+    /* =====================================================
+       DATE SELECTION
+    ===================================================== */
+
+    const handleSelectedDate = (date) => {
+
+        if (!date) {
+            return;
+        }
+
+        const nextDate =
+            date instanceof Date
+                ? date
+                : parseDate(date);
+
+
+        setSelectedDate(nextDate);
+
+        setCurrentMonth(
+            nextDate.getMonth()
+        );
+
+        setCurrentYear(
+            nextDate.getFullYear()
+        );
+
+    };
+
+
+    /* =====================================================
+       LOADING / ERROR
+    ===================================================== */
+
+    return (
+
+        <div className="calendar-page">
+
+            {/* =================================================
+                PAGE HEADER
+            ================================================= */}
+
+            <div className="calendar-page-header">
+
+                <div className="calendar-page-title">
+
+                    <h2>
+                        Calendar
+                    </h2>
+
+                    <p>
+                        View laboratory schedules,
+                        activities, and approved
+                        borrowing schedules.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            {/* =================================================
+                ERROR
+            ================================================= */}
+
+            {error && (
+
+                <p className="form-error">
+
+                    {error}
+
+                    {typeof reload === "function" && (
+
+                        <button
+                            type="button"
+                            onClick={reload}
+                            style={{
+                                marginLeft: "10px",
+                            }}
+                        >
+                            Retry
+                        </button>
+
+                    )}
+
+                </p>
+
+            )}
+
+
+            {/* =================================================
+                LOADING
+            ================================================= */}
+
+            {loading && events.length === 0 && (
+
+                <div
+                    className="sidebar-card"
+                    style={{
+                        padding: "16px",
+                    }}
+                >
+                    Loading calendar...
+                </div>
+
+            )}
+
+
+            {/* =================================================
+                CALENDAR TOOLBAR
+
+                SAME ADMIN COMPONENT
+            ================================================= */}
+
+            <CalendarToolbar
+
+                currentMonth={
+                    currentMonth
+                }
+
+                currentYear={
+                    currentYear
+                }
+
+                setCurrentMonth={
+                    setCurrentMonth
+                }
+
+                setCurrentYear={
+                    setCurrentYear
+                }
+
+                calendarView={
+                    calendarView
+                }
+
+                setCalendarView={
+                    setCalendarView
+                }
+
+                onAdd={
+                    handleAdd
+                }
+
+            />
+
+
+            {/* =================================================
+                CALENDAR CONTENT
+
+                SAME ADMIN STRUCTURE
+            ================================================= */}
+
+            <div className="calendar-layout">
+
+
+                {/* =================================================
+                    LEFT SIDEBAR
+                ================================================= */}
+
+                <LeftSidebar
+
+                    currentMonth={
+                        currentMonth
+                    }
+
+                    currentYear={
+                        currentYear
+                    }
+
+                    selectedDate={
+                        selectedDate
+                    }
+
+                    setSelectedDate={
+                        handleSelectedDate
+                    }
+
+                    events={
+                        events
+                    }
+
+                />
+
+
+                {/* =================================================
+                    MONTH VIEW
+                ================================================= */}
+
+                {calendarView === "Month" && (
+
+                    <MonthView
+
+                        currentMonth={
+                            currentMonth
+                        }
+
+                        currentYear={
+                            currentYear
+                        }
+
+                        selectedDate={
+                            selectedDate
+                        }
+
+                        setSelectedDate={
+                            handleSelectedDate
+                        }
+
+                        events={
+                            events
+                        }
+
+                    />
+
+                )}
+
+
+                {/* =================================================
+                    WEEK VIEW
+                ================================================= */}
+
+                {calendarView === "Week" && (
+
+                    <WeekView
+
+                        events={
+                            events
+                        }
+
+                        selectedDate={
+                            selectedDate
+                        }
+
+                    />
+
+                )}
+
+
+                {/* =================================================
+                    DAY VIEW
+                ================================================= */}
+
+                {calendarView === "Day" && (
+
+                    <DayView
+
+                        events={
+                            events
+                        }
+
+                        selectedDate={
+                            selectedDate
+                        }
+
+                    />
+
+                )}
+
+
+                {/* =================================================
+                    SCHEDULE VIEW
+                ================================================= */}
+
+                {calendarView === "Schedule" && (
+
+                    <ScheduleView
+
+                        events={
+                            events
+                        }
+
+                    />
+
+                )}
+
+            </div>
+
+        </div>
+
+    );
 }

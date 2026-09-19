@@ -22,6 +22,7 @@ export default function AuditLogs() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const requestSequence = useRef(0);
+  const [selectedLog, setSelectedLog] = useState(null);
 
   const loadLogs = useCallback(async () => {
     const sequence = ++requestSequence.current;
@@ -78,13 +79,180 @@ export default function AuditLogs() {
               <td><strong>{log.actor_name || log.actor_email || "System"}</strong><small>{log.actor_role || "system"}</small></td>
               <td><span className="audit-action">{label(log.action)}</span></td>
               <td>{label(log.entity_type)}{log.entity_id && <small>#{log.entity_id}</small>}</td>
-              <td><details><summary>View details</summary><pre>{JSON.stringify({ before: log.old_values, after: log.new_values, ...log.metadata }, null, 2)}</pre></details></td>
-            </tr>)}
+              <td>
+              <button
+                type="button"
+                className="audit-view-button"
+                onClick={() => setSelectedLog(log)}
+              >
+                View Details
+              </button>
+            </td>
+          </tr>)}
             {!loading && logs.length === 0 && <tr><td colSpan="5" className="audit-empty">No matching activities found.</td></tr>}
           </tbody></table>
         {loading && <p className="audit-state">Loading activity logs...</p>}
       </div>
       <footer className="audit-pagination"><span>{pagination.total} activities</span><div><button type="button" disabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)}>Previous</button><span>Page {page} of {pages}</span><button type="button" disabled={page >= pages || loading} onClick={() => setPage((value) => value + 1)}>Next</button></div></footer>
+    {selectedLog && (
+      <div
+        className="audit-modal-overlay"
+        onClick={() => setSelectedLog(null)}
+      >
+        <div
+          className="audit-details-modal"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="audit-modal-header">
+            <div>
+              <span className="audit-modal-eyebrow">
+                Activity Log
+              </span>
+
+              <h2>Activity Details</h2>
+
+              <p>
+                Review the recorded changes made to this record.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="audit-modal-close"
+              onClick={() => setSelectedLog(null)}
+              aria-label="Close activity details"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="audit-log-summary">
+            <div className="audit-summary-item">
+              <span>User</span>
+              <strong>
+                {selectedLog.actor_name ||
+                  selectedLog.actor_email ||
+                  "System"}
+              </strong>
+              <small>
+                {selectedLog.actor_role || "system"}
+              </small>
+            </div>
+
+            <div className="audit-summary-item">
+              <span>Action</span>
+              <strong>
+                {label(selectedLog.action)}
+              </strong>
+            </div>
+
+            <div className="audit-summary-item">
+              <span>Record</span>
+              <strong>
+                {label(selectedLog.entity_type)}
+              </strong>
+              {selectedLog.entity_id && (
+                <small>
+                  Record #{selectedLog.entity_id}
+                </small>
+              )}
+            </div>
+
+            <div className="audit-summary-item">
+              <span>Date and Time</span>
+              <strong>
+                {new Date(
+                  selectedLog.created_at
+                ).toLocaleDateString()}
+              </strong>
+              <small>
+                {new Date(
+                  selectedLog.created_at
+                ).toLocaleTimeString()}
+              </small>
+            </div>
+          </div>
+
+          <div className="audit-details-body">
+            <div className="audit-detail-card">
+              <div className="audit-detail-card-header">
+                <div>
+                  <span className="audit-detail-label">
+                    Previous State
+                  </span>
+
+                  <h3>Before</h3>
+                </div>
+              </div>
+
+              <pre>
+                {JSON.stringify(
+                  selectedLog.old_values ?? null,
+                  null,
+                  2
+                )}
+              </pre>
+            </div>
+
+            <div className="audit-detail-arrow">
+              →
+            </div>
+
+            <div className="audit-detail-card audit-detail-card-after">
+              <div className="audit-detail-card-header">
+                <div>
+                  <span className="audit-detail-label">
+                    Updated State
+                  </span>
+
+                  <h3>After</h3>
+                </div>
+              </div>
+
+              <pre>
+                {JSON.stringify(
+                  selectedLog.new_values ?? null,
+                  null,
+                  2
+                )}
+              </pre>
+            </div>
+          </div>
+
+          {selectedLog.metadata &&
+            Object.keys(selectedLog.metadata).length > 0 && (
+              <div className="audit-metadata-card">
+                <div className="audit-detail-card-header">
+                  <div>
+                    <span className="audit-detail-label">
+                      Additional Information
+                    </span>
+
+                    <h3>Metadata</h3>
+                  </div>
+                </div>
+
+                <pre>
+                  {JSON.stringify(
+                    selectedLog.metadata,
+                    null,
+                    2
+                  )}
+                </pre>
+              </div>
+            )}
+
+          <div className="audit-modal-footer">
+            <button
+              type="button"
+              onClick={() => setSelectedLog(null)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 }

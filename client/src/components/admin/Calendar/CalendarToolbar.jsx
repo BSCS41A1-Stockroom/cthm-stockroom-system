@@ -1,126 +1,191 @@
+
 import { useState } from "react";
-import { FaChevronDown } from "react-icons/fa";
+import {
+    FaChevronDown,
+    FaChevronLeft,
+    FaChevronRight,
+    FaPlus,
+} from "react-icons/fa";
 
 const months = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December"
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
 ];
 
 export default function CalendarToolbar({
-  currentMonth,
-  currentYear,
-  setCurrentMonth,
-  setCurrentYear,
-  calendarView,
-  setCalendarView,
-  onAdd,
+    currentMonth,
+    currentYear,
+    setCurrentMonth,
+    setCurrentYear,
+    calendarView,
+    setCalendarView,
+    onAdd,
 }) {
+    const [showMenu, setShowMenu] = useState(false);
 
-  const [showMenu, setShowMenu] = useState(false);
+    const previousMonth = () => {
+        if (currentMonth === 0) {
+            setCurrentMonth(11);
+            setCurrentYear(currentYear - 1);
+        } else {
+            setCurrentMonth(currentMonth - 1);
+        }
+    };
 
-  const previousMonth = () => {
-    if (currentMonth === 0) {
-      setCurrentMonth(11);
-      setCurrentYear(currentYear - 1);
-    } else {
-      setCurrentMonth(currentMonth - 1);
-    }
-  };
+    const nextMonth = () => {
+        if (currentMonth === 11) {
+            setCurrentMonth(0);
+            setCurrentYear(currentYear + 1);
+        } else {
+            setCurrentMonth(currentMonth + 1);
+        }
+    };
 
-  const nextMonth = () => {
-    if (currentMonth === 11) {
-      setCurrentMonth(0);
-      setCurrentYear(currentYear + 1);
-    } else {
-      setCurrentMonth(currentMonth + 1);
-    }
-  };
+    const goToToday = () => {
+        const today = new Date();
 
-  const goToToday = () => {
-    const today = new Date();
-    setCurrentMonth(today.getMonth());
-    setCurrentYear(today.getFullYear());
-  };
+        setCurrentMonth(today.getMonth());
+        setCurrentYear(today.getFullYear());
+    };
 
-  return (
-    <header className="calendar-toolbar">
+    return (
+        <header className="calendar-toolbar">
 
-      <div className="toolbar-left">
+            {/* LEFT SIDE */}
+            <div className="toolbar-left">
 
-        <button className="toolbar-btn">☰</button>
+                <div className="calendar-navigation">
 
-        <button
-          className="toolbar-btn"
-          onClick={previousMonth}
-        >
-          ❮
-        </button>
+                    <button
+                        type="button"
+                        className="toolbar-btn"
+                        onClick={previousMonth}
+                        aria-label="Previous month"
+                    >
+                        <FaChevronLeft />
+                    </button>
 
-        <button
-          className="toolbar-btn"
-          onClick={nextMonth}
-        >
-          ❯
-        </button>
+                    <button
+                        type="button"
+                        className="toolbar-btn"
+                        onClick={nextMonth}
+                        aria-label="Next month"
+                    >
+                        <FaChevronRight />
+                    </button>
 
-        <button
-          className="today-btn"
-          onClick={goToToday}
-        >
-          Today
-        </button>
+                </div>
 
-        <h2>
-          {months[currentMonth]} {currentYear}
-        </h2>
+                <button
+                    type="button"
+                    className="today-btn"
+                    onClick={goToToday}
+                >
+                    Today
+                </button>
 
-      </div>
+                <div className="calendar-current-period">
+                    <span className="calendar-current-month">
+                        {months[currentMonth]}
+                    </span>
 
-      <div className="toolbar-right">
+                    <span className="calendar-current-year">
+                        {currentYear}
+                    </span>
+                </div>
 
-          <button
-            className="add-btn"
-            onClick={onAdd}
-          >
-            + Create
-          </button>
+            </div>
 
-        <div className="view-dropdown">
 
-          <button
-            className="view-btn"
-            onClick={() => setShowMenu(prev => !prev)}
-          >
-            {calendarView}
-            <FaChevronDown
-              className={showMenu ? "rotate" : ""}
-            />
-          </button>
+            {/* RIGHT SIDE */}
+            <div className="toolbar-right">
 
-          <div
-            className={`view-menu ${
-              showMenu ? "show" : ""
-            }`}
-          >
-            {["Month", "Week", "Day", "Schedule"].map(view => (
+                <button
+                    type="button"
+                    className="add-btn"
+                    onClick={onAdd}
+                >
+                    <FaPlus />
+                    <span>Create</span>
+                </button>
 
-              <button
-                key={view}
-                onClick={() => {
-                  setCalendarView(view);
-                  setShowMenu(false);
-                }}
-              >
-                {view}
-              </button>
 
-            ))}
-          </div>
+                <div className="view-dropdown">
 
-        </div>
+                    <button
+                        type="button"
+                        className={`view-btn ${
+                            showMenu ? "open" : ""
+                        }`}
+                        onClick={() =>
+                            setShowMenu((prev) => !prev)
+                        }
+                        aria-expanded={showMenu}
+                    >
+                        <span>{calendarView}</span>
 
-      </div>
+                        <FaChevronDown
+                            className={
+                                showMenu
+                                    ? "rotate"
+                                    : ""
+                            }
+                        />
+                    </button>
 
-    </header>
-  );
+
+                    {showMenu && (
+                        <div className="view-menu show">
+
+                            {[
+                                "Month",
+                                "Week",
+                                "Day",
+                                "Schedule",
+                            ].map((view) => (
+
+                                <button
+                                    type="button"
+                                    key={view}
+                                    className={
+                                        calendarView === view
+                                            ? "active"
+                                            : ""
+                                    }
+                                    onClick={() => {
+                                        setCalendarView(view);
+                                        setShowMenu(false);
+                                    }}
+                                >
+                                    <span>{view}</span>
+
+                                    {calendarView === view && (
+                                        <span className="view-menu-check">
+                                            ✓
+                                        </span>
+                                    )}
+                                </button>
+
+                            ))}
+
+                        </div>
+                    )}
+
+                </div>
+
+            </div>
+
+        </header>
+    );
 }
+

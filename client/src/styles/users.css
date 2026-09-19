@@ -1,10 +1,1071 @@
-.users-page{display:flex;flex-direction:column;gap:20px}.users-page header h1{margin:0}.users-page header p{margin:5px 0;color:#64748b}.users-toolbar{display:flex;gap:12px}.users-toolbar input{flex:1}.users-toolbar input,.users-toolbar button,.users-table-wrap button,.user-modal input,.user-modal select{height:42px;padding:0 12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff}.users-toolbar button,.user-modal .modal-actions button:last-child{border:0;background:#2563eb;color:#fff;cursor:pointer}.users-table-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:12px;background:#fff}.users-table-wrap table{width:100%;border-collapse:collapse;min-width:700px}.users-table-wrap th,.users-table-wrap td{padding:14px;text-align:left;border-bottom:1px solid #e2e8f0}.users-table-wrap small{display:block;color:#64748b;margin-top:3px}.user-status{padding:5px 9px;border-radius:999px;font-size:12px}.user-status.active{background:#dcfce7;color:#166534}.user-status.inactive{background:#fee2e2;color:#991b1b}.user-modal{width:min(460px,calc(100vw - 24px));padding:24px;border-radius:14px;background:#fff}.user-modal h2{margin:0}.user-invite-help{margin:8px 0 16px;color:#64748b;font-size:13px;line-height:1.5}.user-modal label{display:flex;flex-direction:column;gap:6px;margin:12px 0;color:#475569;font-size:13px}.user-modal .user-active{flex-direction:row;align-items:center}.user-modal .user-active input{width:18px;height:18px}.user-modal .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}.user-modal .modal-actions button{padding:10px 15px;border:0;border-radius:8px}
+/* =========================================================
+   CTHM STOCK ROOM — USER MANAGEMENT
+   MODERN ACADEMIC LUXURY
+   ========================================================= */
 
-.users-toolbar .qr-batch-button{background:#334155}.users-toolbar button:disabled{cursor:not-allowed;opacity:.5}.qr-select-column{width:36px}.users-table-wrap td>input[type="checkbox"]{width:17px;height:17px}.user-row-actions{display:flex;gap:7px;white-space:nowrap}.users-table-wrap .manage-qr-button{border-color:#bfdbfe;background:#eff6ff;color:#1d4ed8}.qr-status{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}.qr-status.not_issued{background:#f1f5f9;color:#475569}.qr-status.active{background:#dcfce7;color:#166534}.qr-status.revoked{background:#fee2e2;color:#991b1b}.qr-status.replacement_required{background:#fef3c7;color:#92400e}.qr-admin-overlay{z-index:1500}.qr-admin-modal{position:relative;width:min(620px,calc(100vw - 24px));max-height:calc(100vh - 28px);overflow:auto;padding:24px;border-radius:16px;background:#fff;box-shadow:0 20px 50px rgba(15,23,42,.24)}.qr-admin-header{display:flex;justify-content:space-between;gap:18px}.qr-admin-header h2{margin:0}.qr-admin-header p{margin:5px 0;color:#64748b}.qr-close{width:36px;height:36px;border:0;border-radius:50%;background:#f1f5f9;color:#475569;cursor:pointer;font-size:23px}.qr-admin-status{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px 0;color:#64748b;font-size:13px}.qr-admin-preview{width:min(100%,360px);margin:0 auto;padding:16px;border:1px dashed #94a3b8;border-radius:12px;text-align:center}.qr-admin-preview img{display:block;width:min(100%,300px);margin:auto}.qr-admin-preview p{margin:8px 0 0;font-weight:700}.qr-unavailable{padding:30px;border:1px dashed #fca5a5;border-radius:12px;background:#fef2f2;color:#991b1b;text-align:center}.qr-reason{padding:10px 12px;border-radius:8px;background:#f8fafc;color:#475569}.qr-admin-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:9px;margin-top:20px}.qr-admin-actions button,.qr-confirm-panel button{padding:10px 14px;border:0;border-radius:8px;background:#2563eb;color:#fff;cursor:pointer;font-weight:650}.qr-admin-actions .secondary,.qr-confirm-panel button:first-child{background:#475569}.qr-admin-actions .danger,.qr-confirm-panel .danger{background:#b91c1c}.qr-confirm-panel{margin-top:20px;padding:16px;border:1px solid #dbe3ef;border-radius:11px;background:#f8fafc}.qr-confirm-panel h3{margin:0 0 5px}.qr-confirm-panel p{color:#64748b}.qr-confirm-panel label{display:grid;gap:6px;color:#475569;font-size:13px}.qr-confirm-panel textarea{box-sizing:border-box;width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font:inherit}.qr-confirm-panel>div{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}.physical-qr-print-sheet{display:none}
+.users-page {
+    --users-navy: #17263c;
+    --users-navy-deep: #101b2d;
+    --users-ivory: #f5f3ee;
+    --users-white: #ffffff;
+    --users-gold: #b69b62;
+    --users-gold-light: #d4c49f;
+    --users-charcoal: #1c2430;
+    --users-muted: #697381;
+    --users-border: #e1e4e8;
+    --users-border-warm: #e5e0d6;
 
-@media(max-width:760px){.users-toolbar{flex-wrap:wrap}.users-toolbar input{flex-basis:100%}.users-toolbar button{flex:1}.qr-admin-status{align-items:flex-start;flex-direction:column}.qr-admin-actions button{flex:1 1 45%}}
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
 
-.qr-admin-status>div{display:grid;gap:3px;text-align:right}
-@media(max-width:760px){.qr-admin-status>div{text-align:left}}
+    color: var(--users-charcoal);
+}
 
-@media print{body *{visibility:hidden!important}.physical-qr-print-sheet,.physical-qr-print-sheet *{visibility:visible!important}.physical-qr-print-sheet{position:fixed;inset:0;z-index:99999;display:grid!important;grid-template-columns:repeat(3,1fr);align-content:start;gap:8mm;padding:8mm;background:#fff}.physical-qr-label{box-sizing:border-box;display:flex;min-height:78mm;padding:5mm;border:1px dashed #64748b;align-items:center;flex-direction:column;justify-content:center;text-align:center;break-inside:avoid}.physical-qr-label img{width:44mm;height:44mm}.physical-qr-label strong{max-width:54mm;margin-top:2mm;font-size:11pt}.physical-qr-label span{font-size:9pt}.physical-qr-label small{margin-top:1mm;font-size:7pt;color:#475569}.print-brand{font-size:8pt;font-weight:800;letter-spacing:.08em;text-transform:uppercase}}
+
+/* =========================================================
+   PAGE HEADER
+   ========================================================= */
+
+.users-page > header {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.users-page > header h1 {
+    margin: 0;
+
+    color: var(--users-navy);
+
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+}
+
+.users-page > header p {
+    margin: 0;
+
+    color: var(--users-muted);
+
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+
+/* =========================================================
+   TOOLBAR
+   ========================================================= */
+
+.users-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    padding: 16px;
+
+    background: var(--users-white);
+
+    border: 1px solid var(--users-border-warm);
+    border-radius: 10px;
+
+    box-shadow:
+        0 2px 8px rgba(16, 27, 45, 0.035);
+}
+
+.users-toolbar input {
+    flex: 1;
+    min-width: 180px;
+}
+
+.users-toolbar input,
+.users-toolbar button {
+    box-sizing: border-box;
+
+    height: 42px;
+    padding: 0 14px;
+
+    border-radius: 7px;
+
+    font: inherit;
+    font-size: 13px;
+}
+
+.users-toolbar input {
+    color: var(--users-charcoal);
+
+    background: var(--users-ivory);
+
+    border: 1px solid var(--users-border);
+
+    outline: none;
+
+    transition:
+        border-color 0.16s ease,
+        box-shadow 0.16s ease,
+        background 0.16s ease;
+}
+
+.users-toolbar input::placeholder {
+    color: #8a8275;
+}
+
+.users-toolbar input:focus {
+    background: var(--users-white);
+    border-color: var(--users-gold);
+
+    box-shadow:
+        0 0 0 2px rgba(182, 155, 98, 0.12);
+}
+
+
+/* =========================================================
+   PRIMARY BUTTONS
+   ========================================================= */
+
+.users-toolbar button,
+.user-modal .modal-actions button:last-child {
+    border: 1px solid var(--users-navy);
+
+    background: var(--users-navy);
+    color: var(--users-white);
+
+    cursor: pointer;
+
+    transition:
+        background 0.16s ease,
+        border-color 0.16s ease,
+        transform 0.16s ease;
+}
+
+.users-toolbar button:hover,
+.user-modal .modal-actions button:last-child:hover {
+    background: var(--users-navy-deep);
+    border-color: var(--users-navy-deep);
+}
+
+.users-toolbar button:active,
+.user-modal .modal-actions button:last-child:active {
+    transform: translateY(1px);
+}
+
+
+/* =========================================================
+   QR BATCH BUTTON
+   ========================================================= */
+
+.users-toolbar .qr-batch-button {
+    background: transparent;
+    color: var(--users-navy);
+
+    border: 1px solid var(--users-gold);
+}
+
+.users-toolbar .qr-batch-button:hover:not(:disabled) {
+    background: rgba(182, 155, 98, 0.08);
+    color: var(--users-navy);
+    border-color: var(--users-gold);
+}
+
+.users-toolbar button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+
+/* =========================================================
+   SUCCESS / ERROR
+   ========================================================= */
+
+.form-success,
+.form-error {
+    margin: 0;
+
+    padding: 11px 14px;
+
+    border-radius: 7px;
+
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.form-success {
+    color: #355c42;
+
+    background: #f3f7f3;
+
+    border: 1px solid #d8e5da;
+}
+
+.form-error {
+    color: #7a3535;
+
+    background: #faf3f1;
+
+    border: 1px solid #ead8d3;
+}
+
+
+/* =========================================================
+   TABLE
+   ========================================================= */
+
+.users-table-wrap {
+    overflow: auto;
+
+    background: var(--users-white);
+
+    border: 1px solid var(--users-border-warm);
+    border-radius: 10px;
+
+    box-shadow:
+        0 3px 12px rgba(16, 27, 45, 0.035);
+}
+
+.users-table-wrap table {
+    width: 100%;
+
+    min-width: 850px;
+
+    border-collapse: collapse;
+}
+
+.users-table-wrap th,
+.users-table-wrap td {
+    padding: 14px 16px;
+
+    text-align: left;
+
+    border-bottom: 1px solid var(--users-border-warm);
+}
+
+.users-table-wrap th {
+    height: 46px;
+    box-sizing: border-box;
+
+    color: #6f675b;
+
+    background: var(--users-ivory);
+
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.075em;
+    text-transform: uppercase;
+}
+
+.users-table-wrap td {
+    color: var(--users-charcoal);
+
+    font-size: 13px;
+
+    background: var(--users-white);
+}
+
+.users-table-wrap tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.users-table-wrap tbody tr {
+    transition: background 0.14s ease;
+}
+
+.users-table-wrap tbody tr:hover td {
+    background: #fcfbf8;
+}
+
+.users-table-wrap td strong {
+    display: block;
+
+    color: var(--users-navy);
+
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.users-table-wrap small {
+    display: block;
+
+    margin-top: 3px;
+
+    color: var(--users-muted);
+
+    font-size: 11px;
+}
+
+
+/* =========================================================
+   QR SELECT
+   ========================================================= */
+
+.qr-select-column {
+    width: 42px;
+}
+
+.users-table-wrap td > input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+
+    margin: 0;
+
+    accent-color: var(--users-gold);
+
+    cursor: pointer;
+}
+
+
+/* =========================================================
+   STATUS
+   ========================================================= */
+
+.user-status,
+.qr-status {
+    display: inline-flex;
+    align-items: center;
+
+    min-height: 24px;
+    box-sizing: border-box;
+
+    padding: 4px 9px;
+
+    border-radius: 5px;
+
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.user-status.active,
+.qr-status.active {
+    color: #3d6548;
+    background: #f1f6f1;
+    border: 1px solid #d7e5d8;
+}
+
+.user-status.inactive,
+.qr-status.revoked {
+    color: #7a4141;
+    background: #faf3f1;
+    border: 1px solid #ead8d3;
+}
+
+.qr-status.not_issued {
+    color: #625d54;
+    background: #f4f2ed;
+    border: 1px solid #e3dfd5;
+}
+
+.qr-status.replacement_required {
+    color: #765f30;
+    background: #faf6e9;
+    border: 1px solid #e9dfbd;
+}
+
+
+/* =========================================================
+   ROW ACTIONS
+   ========================================================= */
+
+.user-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+
+    white-space: nowrap;
+}
+
+.users-table-wrap button {
+    height: 34px;
+
+    padding: 0 11px;
+
+    color: var(--users-navy);
+
+    background: transparent;
+
+    border: 1px solid var(--users-border);
+
+    border-radius: 6px;
+
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        background 0.14s ease,
+        border-color 0.14s ease,
+        color 0.14s ease;
+}
+
+.users-table-wrap button:hover {
+    color: var(--users-navy);
+
+    background: rgba(182, 155, 98, 0.07);
+
+    border-color: var(--users-gold);
+}
+
+
+/* QR CODE ACTION */
+
+.users-table-wrap .manage-qr-button {
+    color: var(--users-navy);
+
+    background: transparent;
+
+    border-color: var(--users-gold);
+}
+
+.users-table-wrap .manage-qr-button:hover {
+    background: rgba(182, 155, 98, 0.09);
+    border-color: var(--users-gold);
+}
+
+
+/* =========================================================
+   MODAL OVERLAY
+   ========================================================= */
+
+.modal-overlay,
+.qr-admin-overlay {
+    position: fixed;
+    inset: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 16px;
+
+    background: rgba(16, 27, 45, 0.58);
+
+    z-index: 1500;
+}
+
+
+/* =========================================================
+   USER MODAL
+   ========================================================= */
+
+.user-modal {
+    width: min(460px, calc(100vw - 32px));
+
+    box-sizing: border-box;
+
+    padding: 28px;
+
+    background: var(--users-white);
+
+    border: 1px solid var(--users-border-warm);
+    border-radius: 12px;
+
+    box-shadow:
+        0 24px 60px rgba(16, 27, 45, 0.22);
+}
+
+.user-modal h2 {
+    margin: 0;
+
+    color: var(--users-navy);
+
+    font-size: 21px;
+    font-weight: 700;
+}
+
+.user-invite-help {
+    margin: 8px 0 18px;
+
+    color: var(--users-muted);
+
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+
+/* =========================================================
+   FORM
+   ========================================================= */
+
+.user-modal label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    margin: 14px 0;
+
+    color: #5f5a51;
+
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.user-modal input,
+.user-modal select {
+    width: 100%;
+
+    box-sizing: border-box;
+
+    height: 42px;
+
+    padding: 0 12px;
+
+    color: var(--users-charcoal);
+
+    background: var(--users-white);
+
+    border: 1px solid var(--users-border);
+    border-radius: 7px;
+
+    font: inherit;
+    font-size: 13px;
+
+    outline: none;
+
+    transition:
+        border-color 0.16s ease,
+        box-shadow 0.16s ease;
+}
+
+.user-modal input:focus,
+.user-modal select:focus {
+    border-color: var(--users-gold);
+
+    box-shadow:
+        0 0 0 2px rgba(182, 155, 98, 0.12);
+}
+
+
+/* ACCOUNT ACTIVE */
+
+.user-modal .user-active {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+
+    margin-top: 17px;
+
+    color: var(--users-charcoal);
+}
+
+.user-modal .user-active input {
+    width: 17px;
+    height: 17px;
+
+    accent-color: var(--users-gold);
+}
+
+
+/* =========================================================
+   MODAL ACTIONS
+   ========================================================= */
+
+.user-modal .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 9px;
+
+    margin-top: 24px;
+    padding-top: 18px;
+
+    border-top: 1px solid var(--users-border-warm);
+}
+
+.user-modal .modal-actions button {
+    height: 39px;
+
+    padding: 0 15px;
+
+    border-radius: 6px;
+
+    font: inherit;
+    font-size: 12px;
+    font-weight: 650;
+
+    cursor: pointer;
+
+    transition:
+        background 0.14s ease,
+        border-color 0.14s ease;
+}
+
+.user-modal .modal-actions button:first-child {
+    color: var(--users-navy);
+
+    background: transparent;
+
+    border: 1px solid var(--users-border);
+}
+
+.user-modal .modal-actions button:first-child:hover {
+    background: var(--users-ivory);
+
+    border-color: var(--users-gold);
+}
+
+.user-modal .modal-actions button:last-child {
+    min-width: 125px;
+}
+
+
+/* =========================================================
+   QR MANAGEMENT MODAL
+   ========================================================= */
+
+.qr-admin-modal {
+    position: relative;
+
+    width: min(620px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+
+    box-sizing: border-box;
+
+    overflow: auto;
+
+    padding: 28px;
+
+    background: var(--users-white);
+
+    border: 1px solid var(--users-border-warm);
+    border-radius: 12px;
+
+    box-shadow:
+        0 24px 60px rgba(16, 27, 45, 0.22);
+}
+
+.qr-admin-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.qr-admin-header h2 {
+    margin: 0;
+
+    color: var(--users-navy);
+
+    font-size: 21px;
+}
+
+.qr-admin-header p {
+    margin: 5px 0;
+
+    color: var(--users-muted);
+
+    font-size: 13px;
+}
+
+.qr-close {
+    flex: 0 0 auto;
+
+    width: 34px;
+    height: 34px;
+
+    color: var(--users-navy);
+
+    background: transparent;
+
+    border: 1px solid var(--users-border);
+    border-radius: 6px;
+
+    cursor: pointer;
+
+    font-size: 20px;
+    line-height: 1;
+
+    transition:
+        background 0.14s ease,
+        border-color 0.14s ease;
+}
+
+.qr-close:hover {
+    background: var(--users-ivory);
+    border-color: var(--users-gold);
+}
+
+
+/* =========================================================
+   QR STATUS / PREVIEW
+   ========================================================= */
+
+.qr-admin-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    margin: 20px 0;
+
+    color: var(--users-muted);
+
+    font-size: 13px;
+}
+
+.qr-admin-status > div {
+    display: grid;
+    gap: 3px;
+
+    text-align: right;
+}
+
+.qr-admin-preview {
+    width: min(100%, 360px);
+
+    box-sizing: border-box;
+
+    margin: 0 auto;
+    padding: 18px;
+
+    text-align: center;
+
+    background: var(--users-ivory);
+
+    border: 1px dashed #c9c1b2;
+    border-radius: 9px;
+}
+
+.qr-admin-preview img {
+    display: block;
+
+    width: min(100%, 300px);
+
+    margin: auto;
+
+    background: var(--users-white);
+}
+
+.qr-admin-preview p {
+    margin: 9px 0 0;
+
+    color: var(--users-navy);
+
+    font-size: 13px;
+    font-weight: 700;
+}
+
+
+/* =========================================================
+   QR UNAVAILABLE
+   ========================================================= */
+
+.qr-unavailable {
+    padding: 28px;
+
+    color: #7a4141;
+
+    background: #faf3f1;
+
+    border: 1px dashed #d9bcb5;
+    border-radius: 9px;
+
+    text-align: center;
+}
+
+.qr-reason {
+    padding: 11px 13px;
+
+    color: var(--users-muted);
+
+    background: var(--users-ivory);
+
+    border: 1px solid var(--users-border-warm);
+    border-radius: 7px;
+
+    font-size: 12px;
+}
+
+
+/* =========================================================
+   QR ACTION BUTTONS
+   ========================================================= */
+
+.qr-admin-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 9px;
+
+    margin-top: 20px;
+}
+
+.qr-admin-actions button,
+.qr-confirm-panel button {
+    min-height: 38px;
+
+    padding: 0 14px;
+
+    color: var(--users-white);
+
+    background: var(--users-navy);
+
+    border: 1px solid var(--users-navy);
+    border-radius: 6px;
+
+    font: inherit;
+    font-size: 12px;
+    font-weight: 650;
+
+    cursor: pointer;
+
+    transition:
+        background 0.14s ease,
+        border-color 0.14s ease;
+}
+
+.qr-admin-actions button:hover,
+.qr-confirm-panel button:hover {
+    background: var(--users-navy-deep);
+    border-color: var(--users-navy-deep);
+}
+
+.qr-admin-actions .secondary,
+.qr-confirm-panel button:first-child {
+    color: var(--users-navy);
+
+    background: transparent;
+
+    border-color: var(--users-border);
+}
+
+.qr-admin-actions .secondary:hover,
+.qr-confirm-panel button:first-child:hover {
+    background: var(--users-ivory);
+
+    border-color: var(--users-gold);
+}
+
+.qr-admin-actions .danger,
+.qr-confirm-panel .danger {
+    color: #7a4141;
+
+    background: transparent;
+
+    border-color: #cfaea6;
+}
+
+.qr-admin-actions .danger:hover,
+.qr-confirm-panel .danger:hover {
+    background: #faf3f1;
+
+    border-color: #b98e84;
+}
+
+
+/* =========================================================
+   QR CONFIRM PANEL
+   ========================================================= */
+
+.qr-confirm-panel {
+    margin-top: 20px;
+    padding: 17px;
+
+    background: var(--users-ivory);
+
+    border: 1px solid var(--users-border-warm);
+    border-radius: 9px;
+}
+
+.qr-confirm-panel h3 {
+    margin: 0 0 5px;
+
+    color: var(--users-navy);
+
+    font-size: 15px;
+}
+
+.qr-confirm-panel p {
+    margin: 6px 0 12px;
+
+    color: var(--users-muted);
+
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.qr-confirm-panel label {
+    display: grid;
+    gap: 6px;
+
+    color: #5f5a51;
+
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.qr-confirm-panel textarea {
+    box-sizing: border-box;
+
+    width: 100%;
+
+    min-height: 90px;
+
+    padding: 10px 12px;
+
+    color: var(--users-charcoal);
+
+    background: var(--users-white);
+
+    border: 1px solid var(--users-border);
+    border-radius: 7px;
+
+    font: inherit;
+    font-size: 13px;
+
+    resize: vertical;
+
+    outline: none;
+}
+
+.qr-confirm-panel textarea:focus {
+    border-color: var(--users-gold);
+
+    box-shadow:
+        0 0 0 2px rgba(182, 155, 98, 0.12);
+}
+
+.qr-confirm-panel > div {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+
+    margin-top: 12px;
+}
+
+
+/* =========================================================
+   PRINT
+   ========================================================= */
+
+.physical-qr-print-sheet {
+    display: none;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 760px) {
+    .users-page {
+        gap: 18px;
+    }
+
+    .users-page > header h1 {
+        font-size: 24px;
+    }
+
+    .users-toolbar {
+        flex-wrap: wrap;
+    }
+
+    .users-toolbar input {
+        flex-basis: 100%;
+        min-width: 100%;
+    }
+
+    .users-toolbar button {
+        flex: 1;
+    }
+
+    .qr-admin-status {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .qr-admin-status > div {
+        text-align: left;
+    }
+
+    .qr-admin-actions button {
+        flex: 1 1 45%;
+    }
+}
+
+
+/* =========================================================
+   PRINT SHEET
+   ========================================================= */
+
+@media print {
+    body * {
+        visibility: hidden !important;
+    }
+
+    .physical-qr-print-sheet,
+    .physical-qr-print-sheet * {
+        visibility: visible !important;
+    }
+
+    .physical-qr-print-sheet {
+        position: fixed;
+        inset: 0;
+
+        z-index: 99999;
+
+        display: grid !important;
+
+        grid-template-columns: repeat(3, 1fr);
+
+        align-content: start;
+
+        gap: 8mm;
+
+        padding: 8mm;
+
+        background: #fff;
+    }
+
+    .physical-qr-label {
+        box-sizing: border-box;
+
+        display: flex;
+
+        min-height: 78mm;
+
+        padding: 5mm;
+
+        align-items: center;
+        justify-content: center;
+
+        flex-direction: column;
+
+        text-align: center;
+
+        border: 1px dashed #64748b;
+
+        break-inside: avoid;
+    }
+
+    .physical-qr-label img {
+        width: 44mm;
+        height: 44mm;
+    }
+
+    .physical-qr-label strong {
+        max-width: 54mm;
+
+        margin-top: 2mm;
+
+        font-size: 11pt;
+    }
+
+    .physical-qr-label span {
+        font-size: 9pt;
+    }
+
+    .physical-qr-label small {
+        margin-top: 1mm;
+
+        color: #475569;
+
+        font-size: 7pt;
+    }
+
+    .print-brand {
+        font-size: 8pt;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+}
