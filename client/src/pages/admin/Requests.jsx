@@ -12,6 +12,8 @@ import "../../styles/requests.css";
 import { supabase } from "../../lib/supabase";
 import { authenticatedFetch } from "../../lib/api";
 import ReceiptModal from "../../components/ReceiptModal";
+import { Link } from "react-router-dom";
+import { useAuth } from "../../auth/useAuth";
 
 function formatDate(date) {
   if (!date) return "-";
@@ -23,6 +25,7 @@ function formatDate(date) {
 }
 
 export default function Requests() {
+  const { profile } = useAuth();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -64,6 +67,10 @@ export default function Requests() {
           overdue: request.overdue,
           purpose: request.purpose || "-",
           status: request.status.charAt(0).toUpperCase() + request.status.slice(1),
+          authorizationToken: request.authorizationToken,
+          authorizationStatus: request.authorizationStatus,
+          authorizedBy: request.authorizedBy,
+          authorizedAt: request.authorizedAt,
         };
       });
       if (sequence === loadSequence.current) setRequests(nextRequests);
@@ -300,19 +307,9 @@ export default function Requests() {
                       <FaEye />
                     </button>
 
-                    {r.status === "Pending" && (
+                    {r.status === "Pending" && profile?.role === "professor" && (
                       <>
-                        <button
-                          className="approve-btn"
-                          onClick={() =>
-                            updateStatus(
-                              r.id,
-                              "Approved"
-                            )
-                          }
-                        >
-                          <FaCheck />
-                        </button>
+                        <Link className="approve-btn" title="Review and sign" to={`/authorize/${r.authorizationToken}`}><FaCheck /></Link>
 
                         <button
                           className="reject-btn"
@@ -326,6 +323,10 @@ export default function Requests() {
                           <FaTimes />
                         </button>
                       </>
+                    )}
+
+                    {r.status === "Validated" && profile?.role === "admin" && (
+                      <button className="approve-btn" title="Final admin approval" onClick={() => updateStatus(r.id, "Approved")}><FaCheck /></button>
                     )}
 
                     {r.status === "Borrowed" && (

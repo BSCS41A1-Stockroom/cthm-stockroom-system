@@ -1,0 +1,3 @@
+import { useEffect, useState } from "react";
+import QRCode from "qrcode";
+export default function AuthorizationQr({token}){const [src,setSrc]=useState("");const url=token?`${window.location.origin}/authorize/${token}`:"";useEffect(()=>{if(url)QRCode.toDataURL(url,{width:260,margin:2,errorCorrectionLevel:"M"}).then(setSrc);},[url]);if(!token)return null;return <div className="authorization-qr"><h3>Professor authorization</h3><p>Send this QR or link to your professor. They must sign in before reviewing it.</p>{src&&<img src={src} alt="Professor authorization QR code"/>}<a href={url}>{url}</a></div>}

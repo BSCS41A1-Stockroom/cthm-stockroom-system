@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { FaQrcode } from "react-icons/fa";
+import { FaQrcode, FaSignature } from "react-icons/fa";
 import { useAuth } from "../../auth/useAuth";
 
 export default function ProfileMenu({ variant = "student" }) {
@@ -64,6 +64,12 @@ export default function ProfileMenu({ variant = "student" }) {
             <Link className="profile-dropdown-link" role="menuitem" to="/my-qr" onClick={() => setOpen(false)}>
               <FaQrcode aria-hidden="true" />
               <span>My Account QR</span>
+            </Link>
+          )}
+          {profile?.role === "professor" && (
+            <Link className="profile-dropdown-link" role="menuitem" to="/professor/signature" onClick={() => setOpen(false)}>
+              <FaSignature aria-hidden="true" />
+              <span>Signature Settings</span>
             </Link>
           )}
           <button type="button" className="profile-signout" role="menuitem" onClick={requestSignOut}>Sign out</button>

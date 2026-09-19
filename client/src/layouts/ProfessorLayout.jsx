@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 import {
     FaHome,
     FaQrcode,
@@ -7,19 +7,19 @@ import {
     FaSignOutAlt,
     FaBars,
     FaTimes,
+    FaSignature,
 } from "react-icons/fa";
 import { useState } from "react";
+import { useAuth } from "../auth/useAuth";
 
 import "../styles/professor.css";
 
 export default function ProfessorLayout() {
-    const navigate = useNavigate();
+    const { profile, signOut } = useAuth();
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
-    const handleLogout = () => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        navigate("/login");
+    const handleLogout = async () => {
+        await signOut();
     };
 
     const closeSidebar = () => {
@@ -87,6 +87,11 @@ export default function ProfessorLayout() {
                         <span>Dashboard</span>
                     </NavLink>
 
+                    <NavLink to="/professor/signature" className={({ isActive }) => `professor-nav-link ${isActive ? "active" : ""}`} onClick={closeSidebar}>
+                        <FaSignature />
+                        <span>Signature Settings</span>
+                    </NavLink>
+
                     <NavLink
                         to="/professor/qr"
                         className={({ isActive }) =>
@@ -146,7 +151,7 @@ export default function ProfessorLayout() {
                         </div>
 
                         <div className="professor-profile-info">
-                            <strong>Professor</strong>
+                            <strong>{profile?.full_name || "Professor"}</strong>
                             <span>CTHM Faculty</span>
                         </div>
                     </div>
@@ -192,7 +197,7 @@ export default function ProfessorLayout() {
 
                             <div>
                                 <strong>
-                                    Professor
+                                    {profile?.full_name || "Professor"}
                                 </strong>
 
                                 <span>

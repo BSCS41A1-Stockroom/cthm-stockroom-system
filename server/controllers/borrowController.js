@@ -24,7 +24,7 @@ const { createTransactionReceipt } = require("../utils/transactionReceipt");
 const RESERVED_STATUSES = new Set(["Pending", "Validated", "Approved"]);
 const BORROWED_STATUSES = new Set(["Borrowed"]);
 const STATUS_TRANSITIONS = Object.freeze({
-  Pending: new Set(["Approved", "Rejected"]),
+  Pending: new Set(["Rejected"]),
   Validated: new Set(["Approved", "Rejected"]),
   Approved: new Set(["Borrowed", "Rejected"]),
   Borrowed: new Set(),
@@ -105,6 +105,10 @@ function serializeBorrowRequest(request) {
     requestedAt: request.created_at,
     actualReturnedAt: request.actual_returned_at ?? null,
     overdue: Boolean(request.overdue),
+    authorizationStatus: request.authorization_status ?? null,
+    authorizationToken: request.authorization_token ?? null,
+    authorizedBy: request.professor_name ?? null,
+    authorizedAt: request.authorized_at ?? null,
     items: Array.isArray(request.items) ? request.items : [],
   };
 }
@@ -541,6 +545,11 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
       ]
     );
     const savedRequest = requestResult.rows[0];
+    const authorizationResult = await client.query(
+      `INSERT INTO public.borrow_request_authorizations (request_id) VALUES ($1) RETURNING review_token`,
+      [savedRequest.id]
+    );
+    savedRequest.authorization_token = authorizationResult.rows[0].review_token;
 
     for (const item of request.items) {
       await client.query(
@@ -605,6 +614,10 @@ async function listBorrowRequests(req, res, next) {
     const result = await pool.query(
       `SELECT br.id, br.student_name, br.student_id, br.borrow_date,
               br.return_date, br.actual_returned_at, br.purpose, br.status, br.created_at,
+              (SELECT status FROM public.borrow_request_authorizations WHERE request_id=br.id) AS authorization_status,
+              (SELECT review_token FROM public.borrow_request_authorizations WHERE request_id=br.id) AS authorization_token,
+              (SELECT professor_name FROM public.borrow_request_authorizations WHERE request_id=br.id) AS professor_name,
+              (SELECT authorized_at FROM public.borrow_request_authorizations WHERE request_id=br.id) AS authorized_at,
               (br.status = 'Borrowed' AND br.return_date < (now() AT TIME ZONE 'Asia/Manila')::date) AS overdue,
               COALESCE(
                 json_agg(json_build_object(
@@ -952,6 +965,10 @@ async function updateBorrowRequestStatus(req, res, next) {
     }
 
     const request = requestResult.rows[0];
+    if (nextStatus === "Approved" && req.user.role !== "admin") {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ error: "ADMIN_APPROVAL_REQUIRED", message: "Only an administrator can give final approval." });
+    }
     const allowed = STATUS_TRANSITIONS[request.status];
     if (!allowed || !allowed.has(nextStatus)) {
       await client.query("ROLLBACK");
@@ -1156,6 +1173,11 @@ async function updateBorrowRequestStatus(req, res, next) {
 
     if (nextStatus === "Rejected") {
       await client.query(`DELETE FROM calendar_events WHERE borrow_request_id = $1`, [requestId]);
+      if (request.status === "Pending") {
+        await client.query(`UPDATE public.borrow_request_authorizations SET status='rejected',professor_user_id=$2,
+          professor_name=$3,rejected_at=now(),rejection_reason=$4,updated_at=now() WHERE request_id=$1 AND status='awaiting'`,
+          [requestId, req.user.id, req.user.full_name, String(req.body?.reason ?? "Request rejected during review.").slice(0, 500)]);
+      }
     }
 
     await writeAuditLog(client, req.user, {

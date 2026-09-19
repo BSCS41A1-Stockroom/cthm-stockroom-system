@@ -58,6 +58,10 @@ function generateBorrowerForm(data) {
     items
   );
 
+  if (data.professorSignature && data.professorName) {
+    documentXml = fillProfessorAuthorization(documentXml, zip, data);
+  }
+
   zip.file(
     "word/document.xml",
     documentXml
@@ -66,6 +70,38 @@ function generateBorrowerForm(data) {
   return zip.generate({
     type: "nodebuffer",
     compression: "DEFLATE",
+  });
+}
+
+function fillProfessorAuthorization(documentXml, zip, data) {
+  const relationshipId = "rIdProfessorAuthorizationSignature";
+  const extension = data.professorSignatureMime === "image/jpeg" ? "jpg" : "png";
+  const mediaName = `professor-authorization-signature.${extension}`;
+  zip.file(`word/media/${mediaName}`, data.professorSignature);
+
+  const relationshipsPath = "word/_rels/document.xml.rels";
+  const relationships = zip.file(relationshipsPath)?.asText();
+  if (!relationships) throw new Error("DOCX relationships file is missing.");
+  zip.file(relationshipsPath, relationships.replace("</Relationships>",
+    `<Relationship Id="${relationshipId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${mediaName}"/></Relationships>`));
+
+  const contentTypesPath = "[Content_Types].xml";
+  let contentTypes = zip.file(contentTypesPath)?.asText();
+  if (!contentTypes) throw new Error("DOCX content types file is missing.");
+  if (!new RegExp(`Extension="${extension}"`, "i").test(contentTypes)) {
+    const mime = extension === "jpg" ? "image/jpeg" : "image/png";
+    contentTypes = contentTypes.replace("</Types>", `<Default Extension="${extension}" ContentType="${mime}"/></Types>`);
+    zip.file(contentTypesPath, contentTypes);
+  }
+
+  const signedLine = `${data.professorName} | ${data.authorizedAt || ""}`;
+  const drawing = `<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="1714500" cy="571500"/><wp:docPr id="9001" name="Professor Signature"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="0" name="Professor Signature"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relationshipId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1714500" cy="571500"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>${escapeXml(signedLine)}</w:t></w:r></w:p>`;
+
+  return documentXml.replace(/<w:tc(?:\s[^>]*)?>[\s\S]*?<\/w:tc>/g, (cell) => {
+    if (!/Instructor\/?\s*Department Head Signature/i.test(extractText(cell))) return cell;
+    const paragraphs = cell.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) || [];
+    const line = paragraphs.find((paragraph) => /_{8,}/.test(extractText(paragraph)));
+    return line ? cell.replace(line, drawing) : cell.replace(/<\/w:tc>$/, `${drawing}</w:tc>`);
   });
 }
 
