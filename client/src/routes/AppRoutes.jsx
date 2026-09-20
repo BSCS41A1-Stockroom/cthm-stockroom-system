@@ -244,6 +244,12 @@ export default function AppRoutes() {
 
             </Route>
 
+            <Route element={<ProtectedRoute roles={["staff"]} />}>
+                <Route element={<AdminLayout />}>
+                    <Route path="/admin/signature" element={<SignatureSettings custodian />} />
+                </Route>
+            </Route>
+
             <Route element={<ProtectedRoute roles={["admin"]} />}>
                 <Route element={<AdminLayout />}>
                     <Route path="/admin/activity-logs" element={<AuditLogs />} />

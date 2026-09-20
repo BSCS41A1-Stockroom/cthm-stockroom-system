@@ -84,6 +84,36 @@ async function loadReview(token, userId) {
       authz.professor_name,request.id,profile.full_name,department.id,section.id,assigned.user_id`, [token, userId]);
 }
 
+async function getMyCustodianSignature(req, res, next) {
+  try {
+    const result = await pool.query(`SELECT image_data,mime_type,updated_at FROM public.custodian_signatures WHERE custodian_user_id=$1`, [req.user.id]);
+    const row = result.rows[0];
+    return res.json({ configured: Boolean(row), updatedAt: row?.updated_at ?? null,
+      image: row ? `data:${row.mime_type};base64,${row.image_data.toString("base64")}` : null });
+  } catch (error) { return next(error); }
+}
+
+async function saveMyCustodianSignature(req, res, next) {
+  const signature = decodeSignature(req.body?.image);
+  if (!signature) return res.status(422).json({ error: "INVALID_SIGNATURE", message: "Upload a valid PNG or JPEG signature no larger than 256 KB." });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const previous = await client.query(`SELECT image_hash,updated_at FROM public.custodian_signatures WHERE custodian_user_id=$1 FOR UPDATE`, [req.user.id]);
+    await client.query(`INSERT INTO public.custodian_signatures (custodian_user_id,image_data,mime_type,image_hash,updated_at)
+      VALUES ($1,$2,$3,$4,now()) ON CONFLICT (custodian_user_id) DO UPDATE SET
+      image_data=excluded.image_data,mime_type=excluded.mime_type,image_hash=excluded.image_hash,updated_at=now()`,
+      [req.user.id, signature.data, signature.mimeType, signature.imageHash]);
+    await writeAuditLog(client, req.user, { action: previous.rowCount ? "custodian_signature_replaced" : "custodian_signature_created",
+      entityType: "custodian_signature", entityId: req.user.id,
+      oldValues: previous.rowCount ? { imageHash: previous.rows[0].image_hash, updatedAt: previous.rows[0].updated_at } : null,
+      newValues: { imageHash: signature.imageHash } });
+    await client.query("COMMIT");
+    return res.json({ configured: true, imageHash: signature.imageHash });
+  } catch (error) { await client.query("ROLLBACK"); return next(error); }
+  finally { client.release(); }
+}
+
 async function getAuthorizationReview(req, res, next) {
   if (!UUID.test(req.params.token)) return res.status(400).json({ error: "INVALID_REVIEW_LINK", message: "This authorization link is invalid." });
   try {
@@ -180,4 +210,4 @@ async function downloadAuthorizedDocument(req, res, next) {
   } catch (error) { return next(error); }
 }
 
-module.exports = { authorizeRequest, decodeSignature, downloadAuthorizedDocument, getAuthorizationReview, getMySignature, ownershipError, saveMySignature };
+module.exports = { authorizeRequest, decodeSignature, downloadAuthorizedDocument, getAuthorizationReview, getMyCustodianSignature, getMySignature, ownershipError, saveMyCustodianSignature, saveMySignature };
