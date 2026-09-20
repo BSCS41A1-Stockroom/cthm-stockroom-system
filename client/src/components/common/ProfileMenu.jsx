@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { createPortal } from "react-dom";
 import { FaQrcode, FaSignature } from "react-icons/fa";
 import { useAuth } from "../../auth/useAuth";
 
@@ -81,7 +82,7 @@ export default function ProfileMenu({ variant = "student" }) {
           <button type="button" className="profile-signout" role="menuitem" onClick={requestSignOut}>Sign out</button>
         </div>
       )}
-      {confirmingSignOut && (
+      {confirmingSignOut && createPortal(
         <div className="signout-confirm-overlay" role="presentation">
           <div className="signout-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="signout-confirm-title">
             <h3 id="signout-confirm-title">Sign out?</h3>
@@ -94,7 +95,8 @@ export default function ProfileMenu({ variant = "student" }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
