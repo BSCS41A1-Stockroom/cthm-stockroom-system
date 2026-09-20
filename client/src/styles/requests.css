@@ -1387,6 +1387,46 @@
 
 }
 
+.request-view-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 6px;
+    width: fit-content;
+    max-width: 100%;
+    border: 1px solid var(--requests-border);
+    border-radius: 12px;
+    background: var(--requests-white);
+}
+
+.request-view-tabs button {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 10px 14px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--requests-muted);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.request-view-tabs button.active {
+    background: var(--requests-navy);
+    color: white;
+}
+
+.request-view-tabs button span {
+    min-width: 24px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(182, 155, 98, 0.18);
+    color: var(--requests-gold);
+    text-align: center;
+}
+
 .custodian-step-success {
     margin: 12px 0;
     padding: 12px 14px;
