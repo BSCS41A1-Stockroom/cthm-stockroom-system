@@ -1386,3 +1386,15 @@
     }
 
 }
+
+.custodian-step-success {
+    margin: 12px 0;
+    padding: 12px 14px;
+    border: 1px solid #D5E2D7;
+    border-left: 3px solid var(--requests-success);
+    border-radius: 7px;
+    background: var(--requests-success-bg);
+    color: var(--requests-success);
+    font-size: 12px;
+    line-height: 1.55;
+}
