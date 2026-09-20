@@ -1060,9 +1060,9 @@ async function updateBorrowRequestStatus(req, res, next) {
         message: request.assigned_professor_user_id ? "This request is assigned to another professor." : "This request has no assigned professor.",
       });
     }
-    if (nextStatus === "Approved" && req.user.role !== "admin") {
+    if (nextStatus === "Approved" && !["staff", "admin"].includes(req.user.role)) {
       await client.query("ROLLBACK");
-      return res.status(403).json({ error: "ADMIN_APPROVAL_REQUIRED", message: "Only an administrator can give final approval." });
+      return res.status(403).json({ error: "STOCKROOM_APPROVAL_REQUIRED", message: "Only authorized stockroom Staff or an Administrator can give final approval." });
     }
     if (nextStatus === "Rejected" && req.user.role === "professor"
       && String(req.body?.reason ?? "").trim().length < 5) {

@@ -86,6 +86,36 @@ test("status approval does not execute serialized return processing", async () =
   assert.equal(calls.at(-1), "COMMIT");
 });
 
+test("department staff can approve a request only after department scoping succeeds", async () => {
+  const calls = [];
+  const client = { async query(sql) {
+    calls.push(sql);
+    if (sql.includes("SELECT * FROM borrow_requests")) return { rowCount: 1, rows: [{ id: 6, status: "Validated", department_id: 4, user_id: "student", student_name: "Student", borrow_date: "2030-01-01", return_date: "2030-01-02" }] };
+    if (sql.includes("SELECT inventory_id, quantity")) return { rowCount: 0, rows: [] };
+    if (sql.includes("UPDATE borrow_requests")) return { rowCount: 1, rows: [{ id: 6, status: "Approved" }] };
+    return { rowCount: 1, rows: [] };
+  }, release() {} };
+  const originalConnect = pool.connect; pool.connect = async () => client;
+  const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+  try { await updateBorrowRequestStatus({ params: { id: "6" }, body: { status: "Approved" }, user: { id: "staff", role: "staff", department_id: 4 } }, response, (error) => { throw error; }); }
+  finally { pool.connect = originalConnect; }
+  assert.equal(response.statusCode, 200);
+  assert.equal(calls.at(-1), "COMMIT");
+});
+
+test("department staff cannot update another department's request", async () => {
+  const client = { async query(sql) {
+    if (sql.includes("SELECT * FROM borrow_requests")) return { rowCount: 1, rows: [{ id: 7, status: "Validated", department_id: 9 }] };
+    return { rowCount: 1, rows: [] };
+  }, release() {} };
+  const originalConnect = pool.connect; pool.connect = async () => client;
+  const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
+  try { await updateBorrowRequestStatus({ params: { id: "7" }, body: { status: "Approved" }, user: { id: "staff", role: "staff", department_id: 4 } }, response, (error) => { throw error; }); }
+  finally { pool.connect = originalConnect; }
+  assert.equal(response.statusCode, 404);
+  assert.equal(response.body.error, "REQUEST_NOT_FOUND");
+});
+
 test("processes a complete return and updates inventory condition counters atomically", async () => {
   const calls = [];
   const client = {
