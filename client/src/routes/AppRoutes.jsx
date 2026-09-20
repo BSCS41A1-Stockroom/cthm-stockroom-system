@@ -240,14 +240,10 @@ export default function AppRoutes() {
                         element={<Inventory />}
                     />
 
+                    <Route path="/admin/signature" element={<SignatureSettings />} />
+
                 </Route>
 
-            </Route>
-
-            <Route element={<ProtectedRoute roles={["staff"]} />}>
-                <Route element={<AdminLayout />}>
-                    <Route path="/admin/signature" element={<SignatureSettings custodian />} />
-                </Route>
             </Route>
 
             <Route element={<ProtectedRoute roles={["admin"]} />}>
