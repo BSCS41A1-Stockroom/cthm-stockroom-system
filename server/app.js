@@ -63,6 +63,21 @@ app.use("/api/authorizations", authorizationRoutes);
 app.use((error, req, res, next) => {
   console.error(error);
 
+  const retryableDatabaseError = ["53300", "57P01", "57P02", "57P03", "08000", "08001", "08003", "08004", "08006", "08007", "08P01"]
+    .includes(String(error?.code ?? ""))
+    || ["ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "EPIPE", "ENETUNREACH", "EAI_AGAIN"]
+      .includes(String(error?.code ?? ""))
+    || /connection terminated|connection timeout|remaining connection slots|too many connections/i
+      .test(String(error?.message ?? ""));
+
+  if (retryableDatabaseError) {
+    res.setHeader("Retry-After", "2");
+    return res.status(503).json({
+      error: "SERVICE_TEMPORARILY_UNAVAILABLE",
+      message: "The service is reconnecting. Please retry in a moment.",
+    });
+  }
+
   res.status(500).json({
     error: "BORROWING_PROCESSING_FAILED",
     message:
