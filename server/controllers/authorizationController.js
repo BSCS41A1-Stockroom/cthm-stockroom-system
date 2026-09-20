@@ -347,7 +347,7 @@ async function downloadAuthorizedDocument(req, res, next) {
         released.signature_image AS released_signature_image,released.signature_mime_type AS released_signature_mime_type,
         returned.staff_name AS returned_name,returned.signed_at AS returned_at,returned.signature_image AS returned_signature_image,
         returned.signature_mime_type AS returned_signature_mime_type,
-        request.student_name,request.student_id,request.borrow_date,request.return_date,request.purpose,
+        request.student_name,request.student_id,request.borrow_date,request.return_date,request.purpose,request.status AS request_status,
         request.created_at AS request_created_at,department.name AS department_name,section.name AS section_name,
         COALESCE(json_agg(json_build_object('description',inventory.item_name,'quantity',item.quantity,
           'released',CASE WHEN request.status IN ('Borrowed','Returned') THEN item.quantity::text ELSE '' END,
@@ -375,9 +375,14 @@ async function downloadAuthorizedDocument(req, res, next) {
     const row = result.rows[0];
     if (!row) return res.status(404).json({ error: "SIGNED_DOCUMENT_NOT_FOUND", message: "The signed document is not available yet." });
     const displayTime = (value) => value ? new Date(value).toLocaleString("en-PH", { timeZone: "Asia/Manila" }) : "";
+    const returnedUnits = row.items.reduce((sum,item) => sum + Number(item.returned || 0),0);
+    const documentState = row.request_status === "Returned" ? "Finalized"
+      : row.request_status === "Borrowed" && returnedUnits > 0 ? "Partially-Returned"
+        : row.request_status === "Borrowed" ? "Released"
+          : row.approved_at ? "Approved" : "Authorization-In-Progress";
     const buffer = generateBorrowerForm({ laboratory: row.department_name || "",department:row.department_name,section:row.section_name,
       returnDate:displayTime(row.return_date).split(",")[0],dateTime: displayTime(row.request_created_at),
-      controlNo: `BR-${String(row.request_id).padStart(3,"0")}`, items: row.items,
+      controlNo: `BR-${String(row.request_id).padStart(3,"0")} | ${documentState.replaceAll("-"," ")}`, items: row.items,
       professorName: row.professor_name, authorizedAt: displayTime(row.authorized_at),
       professorSignature: row.signature_image, professorSignatureMime: row.signature_mime_type,
       verifiedName:row.verified_name,verifiedAt:displayTime(row.verified_at),verifiedSignature:row.verified_signature_image,verifiedSignatureMime:row.verified_signature_mime_type,
@@ -385,7 +390,6 @@ async function downloadAuthorizedDocument(req, res, next) {
       releasedName:row.released_name,releasedAt:displayTime(row.released_at),releasedSignature:row.released_signature_image,releasedSignatureMime:row.released_signature_mime_type,
       returnedName:row.returned_name,returnedAt:displayTime(row.returned_at),returnedSignature:row.returned_signature_image,returnedSignatureMime:row.returned_signature_mime_type });
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-    const documentState = row.approved_at ? "Approved" : "Authorization-In-Progress";
     res.setHeader("Content-Disposition", `attachment; filename="Borrowers-Form-BR-${String(row.request_id).padStart(3,"0")}-${documentState}.docx"`);
     return res.send(buffer);
   } catch (error) { return next(error); }

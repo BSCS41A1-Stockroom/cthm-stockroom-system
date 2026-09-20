@@ -16,6 +16,7 @@ import ReceiptModal from "../../components/ReceiptModal";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import { isInRoleQueue, stageLabel } from "../../utils/requestWorkflow";
+import BorrowingTimeline from "../../components/BorrowingTimeline";
 
 function formatDate(date) {
   if (!date) return "-";
@@ -85,6 +86,12 @@ export default function Requests() {
           custodianVerifiedAt: request.custodianVerifiedAt,
           custodianApprovedBy: request.custodianApprovedBy,
           custodianApprovedAt: request.custodianApprovedAt,
+          requestedAt: request.requestedAt,
+          releasedBy: request.releasedBy,
+          releasedAt: request.releasedAt,
+          returnedBy: request.returnedBy,
+          returnedAt: request.returnedAt,
+          documentState: request.documentState,
         };
       });
       if (sequence === loadSequence.current) setRequests(nextRequests);
@@ -517,6 +524,8 @@ export default function Requests() {
               </p>
 
             </div>
+
+            <BorrowingTimeline request={selected} />
 
             <div className="modal-actions">
 

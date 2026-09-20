@@ -106,6 +106,13 @@ function normalizeRequest(body) {
 }
 
 function serializeBorrowRequest(request) {
+  const items = Array.isArray(request.items) ? request.items : [];
+  const returnedUnits = items.reduce((sum, item) => sum + Number(item.accountedQuantity ?? 0), 0);
+  const status = String(request.status ?? "").toLowerCase();
+  const documentState = status === "returned" ? "finalized"
+    : status === "borrowed" && returnedUnits > 0 ? "partially_returned"
+      : status === "borrowed" ? "released"
+        : status === "approved" ? "approved" : "authorization_in_progress";
   return {
     id: request.id,
     studentName: request.student_name,
@@ -120,7 +127,7 @@ function serializeBorrowRequest(request) {
     sectionName: request.section_name ?? null,
     assignedProfessorId: request.assigned_professor_user_id ?? null,
     assignedProfessorName: request.assigned_professor_name ?? null,
-    status: String(request.status ?? "").toLowerCase(),
+    status,
     requestedAt: request.created_at,
     actualReturnedAt: request.actual_returned_at ?? null,
     overdue: Boolean(request.overdue),
@@ -132,7 +139,12 @@ function serializeBorrowRequest(request) {
     custodianVerifiedAt: request.custodian_verified_at ?? null,
     custodianApprovedBy: request.custodian_approved_name ?? null,
     custodianApprovedAt: request.custodian_approved_at ?? null,
-    items: Array.isArray(request.items) ? request.items : [],
+    releasedBy: request.released_name ?? null,
+    releasedAt: request.released_at ?? null,
+    returnedBy: request.returned_name ?? null,
+    returnedAt: request.returned_at ?? null,
+    documentState,
+    items,
   };
 }
 
@@ -707,6 +719,10 @@ async function listBorrowRequests(req, res, next) {
               (SELECT verified_at FROM public.borrow_request_custodian_authorizations WHERE request_id=br.id) AS custodian_verified_at,
               (SELECT approved_name FROM public.borrow_request_custodian_authorizations WHERE request_id=br.id) AS custodian_approved_name,
               (SELECT approved_at FROM public.borrow_request_custodian_authorizations WHERE request_id=br.id) AS custodian_approved_at,
+              (SELECT staff_name FROM public.borrowing_transaction_signatures WHERE request_id=br.id AND transaction_type='release' LIMIT 1) AS released_name,
+              (SELECT signed_at FROM public.borrowing_transaction_signatures WHERE request_id=br.id AND transaction_type='release' LIMIT 1) AS released_at,
+              (SELECT staff_name FROM public.borrowing_transaction_signatures WHERE request_id=br.id AND transaction_type='return' ORDER BY signed_at DESC,id DESC LIMIT 1) AS returned_name,
+              (SELECT signed_at FROM public.borrowing_transaction_signatures WHERE request_id=br.id AND transaction_type='return' ORDER BY signed_at DESC,id DESC LIMIT 1) AS returned_at,
               (br.status = 'Borrowed' AND br.return_date < (now() AT TIME ZONE 'Asia/Manila')::date) AS overdue,
               COALESCE(
                 json_agg(json_build_object(
