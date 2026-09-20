@@ -1069,3 +1069,656 @@
         text-transform: uppercase;
     }
 }
+
+/* =========================================================
+   SECTION MANAGEMENT
+   ========================================================= */
+
+.section-manager-button {
+    background: var(--users-white) !important;
+    color: var(--users-navy) !important;
+    border: 1px solid var(--users-gold) !important;
+}
+
+.section-manager-button:hover {
+    background: rgba(182, 155, 98, 0.08) !important;
+    color: var(--users-navy) !important;
+    border-color: var(--users-gold) !important;
+}
+
+
+/* =========================================================
+   SECTION MANAGER MODAL
+   ========================================================= */
+
+.section-manager-overlay {
+    z-index: 1600;
+}
+
+.section-manager-modal {
+    width: min(900px, calc(100vw - 32px));
+    max-height: calc(100vh - 48px);
+    overflow: hidden;
+
+    box-sizing: border-box;
+
+    background: var(--users-white);
+    border: 1px solid var(--users-border-warm);
+    border-radius: 12px;
+
+    box-shadow:
+        0 24px 60px rgba(16, 27, 45, 0.22);
+
+    animation:
+        sectionModalIn
+        0.24s
+        cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes sectionModalIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.985);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+
+/* =========================================================
+   SECTION HEADER
+   ========================================================= */
+
+.section-manager-header,
+.section-form-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    gap: 18px;
+
+    padding: 24px 26px;
+
+    border-bottom: 1px solid
+        var(--users-border-warm);
+}
+
+.section-manager-header h2,
+.section-form-header h2 {
+    margin: 0;
+
+    color: var(--users-navy);
+
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+}
+
+.section-manager-header p,
+.section-form-header p {
+    margin: 5px 0 0;
+
+    color: var(--users-muted);
+
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+
+/* =========================================================
+   CLOSE BUTTON
+   ========================================================= */
+
+.section-close-button {
+    flex: 0 0 auto;
+
+    width: 34px;
+    height: 34px;
+
+    color: var(--users-navy);
+
+    background: transparent;
+
+    border: 1px solid
+        var(--users-border);
+
+    border-radius: 6px;
+
+    font: inherit;
+    font-size: 20px;
+    line-height: 1;
+
+    cursor: pointer;
+
+    transition:
+        background 0.16s ease,
+        border-color 0.16s ease;
+}
+
+.section-close-button:hover {
+    background: var(--users-ivory);
+
+    border-color:
+        var(--users-gold);
+}
+
+
+/* =========================================================
+   SECTION TOOLBAR
+   ========================================================= */
+
+.section-manager-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+
+    padding: 14px 26px;
+
+    background: #fcfbf8;
+
+    border-bottom: 1px solid
+        var(--users-border-warm);
+}
+
+.section-add-button {
+    height: 38px;
+
+    padding: 0 15px;
+
+    color: var(--users-white);
+
+    background: var(--users-navy);
+
+    border: 1px solid
+        var(--users-navy);
+
+    border-radius: 6px;
+
+    font: inherit;
+    font-size: 12px;
+    font-weight: 650;
+
+    cursor: pointer;
+
+    transition:
+        background 0.16s ease,
+        border-color 0.16s ease,
+        transform 0.16s ease;
+}
+
+.section-add-button:hover {
+    background:
+        var(--users-navy-deep);
+
+    border-color:
+        var(--users-navy-deep);
+}
+
+.section-add-button:active {
+    transform: translateY(1px);
+}
+
+
+/* =========================================================
+   SECTION TABLE
+   ========================================================= */
+
+.section-table-wrap {
+    max-height: 480px;
+
+    overflow: auto;
+}
+
+.section-table-wrap table {
+    width: 100%;
+
+    border-collapse: collapse;
+}
+
+.section-table-wrap th,
+.section-table-wrap td {
+    padding: 13px 18px;
+
+    text-align: left;
+
+    border-bottom: 1px solid
+        var(--users-border-warm);
+}
+
+.section-table-wrap th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+
+    color: #6f675b;
+
+    background: var(--users-ivory);
+
+    font-size: 10px;
+    font-weight: 700;
+
+    letter-spacing: 0.075em;
+    text-transform: uppercase;
+}
+
+.section-table-wrap td {
+    color: var(--users-charcoal);
+
+    background:
+        var(--users-white);
+
+    font-size: 13px;
+}
+
+.section-table-wrap tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.section-table-wrap tbody tr {
+    transition:
+        background 0.14s ease;
+}
+
+.section-table-wrap tbody tr:hover td {
+    background: #fcfbf8;
+}
+
+.section-table-wrap td strong {
+    display: block;
+
+    color: var(--users-navy);
+
+    font-size: 13px;
+    font-weight: 650;
+}
+
+.section-table-wrap td small {
+    display: block;
+
+    margin-top: 3px;
+
+    color: var(--users-muted);
+
+    font-size: 11px;
+}
+
+
+/* =========================================================
+   SECTION STATUS
+   ========================================================= */
+
+.section-status {
+    display: inline-flex;
+
+    align-items: center;
+
+    min-height: 24px;
+
+    box-sizing: border-box;
+
+    padding: 4px 9px;
+
+    border-radius: 5px;
+
+    font-size: 11px;
+    font-weight: 700;
+
+    line-height: 1;
+}
+
+.section-status.active {
+    color: #3d6548;
+
+    background: #f1f6f1;
+
+    border: 1px solid #d7e5d8;
+}
+
+.section-status.inactive {
+    color: #7a4141;
+
+    background: #faf3f1;
+
+    border: 1px solid #ead8d3;
+}
+
+
+/* =========================================================
+   SECTION ROW ACTIONS
+   ========================================================= */
+
+.section-row-actions {
+    display: flex;
+
+    align-items: center;
+
+    gap: 6px;
+
+    white-space: nowrap;
+}
+
+.section-row-actions button {
+    height: 32px;
+
+    padding: 0 10px;
+
+    color: var(--users-navy);
+
+    background: transparent;
+
+    border: 1px solid
+        var(--users-border);
+
+    border-radius: 6px;
+
+    font: inherit;
+
+    font-size: 11px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        background 0.14s ease,
+        border-color 0.14s ease,
+        color 0.14s ease;
+}
+
+.section-row-actions button:hover {
+    color: var(--users-navy);
+
+    background:
+        rgba(182, 155, 98, 0.07);
+
+    border-color:
+        var(--users-gold);
+}
+
+.section-row-actions
+    .section-delete-button {
+    color: #7a4141;
+
+    border-color: #d9c0b9;
+}
+
+.section-row-actions
+    .section-delete-button:hover {
+    color: #7a4141;
+
+    background: #faf3f1;
+
+    border-color: #b98e84;
+}
+
+
+/* =========================================================
+   SECTION EMPTY STATE
+   ========================================================= */
+
+.section-empty {
+    padding: 42px 20px !important;
+
+    color: var(--users-muted) !important;
+
+    text-align: center !important;
+
+    font-size: 13px !important;
+}
+
+
+/* =========================================================
+   ADD / EDIT SECTION FORM
+   ========================================================= */
+
+.section-form-overlay {
+    z-index: 1700;
+}
+
+.section-form-modal {
+    width: min(440px, calc(100vw - 32px));
+
+    box-sizing: border-box;
+
+    padding-bottom: 22px;
+
+    background:
+        var(--users-white);
+
+    border: 1px solid
+        var(--users-border-warm);
+
+    border-radius: 12px;
+
+    box-shadow:
+        0 24px 60px
+        rgba(16, 27, 45, 0.22);
+
+    animation:
+        sectionModalIn
+        0.24s
+        cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.section-form-modal > label {
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 6px;
+
+    margin: 18px 26px 0;
+
+    color: #5f5a51;
+
+    font-size: 12px;
+
+    font-weight: 600;
+}
+
+.section-form-modal
+    input:not([type="checkbox"]),
+.section-form-modal select {
+    width: 100%;
+
+    box-sizing: border-box;
+
+    height: 42px;
+
+    padding: 0 12px;
+
+    color: var(--users-charcoal);
+
+    background: var(--users-white);
+
+    border: 1px solid
+        var(--users-border);
+
+    border-radius: 7px;
+
+    font: inherit;
+
+    font-size: 13px;
+
+    outline: none;
+
+    transition:
+        border-color 0.16s ease,
+        box-shadow 0.16s ease;
+}
+
+.section-form-modal
+    input:not([type="checkbox"]):focus,
+.section-form-modal select:focus {
+    border-color:
+        var(--users-gold);
+
+    box-shadow:
+        0 0 0 2px
+        rgba(182, 155, 98, 0.12);
+}
+
+
+/* =========================================================
+   SECTION ACTIVE CHECKBOX
+   ========================================================= */
+
+.section-form-modal
+    .section-active-field {
+    display: flex;
+
+    flex-direction: row;
+
+    align-items: center;
+
+    gap: 8px;
+
+    margin-top: 18px;
+}
+
+.section-form-modal
+    .section-active-field
+    input {
+    width: 17px;
+    height: 17px;
+
+    margin: 0;
+
+    accent-color:
+        var(--users-gold);
+}
+
+
+/* =========================================================
+   SECTION FORM ACTIONS
+   ========================================================= */
+
+.section-form-actions {
+    display: flex;
+
+    justify-content: flex-end;
+
+    gap: 9px;
+
+    margin-top: 24px;
+
+    padding: 18px 26px 0;
+
+    border-top: 1px solid
+        var(--users-border-warm);
+}
+
+.section-form-actions button {
+    height: 39px;
+
+    padding: 0 15px;
+
+    border-radius: 6px;
+
+    font: inherit;
+
+    font-size: 12px;
+    font-weight: 650;
+
+    cursor: pointer;
+
+    transition:
+        background 0.14s ease,
+        border-color 0.14s ease,
+        color 0.14s ease;
+}
+
+.section-form-actions
+    button:first-child {
+    color: var(--users-navy);
+
+    background: transparent;
+
+    border: 1px solid
+        var(--users-border);
+}
+
+.section-form-actions
+    button:first-child:hover {
+    background:
+        var(--users-ivory);
+
+    border-color:
+        var(--users-gold);
+}
+
+.section-form-actions
+    button:last-child {
+    min-width: 110px;
+
+    color: var(--users-white);
+
+    background:
+        var(--users-navy);
+
+    border: 1px solid
+        var(--users-navy);
+}
+
+.section-form-actions
+    button:last-child:hover {
+    background:
+        var(--users-navy-deep);
+
+    border-color:
+        var(--users-navy-deep);
+}
+
+.section-form-actions
+    button:disabled {
+    opacity: 0.5;
+
+    cursor: not-allowed;
+}
+
+
+/* =========================================================
+   RESPONSIVE — SECTION MANAGER
+   ========================================================= */
+
+@media (max-width: 760px) {
+
+    .section-manager-modal {
+        max-height:
+            calc(100vh - 24px);
+    }
+
+    .section-table-wrap {
+        overflow-x: auto;
+    }
+
+    .section-table-wrap table {
+        min-width: 680px;
+    }
+
+    .section-row-actions {
+        flex-wrap: wrap;
+    }
+
+    .section-manager-header,
+    .section-form-header {
+        padding: 20px;
+    }
+
+    .section-manager-toolbar {
+        padding: 12px 20px;
+    }
+
+    .section-form-modal
+        > label {
+        margin-left: 20px;
+        margin-right: 20px;
+    }
+
+    .section-form-actions {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+}

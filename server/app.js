@@ -16,6 +16,7 @@ const reconciliationRoutes = require("./routes/reconciliationRoutes");
 const receiptRoutes = require("./routes/receiptRoutes");
 const accountabilityRoutes = require("./routes/accountabilityRoutes");
 const authorizationRoutes = require("./routes/authorizationRoutes");
+const sectionRoutes = require("./routes/sectionRoutes");
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.use("/api/reconciliations", reconciliationRoutes);
 app.use("/api/receipts", receiptRoutes);
 app.use("/api/accountability", accountabilityRoutes);
 app.use("/api/authorizations", authorizationRoutes);
+app.use("/api/sections", sectionRoutes);
 
 app.use((error, req, res, next) => {
   console.error(error);
