@@ -9,6 +9,7 @@ export default function InventoryToolbar({
     setSearch,
     onReconcile,
     onViewFullInventory,
+    canReconcile = true,
 }) {
     return (
         <div className="inventory-toolbar">
@@ -47,14 +48,14 @@ export default function InventoryToolbar({
             {/* ACTIONS */}
             <div className="inventory-toolbar-actions">
 
-                <button
+                {canReconcile && <button
                     className="inventory-toolbar-btn"
                     onClick={onViewFullInventory}
                     title="View complete inventory"
                 >
                     <FaExpand />
                     <span>Full Inventory</span>
-                </button>
+                </button>}
 
 
                 <button

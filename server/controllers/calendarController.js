@@ -93,7 +93,11 @@ async function listEvents(req, res, next) {
       `SELECT events.*, rooms.name AS room_name
          FROM calendar_events events
          LEFT JOIN laboratory_rooms rooms ON rooms.id = events.room_id
+         LEFT JOIN borrow_requests request ON request.id=events.borrow_request_id
+        WHERE ($1::boolean=false OR (events.room_id IS NULL AND events.borrow_request_id IS NULL)
+          OR rooms.department_id=$2::bigint OR request.department_id=$2::bigint)
         ORDER BY events.event_date, events.start_time NULLS FIRST, events.id`
+      , [req.user.role === "staff", req.user.department_id]
     );
     return res.json({ events: result.rows });
   } catch (error) {
@@ -104,7 +108,9 @@ async function listEvents(req, res, next) {
 async function listRooms(req, res, next) {
   try {
     const result = await pool.query(
-      `SELECT * FROM laboratory_rooms WHERE is_active = true ORDER BY name`
+      `SELECT * FROM laboratory_rooms WHERE is_active = true
+        AND ($1::boolean=false OR department_id=$2::bigint) ORDER BY name`,
+      [req.user.role === "staff", req.user.department_id]
     );
     return res.json({ rooms: result.rows });
   } catch (error) {
@@ -127,6 +133,19 @@ async function saveEvent(req, res, next) {
         return res.status(404).json({ error: "EVENT_NOT_FOUND", message: "Calendar event was not found." });
       }
       previousEvent = existing.rows[0];
+      if (req.user.role === "staff") {
+        const permitted = await client.query(`SELECT 1 FROM public.calendar_events event
+          LEFT JOIN public.laboratory_rooms room ON room.id=event.room_id
+          LEFT JOIN public.borrow_requests request ON request.id=event.borrow_request_id
+          WHERE event.id=$1 AND ((event.room_id IS NULL AND event.borrow_request_id IS NULL)
+            OR room.department_id=$2 OR request.department_id=$2)`, [eventId, req.user.department_id]);
+        if (!permitted.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "EVENT_NOT_FOUND", message: "Calendar event was not found in your department." }); }
+      }
+    }
+
+    if (req.user.role === "staff" && event.roomId) {
+      const room = await client.query(`SELECT 1 FROM public.laboratory_rooms WHERE id=$1 AND department_id=$2 AND is_active=true`, [event.roomId, req.user.department_id]);
+      if (!room.rowCount) { await client.query("ROLLBACK"); return res.status(422).json({ error: "INVALID_ROOM", reasons: ["Select an active laboratory room in your department."] }); }
     }
 
     const errors = await validateRoomSchedule(client, event, eventId);
@@ -184,10 +203,13 @@ async function deleteEvent(req, res, next) {
   try {
     await client.query("BEGIN");
     const result = await client.query(
-      `DELETE FROM calendar_events
-        WHERE id=$1 AND borrow_request_id IS NULL
+      `DELETE FROM calendar_events event
+        WHERE event.id=$1 AND event.borrow_request_id IS NULL
+          AND ($2::boolean=false OR event.room_id IS NULL OR EXISTS (
+            SELECT 1 FROM laboratory_rooms room WHERE room.id=event.room_id AND room.department_id=$3::bigint
+          ))
       RETURNING *`,
-      [req.params.id]
+      [req.params.id, req.user.role === "staff", req.user.department_id]
     );
     if (result.rowCount === 0) {
       await client.query("ROLLBACK");

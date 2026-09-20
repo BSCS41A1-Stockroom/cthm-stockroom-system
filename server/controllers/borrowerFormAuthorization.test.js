@@ -26,5 +26,6 @@ test("embeds the professor signature and printed authorization in the official f
   assert.match(documentXml, /Prof\. Maria Santos/);
   assert.match(documentXml, /September 19, 2026, 10:30 AM/);
   assert.match(documentXml, /r:embed="rIdProfessorAuthorizationSignature"/);
+  assert.ok(documentXml.indexOf('r:embed="rIdProfessorAuthorizationSignature"') < documentXml.indexOf("<w:t>Instructor</w:t>"));
   assert.match(relationships, /Target="media\/professor-authorization-signature\.png"/);
 });

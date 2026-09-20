@@ -14,9 +14,9 @@ const router = express.Router();
 router.use(authenticate);
 
 router.get("/events", listEvents);
-router.post("/events", requireRoles("professor", "admin"), saveEvent);
-router.put("/events/:id", requireRoles("professor", "admin"), saveEvent);
-router.delete("/events/:id", requireRoles("professor", "admin"), deleteEvent);
+router.post("/events", requireRoles("professor", "staff", "admin"), saveEvent);
+router.put("/events/:id", requireRoles("professor", "staff", "admin"), saveEvent);
+router.delete("/events/:id", requireRoles("professor", "staff", "admin"), deleteEvent);
 router.get("/rooms", listRooms);
 
 module.exports = router;

@@ -95,14 +95,21 @@ function fillProfessorAuthorization(documentXml, zip, data) {
   }
 
   const signedLine = `${data.professorName} | ${data.authorizedAt || ""}`;
-  const drawing = `<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="1714500" cy="571500"/><wp:docPr id="9001" name="Professor Signature"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="0" name="Professor Signature"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relationshipId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1714500" cy="571500"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p><w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:t>${escapeXml(signedLine)}</w:t></w:r></w:p>`;
+  const drawing = `<w:p><w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="1428750" cy="476250"/><wp:docPr id="9001" name="Professor Signature"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="0" name="Professor Signature"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relationshipId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1428750" cy="476250"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p><w:p><w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr><w:t>${escapeXml(signedLine)}</w:t></w:r></w:p>`;
 
-  return documentXml.replace(/<w:tc(?:\s[^>]*)?>[\s\S]*?<\/w:tc>/g, (cell) => {
-    if (!/Instructor\/?\s*Department Head Signature/i.test(extractText(cell))) return cell;
-    const paragraphs = cell.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) || [];
-    const line = paragraphs.find((paragraph) => /_{8,}/.test(extractText(paragraph)));
-    return line ? cell.replace(line, drawing) : cell.replace(/<\/w:tc>$/, `${drawing}</w:tc>`);
-  });
+  // The template puts the signature line in the row immediately above the
+  // Instructor/Department Head caption. Insert into that bordered cell so the
+  // image and printed name sit on the line instead of below the caption.
+  const rows = documentXml.match(/<w:tr(?:\s[^>]*)?>[\s\S]*?<\/w:tr>/g) || [];
+  const captionIndex = rows.findIndex((row) => /Instructor\/?\s*Department Head Signature/i.test(extractText(row)));
+  if (captionIndex < 1) return documentXml;
+  const signatureRow = rows[captionIndex - 1];
+  const cells = signatureRow.match(/<w:tc(?:\s[^>]*)?>[\s\S]*?<\/w:tc>/g) || [];
+  if (cells.length < 2) return documentXml;
+  const targetCell = cells[cells.length - 1];
+  const signedCell = targetCell.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, "").replace(/<\/w:tc>$/, `${drawing}</w:tc>`);
+  const signedRow = signatureRow.replace(targetCell, signedCell);
+  return documentXml.replace(signatureRow, signedRow);
 }
 
 
