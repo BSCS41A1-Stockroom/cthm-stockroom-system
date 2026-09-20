@@ -1,10 +1,10 @@
-
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import "./Borrowing.css";
 import { authenticatedFetch } from "../../lib/api";
 import { useAuth } from "../../auth/useAuth";
 import { inventoryTotals } from "../../utils/inventoryAvailability";
+import { renderAsync } from "docx-preview";
 
 const DEFAULT_BORROWING_POLICY = Object.freeze({
   maxItemsPerRequest: 10,
@@ -49,10 +49,12 @@ export default function BorrowingInterface() {
   const [departmentId, setDepartmentId] = useState("");
   const [sectionId, setSectionId] = useState("");
   const [assignedProfessorId, setAssignedProfessorId] = useState("");
+
   const [professorQuery, setProfessorQuery] = useState("");
   const [professorSuggestionsOpen, setProfessorSuggestionsOpen] =
     useState(false);
   const [professorHighlight, setProfessorHighlight] = useState(0);
+
   const [assignmentLoading, setAssignmentLoading] = useState(true);
 
   const [submitting, setSubmitting] = useState(false);
@@ -75,9 +77,18 @@ export default function BorrowingInterface() {
   const studentName = profile?.full_name || "";
   const studentId = profile?.student_id || "";
 
+  const [previewLoading, setPreviewLoading] =
+    useState(false);
+
+  const [previewBlob, setPreviewBlob] =
+    useState(null);
+
+  const [previewControlNo, setPreviewControlNo] =
+    useState("");
+
   /*
    * ============================================================
-   * LOAD INVENTORY
+   * LOAD DATA
    * ============================================================
    */
 
@@ -103,6 +114,56 @@ export default function BorrowingInterface() {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  useEffect(() => {
+    if (
+      !printPreviewOpen ||
+      !previewBlob
+    ) {
+      return;
+    }
+
+    const container =
+      document.getElementById(
+        "borrower-docx-preview"
+      );
+
+    if (!container) {
+      return;
+    }
+
+    container.innerHTML = "";
+
+    renderAsync(
+      previewBlob,
+      container,
+      undefined,
+      {
+        className: "docx-preview",
+        inWrapper: true,
+        breakPages: true,
+        ignoreWidth: false,
+        ignoreHeight: false,
+        ignoreFonts: false,
+        renderHeaders: true,
+        renderFooters: true,
+        renderFootnotes: true,
+        renderEndnotes: true,
+        useBase64URL: true,
+      }
+    ).catch((error) => {
+      console.error(
+        "DOCX preview rendering error:",
+        error
+      );
+
+      container.innerHTML =
+        "<p>Unable to preview the generated document.</p>";
+    });
+  }, [
+    printPreviewOpen,
+    previewBlob,
+  ]);
 
   async function loadBorrowingPolicy() {
     try {
@@ -271,13 +332,40 @@ export default function BorrowingInterface() {
     0
   );
 
+  /*
+   * ============================================================
+   * DEPARTMENT / SECTION / PROFESSOR
+   * ============================================================
+   */
+
   const availableSections = useMemo(
     () =>
       assignmentOptions.sections.filter(
         (section) =>
-          String(section.departmentId) === String(departmentId)
+          String(section.departmentId) ===
+          String(departmentId)
       ),
     [assignmentOptions.sections, departmentId]
+  );
+
+  const selectedDepartment = useMemo(
+    () =>
+      assignmentOptions.departments.find(
+        (department) =>
+          String(department.id) ===
+          String(departmentId)
+      ),
+    [assignmentOptions.departments, departmentId]
+  );
+
+  const selectedSection = useMemo(
+    () =>
+      assignmentOptions.sections.find(
+        (section) =>
+          String(section.id) ===
+          String(sectionId)
+      ),
+    [assignmentOptions.sections, sectionId]
   );
 
   const professorSuggestions = useMemo(() => {
@@ -286,9 +374,10 @@ export default function BorrowingInterface() {
     return assignmentOptions.professors
       .filter(
         (professor) =>
-          String(professor.departmentId) === String(departmentId) &&
+          String(professor.departmentId) ===
+            String(departmentId) &&
           (!query ||
-            professor.fullName
+            String(professor.fullName || "")
               .toLowerCase()
               .includes(query))
       )
@@ -498,15 +587,18 @@ export default function BorrowingInterface() {
 
   /*
    * ============================================================
-   * PRINT OFFICIAL BORROWER'S FORM
+   * PRINT PREVIEW
    * ============================================================
    */
 
-  function handlePrint() {
+  async function handlePrint() {
     setFormError("");
 
     if (totalItems === 0) {
-      setFormError("Please select at least one item before printing.");
+      setFormError(
+        "Please select at least one item before printing."
+      );
+
       return;
     }
 
@@ -517,70 +609,361 @@ export default function BorrowingInterface() {
       return;
     }
 
-    setPrintPreviewOpen(true);
+    setPreviewLoading(true);
+    setFormError("");
+
+    try {
+      const now = new Date();
+
+      const controlNo =
+        generateControlNumber(now);
+
+      const dateTime =
+        now.toLocaleString("en-US", {
+          month: "2-digit",
+          day: "2-digit",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        });
+
+      const selectedDepartment =
+        assignmentOptions.departments.find(
+          (department) =>
+            String(department.id) ===
+            String(departmentId)
+        );
+
+      const selectedSection =
+        assignmentOptions.sections.find(
+          (section) =>
+            String(section.id) ===
+            String(sectionId)
+        );
+
+      const selectedProfessor =
+        assignmentOptions.professors.find(
+          (professor) =>
+            String(professor.id) ===
+            String(assignedProfessorId)
+        );
+
+      const formData = {
+        laboratory: "CTHM",
+
+        dateTime,
+
+        controlNo,
+
+        department:
+          selectedDepartment?.name || "",
+
+        departmentCode:
+          selectedDepartment?.code || "",
+
+        section:
+          selectedSection?.name || "",
+
+        assignedProfessor:
+          selectedProfessor?.fullName ||
+          professorQuery ||
+          "",
+
+        studentName:
+          studentName.trim(),
+
+        studentId:
+          studentId.trim(),
+
+        borrowDate,
+
+        returnDate,
+
+        purpose:
+          purpose.trim(),
+
+        items:
+          selectedList
+            .slice(0, 30)
+            .map((item) => ({
+              description:
+                item.item_name || "",
+
+              quantity:
+                item.borrowQty || 0,
+
+              released:
+                item.borrowQty || 0,
+
+              returned: "",
+
+              unreturned: "",
+
+              remarks: "",
+            })),
+      };
+
+      const response =
+        await authenticatedFetch(
+          "/api/borrower-form",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify(formData),
+          }
+        );
+
+      if (!response.ok) {
+        let message =
+          "Failed to generate Borrower's Form.";
+
+        try {
+          const errorData =
+            await response.json();
+
+          message =
+            errorData.message ||
+            message;
+        } catch {
+          // Ignore non-JSON error.
+        }
+
+        throw new Error(message);
+      }
+
+      const blob =
+        await response.blob();
+
+      setPreviewBlob(blob);
+
+      setPreviewControlNo(
+        controlNo
+      );
+
+      setPrintPreviewOpen(true);
+    } catch (error) {
+      console.error(
+        "Borrower's Form preview error:",
+        error
+      );
+
+      setFormError(
+        error.message ||
+          "Failed to generate Borrower's Form."
+      );
+    } finally {
+      setPreviewLoading(false);
+    }
   }
+
+  /*
+   * ============================================================
+   * GENERATE OFFICIAL BORROWER'S FORM
+   * ============================================================
+   */
 
   async function generateBorrowersForm() {
     setFormError("");
 
     try {
       const now = new Date();
-      const controlNo = generateControlNumber(now);
-      const dateTime = now.toLocaleString("en-PH", {
-        year: "numeric", month: "long", day: "numeric",
-        hour: "numeric", minute: "2-digit", hour12: true,
-      });
+
+      const controlNo =
+        generateControlNumber(now);
+
+      /*
+      * SHORT FORMAT
+      *
+      * This is intentionally short so the actual
+      * Date and Time field of the DOCX template
+      * stays on ONE LINE.
+      *
+      * Example:
+      * 09/20/2026 1:04 PM
+      */
+
+      const dateTime =
+        now.toLocaleString("en-US", {
+          month: "2-digit",
+          day: "2-digit",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        });
+
+      const selectedDepartment =
+        assignmentOptions.departments.find(
+          (department) =>
+            String(department.id) ===
+            String(departmentId)
+        );
+
+      const selectedSection =
+        assignmentOptions.sections.find(
+          (section) =>
+            String(section.id) ===
+            String(sectionId)
+        );
+
+      const selectedProfessor =
+        assignmentOptions.professors.find(
+          (professor) =>
+            String(professor.id) ===
+            String(assignedProfessorId)
+        );
 
       const formData = {
-        laboratory: "",
+        laboratory: "CTHM",
+
         dateTime,
+
         controlNo,
-        items: selectedList.slice(0, 30).map((item) => ({
-          description: item.item_name || "",
-          quantity: item.borrowQty || 0,
-          released: item.borrowQty || 0,
-          returned: "",
-          unreturned: "",
-          remarks: "",
-        })),
+
+        /*
+        * These are now actually sent to
+        * the DOCX generator.
+        */
+
+        department:
+          selectedDepartment?.name || "",
+
+        departmentCode:
+          selectedDepartment?.code || "",
+
+        section:
+          selectedSection?.name || "",
+
+        assignedProfessor:
+          selectedProfessor?.fullName ||
+          professorQuery ||
+          "",
+
+        studentName:
+          studentName.trim(),
+
+        studentId:
+          studentId.trim(),
+
+        borrowDate,
+
+        returnDate,
+
+        purpose:
+          purpose.trim(),
+
+        items:
+          selectedList
+            .slice(0, 30)
+            .map((item) => ({
+              description:
+                item.item_name || "",
+
+              quantity:
+                item.borrowQty || 0,
+
+              released:
+                item.borrowQty || 0,
+
+              returned: "",
+
+              unreturned: "",
+
+              remarks: "",
+            })),
       };
 
-      const response = await authenticatedFetch("/api/borrower-form", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+      console.log(
+        "Generating Borrower's Form from official template:",
+        formData
+      );
+
+      const response =
+        await authenticatedFetch(
+          "/api/borrower-form",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify(formData),
+          }
+        );
 
       if (!response.ok) {
-        let message = "Failed to generate Borrower's Form.";
+        let message =
+          "Failed to generate Borrower's Form.";
+
         try {
-          const errorData = await response.json();
-          message = errorData.message || message;
+          const errorData =
+            await response.json();
+
+          message =
+            errorData.message ||
+            message;
         } catch {
           // Response was not JSON.
         }
+
         throw new Error(message);
       }
 
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
+      const blob =
+        await response.blob();
+
+      /*
+      * Save the exact generated DOCX.
+      */
+
+      const blobUrl =
+        window.URL.createObjectURL(blob);
+
+      const link =
+        document.createElement("a");
+
       link.href = blobUrl;
-      link.download = `Borrowers-Form-${controlNo}.docx`;
+
+      link.download =
+        `Borrowers-Form-${controlNo}.docx`;
+
       document.body.appendChild(link);
+
       link.click();
+
       link.remove();
-      window.URL.revokeObjectURL(blobUrl);
+
+      window.URL.revokeObjectURL(
+        blobUrl
+      );
+
       setPrintPreviewOpen(false);
     } catch (error) {
-      console.error("Borrower's Form generation error:", error);
-      setFormError(error.message || "Failed to generate Borrower's Form.");
+      console.error(
+        "Borrower's Form generation error:",
+        error
+      );
+
+      setFormError(
+        error.message ||
+          "Failed to generate Borrower's Form."
+      );
     }
   }
 
   /*
    * ============================================================
-   * TABLE
+   * INVENTORY TABLE
    * ============================================================
    */
 
@@ -644,7 +1027,9 @@ export default function BorrowingInterface() {
                   <input
                     type="checkbox"
                     checked={checked}
-                    disabled={available <= 0}
+                    disabled={
+                      available <= 0
+                    }
                     onChange={(e) =>
                       toggleItem(
                         item,
@@ -669,10 +1054,9 @@ export default function BorrowingInterface() {
                         e.currentTarget.style.display =
                           "none";
 
-                        e.currentTarget.parentElement
-                          ?.classList.add(
-                            "image-failed"
-                          );
+                        e.currentTarget.parentElement?.classList.add(
+                          "image-failed"
+                        );
                       }}
                     />
                   ) : (
@@ -687,7 +1071,9 @@ export default function BorrowingInterface() {
 
                   <span
                     className="item-name"
-                    title={item.item_name || ""}
+                    title={
+                      item.item_name || ""
+                    }
                   >
                     {item.item_name}
                   </span>
@@ -717,7 +1103,8 @@ export default function BorrowingInterface() {
                     className="qty-input"
                     disabled={!checked}
                     value={
-                      selected[item.id] ?? ""
+                      selected[item.id] ??
+                      ""
                     }
                     onChange={(e) =>
                       updateQuantity(
@@ -815,8 +1202,6 @@ export default function BorrowingInterface() {
               }`}
             >
 
-              {/* IMAGE */}
-
               <button
                 type="button"
                 className="inventory-card-image-wrap"
@@ -837,10 +1222,9 @@ export default function BorrowingInterface() {
                       e.currentTarget.style.display =
                         "none";
 
-                      e.currentTarget.parentElement
-                        ?.classList.add(
-                          "image-failed"
-                        );
+                      e.currentTarget.parentElement?.classList.add(
+                        "image-failed"
+                      );
                     }}
                   />
                 ) : (
@@ -856,9 +1240,6 @@ export default function BorrowingInterface() {
                 </span>
 
               </button>
-
-
-              {/* CARD CONTENT */}
 
               <div className="inventory-card-content">
 
@@ -892,9 +1273,6 @@ export default function BorrowingInterface() {
                   </span>
 
                 </div>
-
-
-                {/* CARD DETAILS */}
 
                 <div className="inventory-card-details">
 
@@ -948,9 +1326,6 @@ export default function BorrowingInterface() {
 
                 </div>
 
-
-                {/* SELECTION */}
-
                 <div className="inventory-card-actions">
 
                   <label className="inventory-card-select">
@@ -974,7 +1349,6 @@ export default function BorrowingInterface() {
                     </span>
 
                   </label>
-
 
                   <div className="inventory-card-quantity">
 
@@ -1004,9 +1378,6 @@ export default function BorrowingInterface() {
                   </div>
 
                 </div>
-
-
-                {/* DETAILS BUTTON */}
 
                 <button
                   type="button"
@@ -1074,7 +1445,6 @@ export default function BorrowingInterface() {
 
       </header>
 
-
       {/* SUCCESS */}
 
       {successMsg && (
@@ -1082,7 +1452,6 @@ export default function BorrowingInterface() {
           {successMsg}
         </div>
       )}
-
 
       {/* MAIN PANEL */}
 
@@ -1104,7 +1473,6 @@ export default function BorrowingInterface() {
 
           </div>
 
-
           <div className="details-grid">
 
             <label>
@@ -1118,7 +1486,6 @@ export default function BorrowingInterface() {
 
             </label>
 
-
             <label>
               Student ID
 
@@ -1129,7 +1496,6 @@ export default function BorrowingInterface() {
               />
 
             </label>
-
 
             <label>
               Department
@@ -1174,7 +1540,6 @@ export default function BorrowingInterface() {
 
             </label>
 
-
             <label>
               Section
 
@@ -1213,7 +1578,6 @@ export default function BorrowingInterface() {
               </select>
 
             </label>
-
 
             {/* PROFESSOR */}
 
@@ -1341,7 +1705,6 @@ export default function BorrowingInterface() {
                   }}
                 />
 
-
                 {professorSuggestionsOpen &&
                   departmentId && (
 
@@ -1424,7 +1787,6 @@ export default function BorrowingInterface() {
 
               </div>
 
-
               {assignedProfessorId && (
                 <small className="professor-selected-hint">
                   Official professor account selected
@@ -1432,7 +1794,6 @@ export default function BorrowingInterface() {
               )}
 
             </label>
-
 
             {/* BORROW DATE */}
 
@@ -1451,7 +1812,6 @@ export default function BorrowingInterface() {
               />
 
             </label>
-
 
             {/* RETURN DATE */}
 
@@ -1473,7 +1833,6 @@ export default function BorrowingInterface() {
               />
 
             </label>
-
 
             {/* PURPOSE */}
 
@@ -1498,7 +1857,6 @@ export default function BorrowingInterface() {
 
         </div>
 
-
         {/* ERROR */}
 
         {formError && (
@@ -1507,91 +1865,122 @@ export default function BorrowingInterface() {
           </p>
         )}
 
-
-        {/* INVENTORY HEADER + SEARCH / VIEW CONTROLS */}
+        {/* INVENTORY */}
 
         <section className="inventory-section">
 
           <div className="inventory-section-title">
-            <h2>Inventory</h2>
-            <p>Select the items and quantity you need.</p>
+
+            <h2>
+              Inventory
+            </h2>
+
+            <p>
+              Select the items and quantity you need.
+            </p>
+
           </div>
 
           <div className="inventory-toolbar">
 
             <div className="inventory-search">
-              <span className="inventory-search-icon" aria-hidden="true">⌕</span>
+
+              <span
+                className="inventory-search-icon"
+                aria-hidden="true"
+              >
+                ⌕
+              </span>
+
               <input
                 type="text"
                 placeholder="Search inventory items..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) =>
+                  setSearch(e.target.value)
+                }
               />
+
               {search && (
                 <button
                   type="button"
                   className="inventory-search-clear"
-                  onClick={() => setSearch("")}
+                  onClick={() =>
+                    setSearch("")
+                  }
                   aria-label="Clear search"
                 >
                   ×
                 </button>
               )}
+
             </div>
 
             <div className="inventory-view-controls">
+
               <button
                 type="button"
-                className={`inventory-view-btn ${inventoryView === "table" ? "active" : ""}`}
-                onClick={() => setInventoryView("table")}
+                className={`inventory-view-btn ${
+                  inventoryView === "table"
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() =>
+                  setInventoryView("table")
+                }
               >
                 Table View
               </button>
 
               <button
                 type="button"
-                className={`inventory-view-btn ${inventoryView === "cards" ? "active" : ""}`}
-                onClick={() => setInventoryView("cards")}
+                className={`inventory-view-btn ${
+                  inventoryView === "cards"
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() =>
+                  setInventoryView("cards")
+                }
               >
                 Card View
               </button>
+
             </div>
 
           </div>
 
           {inventoryView === "table" && (
             <div className="inventory-table-expand-row">
+
               <button
                 type="button"
                 className="expand-table-btn"
-                onClick={() => setExpandedTable(true)}
+                onClick={() =>
+                  setExpandedTable(true)
+                }
               >
                 Expand Table
               </button>
+
             </div>
           )}
 
+          {inventoryView === "table" ? (
 
+            <div className="table-wrap">
+              {renderInventoryTable()}
+            </div>
 
-        {/* INVENTORY */}
+          ) : (
 
-        {inventoryView === "table" ? (
+            <div className="inventory-cards-wrap">
+              {renderInventoryCards()}
+            </div>
 
-          <div className="table-wrap">
-            {renderInventoryTable()}
-          </div>
+          )}
 
-        ) : (
-
-          <div className="inventory-cards-wrap">
-            {renderInventoryCards()}
-          </div>
-
-        )}
-
-
-          </section>
-
+        </section>
 
         {/* FOOTER */}
 
@@ -1627,15 +2016,16 @@ export default function BorrowingInterface() {
                   : ""
               }`}
             >
-              /{" "}
+              /
+              {" "}
               {
                 borrowingPolicy.maxQuantityPerRequest
-              }{" "}
+              }
+              {" "}
               unit limit
             </span>
 
           </div>
-
 
           <div className="borrow-footer-actions">
 
@@ -1646,7 +2036,6 @@ export default function BorrowingInterface() {
             >
               Print
             </button>
-
 
             <button
               type="button"
@@ -1665,133 +2054,127 @@ export default function BorrowingInterface() {
 
       </section>
 
-
       {/* ========================================================
           BORROWER'S FORM PRINT PREVIEW
           ======================================================== */}
 
       {printPreviewOpen && (
+  <div
+    className="print-preview-overlay"
+    onMouseDown={(e) => {
+      if (e.target === e.currentTarget) {
+        setPrintPreviewOpen(false);
+      }
+    }}
+  >
+    <div className="print-preview-modal">
+
+      <div className="print-preview-header">
+
+        <div>
+          <span className="print-preview-label">
+            PRINT PREVIEW
+          </span>
+
+          <h2>
+            Borrower's Form
+          </h2>
+
+          <p>
+            This is the actual Borrower's Form
+            template with your entered information.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          className="print-preview-close"
+          onClick={() =>
+            setPrintPreviewOpen(false)
+          }
+        >
+          ×
+        </button>
+
+      </div>
+
+      <div className="print-preview-document">
+
+        {previewLoading && (
+          <div className="print-preview-loading">
+            Generating official form...
+          </div>
+        )}
+
         <div
-          className="print-preview-overlay"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) {
-              setPrintPreviewOpen(false);
+          id="borrower-docx-preview"
+          className="borrower-docx-preview"
+        />
+
+      </div>
+
+      <div className="print-preview-footer">
+
+        <button
+          type="button"
+          className="print-preview-cancel"
+          onClick={() =>
+            setPrintPreviewOpen(false)
+          }
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          className="print-preview-confirm"
+          onClick={() => {
+            if (!previewBlob) {
+              return;
             }
+
+            const blobUrl =
+              window.URL.createObjectURL(
+                previewBlob
+              );
+
+            const link =
+              document.createElement("a");
+
+            link.href = blobUrl;
+
+            link.download =
+              `Borrowers-Form-${previewControlNo}.docx`;
+
+            document.body.appendChild(link);
+
+            link.click();
+
+            link.remove();
+
+            window.URL.revokeObjectURL(
+              blobUrl
+            );
           }}
         >
-          <div className="print-preview-modal">
+          Download DOCX
+        </button>
 
-            <div className="print-preview-header">
-              <div>
-                <span className="print-preview-label">PRINT PREVIEW</span>
-                <h2>Borrower's Form</h2>
-                <p>Review the document before generating the official DOCX.</p>
-              </div>
+        <button
+          type="button"
+          className="print-preview-confirm"
+          onClick={() => {
+            window.print();
+          }}
+        >
+          Print
+        </button>
 
-              <button
-                type="button"
-                className="print-preview-close"
-                onClick={() => setPrintPreviewOpen(false)}
-                aria-label="Close print preview"
-              >
-                ×
-              </button>
-            </div>
+      </div>
 
-            <div className="print-preview-workspace">
-              <div className="print-paper">
-
-                <div className="print-paper-school">
-                  <div className="print-paper-logo">LOA</div>
-                  <div>
-                    <h3>LYCEUM OF ALABANG</h3>
-                    <p>College of Tourism and Hospitality Management</p>
-                  </div>
-                </div>
-
-                <div className="print-paper-line" />
-
-                <div className="print-paper-title">
-                  <h1>BORROWER'S FORM</h1>
-                  <p>Inventory Borrowing Record</p>
-                </div>
-
-                <div className="print-paper-information">
-                  <div><span>Student Name</span><strong>{studentName || "—"}</strong></div>
-                  <div><span>Student ID</span><strong>{studentId || "—"}</strong></div>
-                  <div><span>Department</span><strong>{assignmentOptions.departments.find((d) => String(d.id) === String(departmentId))?.name || "—"}</strong></div>
-                  <div><span>Section</span><strong>{assignmentOptions.sections.find((section) => String(section.id) === String(sectionId))?.name || "—"}</strong></div>
-                  <div><span>Assigned Professor</span><strong>{professorQuery || "—"}</strong></div>
-                  <div><span>Borrow Date</span><strong>{borrowDate || "—"}</strong></div>
-                  <div><span>Return Date</span><strong>{returnDate || "—"}</strong></div>
-                  <div><span>Purpose</span><strong>{purpose || "—"}</strong></div>
-                </div>
-
-                <div className="print-paper-items">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>No.</th>
-                        <th>Description</th>
-                        <th>Quantity</th>
-                        <th>Released</th>
-                        <th>Returned</th>
-                        <th>Unreturned</th>
-                        <th>Remarks</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedList.slice(0, 30).map((item, index) => (
-                        <tr key={item.id}>
-                          <td>{index + 1}</td>
-                          <td>{item.item_name || "—"}</td>
-                          <td>{item.borrowQty || 0}</td>
-                          <td>{item.borrowQty || 0}</td>
-                          <td />
-                          <td />
-                          <td />
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="print-paper-signatures">
-                  <div><div className="signature-line" /><span>Student Borrower</span></div>
-                  <div><div className="signature-line" /><span>Assigned Professor</span></div>
-                  <div><div className="signature-line" /><span>CTHM Stockroom Personnel</span></div>
-                </div>
-
-                <div className="print-paper-footer">
-                  <span>This document is generated from the CTHM Stock Room System.</span>
-                  <span>Preview — Not Yet Issued</span>
-                </div>
-
-              </div>
-            </div>
-
-            <div className="print-preview-footer">
-              <button
-                type="button"
-                className="print-preview-cancel"
-                onClick={() => setPrintPreviewOpen(false)}
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                className="print-preview-confirm"
-                onClick={generateBorrowersForm}
-              >
-                Generate DOCX
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
-
+    </div>
+  </div>
+)}
 
       {/* ========================================================
           ITEM DETAILS MODAL
@@ -1807,17 +2190,17 @@ export default function BorrowingInterface() {
               e.target ===
               e.currentTarget
             ) {
+
               setSelectedItemDetails(
                 null
               );
+
             }
 
           }}
         >
 
           <div className="item-details-modal">
-
-            {/* HEADER */}
 
             <div className="item-details-header">
 
@@ -1831,7 +2214,6 @@ export default function BorrowingInterface() {
                 </h2>
 
               </div>
-
 
               <button
                 type="button"
@@ -1848,12 +2230,7 @@ export default function BorrowingInterface() {
 
             </div>
 
-
-            {/* BODY */}
-
             <div className="item-details-body">
-
-              {/* IMAGE */}
 
               <div className="item-details-image-section">
 
@@ -1871,30 +2248,30 @@ export default function BorrowingInterface() {
                     }
                     className="item-details-image"
                     onError={(e) => {
+
                       e.currentTarget.style.display =
                         "none";
 
-                      e.currentTarget.parentElement
-                        ?.classList.add(
-                          "image-failed"
-                        );
+                      e.currentTarget.parentElement?.classList.add(
+                        "image-failed"
+                      );
+
                     }}
                   />
 
                 ) : (
 
                   <div className="item-details-image-placeholder">
+
                     <span>
                       No Image Available
                     </span>
+
                   </div>
 
                 )}
 
               </div>
-
-
-              {/* INFORMATION */}
 
               <div className="item-details-information">
 
@@ -1936,7 +2313,6 @@ export default function BorrowingInterface() {
 
                 </div>
 
-
                 <div className="item-details-grid">
 
                   <div>
@@ -1952,7 +2328,6 @@ export default function BorrowingInterface() {
                     </strong>
                   </div>
 
-
                   <div>
                     <span>
                       Item Code
@@ -1966,7 +2341,6 @@ export default function BorrowingInterface() {
                       }
                     </strong>
                   </div>
-
 
                   <div>
                     <span>
@@ -1982,7 +2356,6 @@ export default function BorrowingInterface() {
                     </strong>
                   </div>
 
-
                   <div>
                     <span>
                       Unit
@@ -1996,7 +2369,6 @@ export default function BorrowingInterface() {
                       }
                     </strong>
                   </div>
-
 
                   <div>
                     <span>
@@ -2015,7 +2387,6 @@ export default function BorrowingInterface() {
                     </strong>
                   </div>
 
-
                   <div>
                     <span>
                       Available
@@ -2031,7 +2402,6 @@ export default function BorrowingInterface() {
                   </div>
 
                 </div>
-
 
                 <div className="item-details-selection">
 
@@ -2062,7 +2432,6 @@ export default function BorrowingInterface() {
                     </span>
 
                   </label>
-
 
                   {selected[
                     selectedItemDetails.id
@@ -2108,9 +2477,6 @@ export default function BorrowingInterface() {
 
             </div>
 
-
-            {/* FOOTER */}
-
             <div className="item-details-footer">
 
               <button
@@ -2133,7 +2499,6 @@ export default function BorrowingInterface() {
 
       )}
 
-
       {/* ========================================================
           EXPANDED TABLE MODAL
           ======================================================== */}
@@ -2148,9 +2513,11 @@ export default function BorrowingInterface() {
               e.target ===
               e.currentTarget
             ) {
+
               setExpandedTable(
                 false
               );
+
             }
 
           }}
@@ -2172,7 +2539,6 @@ export default function BorrowingInterface() {
 
               </div>
 
-
               <button
                 type="button"
                 className="table-modal-close"
@@ -2186,7 +2552,6 @@ export default function BorrowingInterface() {
               </button>
 
             </div>
-
 
             <div className="table-modal-search">
 
@@ -2207,13 +2572,11 @@ export default function BorrowingInterface() {
 
             </div>
 
-
             <div className="expanded-table-wrap">
 
               {renderInventoryTable()}
 
             </div>
-
 
             <div className="table-modal-footer">
 
@@ -2240,7 +2603,6 @@ export default function BorrowingInterface() {
                 </strong>
 
               </div>
-
 
               <button
                 type="button"
