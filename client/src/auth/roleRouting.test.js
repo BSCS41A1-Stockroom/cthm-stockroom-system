@@ -12,5 +12,7 @@ test("keeps every supported role inside its own portal", () => {
   assert.equal(getRoleDestination("student"), "/");
   assert.equal(getRoleDestination("professor"), "/professor");
   assert.equal(getRoleDestination("admin"), "/admin");
+  assert.equal(getRoleDestination("department_head"), "/admin/requests");
+  assert.equal(canResumeDestination("department_head", "/admin/requests"), true);
   assert.equal(getRoleDestination("unknown"), null);
 });

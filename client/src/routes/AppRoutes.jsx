@@ -185,62 +185,33 @@ export default function AppRoutes() {
             <Route
                 element={
                     <ProtectedRoute
-                        roles={["staff", "admin"]}
+                        roles={["staff", "department_head", "admin"]}
                     />
                 }
             >
 
-                {/* Mobile QR Scanner */}
-                <Route
-                    path="/admin/scan/mobile"
-                    element={<MobileQrScanner />}
-                />
+                <Route element={<ProtectedRoute roles={["staff", "admin"]} />}>
+                    <Route path="/admin/scan/mobile" element={<MobileQrScanner />} />
+                </Route>
 
                 <Route element={<AdminLayout />}>
 
-                    {/* Dashboard */}
-                    <Route
-                        path="/admin"
-                        element={<Dashboard />}
-                    />
+                    <Route element={<ProtectedRoute roles={["staff", "admin"]} />}>
+                        <Route path="/admin" element={<Dashboard />} />
+                        <Route path="/admin/calendar" element={<AdminCalendar />} />
+                        <Route path="/admin/scan" element={<ScanQr />} />
+                        <Route path="/admin/accountability" element={<Accountability />} />
+                        <Route path="/admin/inventory" element={<Inventory />} />
+                    </Route>
 
-                    {/* Requests */}
-                    <Route
-                        path="/admin/requests"
-                        element={<Requests />}
-                    />
+                    <Route element={<ProtectedRoute roles={["staff", "department_head", "admin"]} />}>
+                        <Route path="/admin/requests" element={<Requests />} />
+                        <Route path="/admin/reports" element={<Reports />} />
+                    </Route>
 
-                    {/* Calendar */}
-                    <Route
-                        path="/admin/calendar"
-                        element={<AdminCalendar />}
-                    />
-
-                    {/* Reports */}
-                    <Route
-                        path="/admin/reports"
-                        element={<Reports />}
-                    />
-
-                    {/* QR Scanner */}
-                    <Route
-                        path="/admin/scan"
-                        element={<ScanQr />}
-                    />
-
-                    {/* Accountability */}
-                    <Route
-                        path="/admin/accountability"
-                        element={<Accountability />}
-                    />
-
-                    {/* Inventory */}
-                    <Route
-                        path="/admin/inventory"
-                        element={<Inventory />}
-                    />
-
-                    <Route path="/admin/signature" element={<SignatureSettings />} />
+                    <Route element={<ProtectedRoute roles={["staff", "department_head"]} />}>
+                        <Route path="/admin/signature" element={<SignatureSettings />} />
+                    </Route>
 
                 </Route>
 

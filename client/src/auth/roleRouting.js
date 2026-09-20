@@ -13,6 +13,9 @@ export function getRoleDestination(role) {
       return "/professor";
     case "staff":
     case "custodian":
+      return "/admin";
+    case "departmenthead":
+      return "/admin/requests";
     case "admin":
     case "administrator":
       return "/admin";
@@ -32,7 +35,7 @@ export function canResumeDestination(role, destination) {
     return destination === "/" || ["/borrowing", "/calendar", "/my-requests", "/my-qr", "/my-accountability"]
       .some((path) => destination === path || destination.startsWith(`${path}/`));
   }
-  if (["staff", "custodian", "admin", "administrator"].includes(normalizedRole)) {
+  if (["staff", "custodian", "departmenthead", "admin", "administrator"].includes(normalizedRole)) {
     return destination === "/admin" || destination.startsWith("/admin/");
   }
   return false;

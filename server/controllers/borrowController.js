@@ -749,7 +749,7 @@ async function listBorrowRequests(req, res, next) {
           AND ($4::boolean = false OR br.department_id = $5::bigint)
         GROUP BY br.id,department.id,section.id,professor.user_id
         ORDER BY br.created_at DESC, br.id DESC`,
-      [studentOnly, req.user.id, req.user.role === "professor", req.user.role === "staff", req.user.department_id]
+      [studentOnly, req.user.id, req.user.role === "professor", ["staff", "department_head"].includes(req.user.role), req.user.department_id]
     );
 
     return res.json({ requests: result.rows.map(serializeBorrowRequest) });

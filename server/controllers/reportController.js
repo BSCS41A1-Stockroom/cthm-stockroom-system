@@ -44,7 +44,7 @@ async function reportSummary(req, res, next) {
     return res.status(422).json({ error: "INVALID_REPORT_RANGE", reasons: range.errors });
   }
 
-  const parameters = [range.from, range.to, req.user?.role === "staff" ? req.user.department_id : null];
+  const parameters = [range.from, range.to, ["staff", "department_head"].includes(req.user?.role) ? req.user.department_id : null];
   try {
     const [summaryResult, statusResult, monthlyResult, itemsResult, recentResult, upcomingResult] = await Promise.all([
       pool.query(
@@ -163,7 +163,7 @@ async function reportSummary(req, res, next) {
         GROUP BY requests.id
         ORDER BY requests.borrow_date, requests.id
         LIMIT 5`,
-        [req.user?.role === "staff" ? req.user.department_id : null]
+        [["staff", "department_head"].includes(req.user?.role) ? req.user.department_id : null]
       ),
     ]);
 

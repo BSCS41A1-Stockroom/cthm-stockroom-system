@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "./useAuth";
+import { getRoleDestination } from "./roleRouting";
 
 export default function ProtectedRoute({ roles }) {
   const { user, profile, loading } = useAuth();
@@ -9,7 +10,7 @@ export default function ProtectedRoute({ roles }) {
   if (!user) return <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}${location.hash}` }} />;
   if (!profile) return <div className="auth-state auth-error">Your account profile is not configured. Contact an administrator.</div>;
   if (roles && !roles.includes(profile.role)) {
-    return <Navigate to={profile.role === "student" ? "/" : "/admin"} replace />;
+    return <Navigate to={getRoleDestination(profile.role) || "/login"} replace />;
   }
 
   return <Outlet />;

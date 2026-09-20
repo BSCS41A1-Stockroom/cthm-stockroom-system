@@ -3,16 +3,16 @@ import { authenticatedFetch } from "../../lib/api";
 import { useAuth } from "../../auth/useAuth";
 import "../../styles/authorization.css";
 
-export default function SignatureSettings({ custodian = false, administrator = false }) {
+export default function SignatureSettings({ custodian = false, departmentHead = false }) {
     const { profile } = useAuth();
-    const isAdministrator = administrator || profile?.role === "admin";
+    const isDepartmentHead = departmentHead || profile?.role === "department_head";
     const isCustodian = custodian || profile?.role === "staff";
     const [image, setImage] = useState("");
     const [message, setMessage] = useState("");
     const [saving, setSaving] = useState(false);
-    const endpoint = isAdministrator ? "/api/authorizations/admin-signature" : isCustodian ? "/api/authorizations/custodian-signature" : "/api/authorizations/signature";
-    const accountType = isAdministrator ? "administrator" : isCustodian ? "custodian" : "professor";
-    const displayType = isAdministrator ? "Administrator" : isCustodian ? "Custodian" : "Professor";
+    const endpoint = isDepartmentHead ? "/api/authorizations/department-head-signature" : isCustodian ? "/api/authorizations/custodian-signature" : "/api/authorizations/signature";
+    const accountType = isDepartmentHead ? "department head" : isCustodian ? "custodian" : "professor";
+    const displayType = isDepartmentHead ? "Department Head" : isCustodian ? "Custodian" : "Professor";
 
     useEffect(() => {
         authenticatedFetch(endpoint)
@@ -56,9 +56,9 @@ export default function SignatureSettings({ custodian = false, administrator = f
     return (
         <main className="signature-page">
             <header className="signature-page-header">
-                <div className="signature-page-eyebrow">{isAdministrator ? "Department-Head Approval" : isCustodian ? "Custodian Verification" : "Professor Authorization"}</div>
+                <div className="signature-page-eyebrow">{isDepartmentHead ? "Department-Head Approval" : isCustodian ? "Custodian Verification" : "Professor Authorization"}</div>
                 <h1>Signature Settings</h1>
-                <p>{isAdministrator ? "Manage the personal electronic signature used for final department-head approval." : isCustodian ? "Manage the personal electronic signature used for request verification, item release, and return receiving." : "Manage the electronic signature used when authorizing borrowing requests."}</p>
+                <p>{isDepartmentHead ? "Manage the personal electronic signature used for final approval within your assigned department." : isCustodian ? "Manage the personal electronic signature used for request verification, item release, and return receiving." : "Manage the electronic signature used when authorizing borrowing requests."}</p>
             </header>
             <section className="signature-card">
                 <div className="signature-card-header">
