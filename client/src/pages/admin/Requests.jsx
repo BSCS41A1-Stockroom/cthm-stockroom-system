@@ -345,7 +345,7 @@ export default function Requests() {
                       ? "Ready for Claim"
                       : r.status === "Validated" && profile?.role === "staff"
                         ? r.custodianVerifiedAt ? "Awaiting Final Approval" : "Awaiting Verification"
-                        : r.status === "Validated" && profile?.role === "admin"
+                        : r.status === "Validated" && profile?.role === "department_head"
                           ? r.custodianVerifiedAt ? "Awaiting Your Approval" : "Awaiting Staff Verification"
                         : r.status}{r.overdue ? " · Overdue" : ""}
                   </span>
@@ -388,7 +388,7 @@ export default function Requests() {
                     {r.status === "Validated" && profile?.role === "staff" && r.custodianVerifiedAt && !r.custodianApprovedAt && (
                       <span title="Waiting for General Admin approval">Awaiting Admin</span>
                     )}
-                    {r.status === "Validated" && profile?.role === "admin" && r.custodianVerifiedAt && !r.custodianApprovedAt && (
+                    {r.status === "Validated" && profile?.role === "department_head" && r.custodianVerifiedAt && !r.custodianApprovedAt && (
                       <button className="approve-btn final-approval-btn" aria-label={`Give final approval to ${r.id}`} title="Department-head final approval" onClick={() => { setCustodianAction({ type:"approve",request:r }); setCustodianConfirmed(false); }}><FaCheck /></button>
                     )}
 
@@ -531,7 +531,7 @@ export default function Requests() {
         <div className="modal-overlay" onClick={() => !custodianBusy && setCustodianAction(null)}>
           <div className="request-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
             <h2>{custodianAction.type === "verify" ? "Staff Verification" : "Department-Head Approval"} · {custodianAction.request.id}</h2>
-            <p>{custodianAction.type === "verify" ? "Confirm that you reviewed the request, its department, schedule, and inventory availability. The General Admin must provide final approval afterward." : "Confirm final department-head approval. This step changes the request to Ready for Claim and permanently records your Administrator signature, printed name, and timestamp."}</p>
+            <p>{custodianAction.type === "verify" ? "Confirm that you reviewed the request, its department, schedule, and inventory availability. The assigned Department Head must provide final approval afterward." : "Confirm final department-head approval. This step changes the request to Ready for Claim and permanently records your Department Head signature, printed name, and timestamp."}</p>
             <div className="detail-grid"><p><strong>Student:</strong> {custodianAction.request.student}</p><p><strong>Department:</strong> {custodianAction.request.department}</p><p><strong>Items:</strong> {custodianAction.request.item}</p><p><strong>Professor:</strong> {custodianAction.request.authorizedBy || custodianAction.request.assignedProfessor}</p></div>
             <label className="authorization-consent"><input type="checkbox" checked={custodianConfirmed} onChange={(event) => setCustodianConfirmed(event.target.checked)} /><span>I reviewed this transaction and authorize the system to apply my personal signature, printed name, and current timestamp.</span></label>
             <div className="modal-actions"><button type="button" disabled={custodianBusy} onClick={() => setCustodianAction(null)}>Cancel</button><button type="button" className="approve-btn" disabled={!custodianConfirmed || custodianBusy} onClick={submitCustodianAction}>{custodianBusy ? "Saving..." : custodianAction.type === "verify" ? "Verify and Sign" : "Approve and Sign"}</button></div>
