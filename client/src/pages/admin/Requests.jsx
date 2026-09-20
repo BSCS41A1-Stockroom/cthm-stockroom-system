@@ -6,6 +6,7 @@ import {
   FaTimes,
   FaUndo,
   FaReceipt,
+  FaDownload,
 } from "react-icons/fa";
 
 import "../../styles/requests.css";
@@ -37,6 +38,10 @@ export default function Requests() {
   const [returning, setReturning] = useState(false);
   const [returnError, setReturnError] = useState("");
   const [receiptRequestId, setReceiptRequestId] = useState(null);
+  const [custodianAction, setCustodianAction] = useState(null);
+  const [custodianConfirmed, setCustodianConfirmed] = useState(false);
+  const [custodianBusy, setCustodianBusy] = useState(false);
+  const [documentBusyId, setDocumentBusyId] = useState(null);
   const loadSequence = useRef(0);
   const ITEMS_PER_PAGE = 8;
 
@@ -74,6 +79,10 @@ export default function Requests() {
           authorizationStatus: request.authorizationStatus,
           authorizedBy: request.authorizedBy,
           authorizedAt: request.authorizedAt,
+          custodianVerifiedBy: request.custodianVerifiedBy,
+          custodianVerifiedAt: request.custodianVerifiedAt,
+          custodianApprovedBy: request.custodianApprovedBy,
+          custodianApprovedAt: request.custodianApprovedAt,
         };
       });
       if (sequence === loadSequence.current) setRequests(nextRequests);
@@ -135,6 +144,7 @@ export default function Requests() {
       .channel("admin-borrow-requests")
       .on("postgres_changes", { event: "*", schema: "public", table: "borrow_requests" }, loadRequests)
       .on("postgres_changes", { event: "*", schema: "public", table: "borrow_request_items" }, loadRequests)
+      .on("postgres_changes", { event: "*", schema: "public", table: "borrow_request_custodian_authorizations" }, loadRequests)
       .subscribe();
 
     return () => {
@@ -192,6 +202,37 @@ export default function Requests() {
         status,
       });
     }
+  };
+
+  const submitCustodianAction = async () => {
+    if (!custodianAction || !custodianConfirmed) return;
+    setCustodianBusy(true); setLoadError("");
+    try {
+      const response = await authenticatedFetch(`/api/authorizations/requests/${custodianAction.request.databaseId}/${custodianAction.type}`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmed: true }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message || "Unable to complete custodian authorization.");
+      setCustodianAction(null); setCustodianConfirmed(false); await loadRequests();
+    } catch (error) { setLoadError(error.message); }
+    finally { setCustodianBusy(false); }
+  };
+
+  const downloadBorrowerForm = async (request) => {
+    setDocumentBusyId(request.databaseId); setLoadError("");
+    try {
+      const response = await authenticatedFetch(`/api/authorizations/${request.authorizationToken}/document`);
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.message || "Unable to download the borrower form.");
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `Borrowers-Form-${request.id}.docx`;
+      document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
+    } catch (error) { setLoadError(error.message); }
+    finally { setDocumentBusyId(null); }
   };
 
   return (
@@ -328,8 +369,11 @@ export default function Requests() {
                       </>
                     )}
 
-                    {r.status === "Validated" && profile?.role === "admin" && (
-                      <button className="approve-btn" title="Final admin approval" onClick={() => updateStatus(r.id, "Approved")}><FaCheck /></button>
+                    {r.status === "Validated" && profile?.role === "staff" && !r.custodianVerifiedAt && (
+                      <button className="approve-btn" title="Verify request" onClick={() => { setCustodianAction({ type:"verify",request:r }); setCustodianConfirmed(false); }}><FaCheck /></button>
+                    )}
+                    {r.status === "Validated" && profile?.role === "staff" && r.custodianVerifiedAt && !r.custodianApprovedAt && (
+                      <button className="approve-btn" title="Final custodian approval" onClick={() => { setCustodianAction({ type:"approve",request:r }); setCustodianConfirmed(false); }}><FaCheck /></button>
                     )}
 
                     {r.status === "Borrowed" && (
@@ -438,6 +482,10 @@ export default function Requests() {
 
               <p><strong>Purpose:</strong> {selected.purpose}</p>
 
+              <p><strong>Custodian verification:</strong> {selected.custodianVerifiedBy || "Pending"}</p>
+
+              <p><strong>Custodian approval:</strong> {selected.custodianApprovedBy || "Pending"}</p>
+
               <p>
                 <strong>Status:</strong>{" "}
                 {selected.status}
@@ -448,6 +496,8 @@ export default function Requests() {
             <div className="modal-actions">
 
               <button type="button" className="modal-secondary-btn" onClick={() => setSelected(null)}>Close</button>
+
+              {selected.authorizationStatus === "authorized" && <button type="button" className="modal-receipt-btn" disabled={documentBusyId === selected.databaseId} onClick={() => downloadBorrowerForm(selected)}><FaDownload /> {documentBusyId === selected.databaseId ? "Preparing..." : "Download Form"}</button>}
 
               {["Borrowed", "Returned"].includes(selected.status) && <button type="button" className="modal-receipt-btn" onClick={() => setReceiptRequestId(selected.databaseId)}><FaReceipt /> View Receipts</button>}
 
@@ -460,6 +510,18 @@ export default function Requests() {
       )}
 
       {receiptRequestId && <ReceiptModal requestId={receiptRequestId} onClose={() => setReceiptRequestId(null)} />}
+
+      {custodianAction && (
+        <div className="modal-overlay" onClick={() => !custodianBusy && setCustodianAction(null)}>
+          <div className="request-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+            <h2>{custodianAction.type === "verify" ? "Verify Request" : "Approve Request"} · {custodianAction.request.id}</h2>
+            <p>{custodianAction.type === "verify" ? "Confirm that you reviewed the request, its department, schedule, and inventory availability." : "Confirm final custodian approval. Your saved signature, printed name, and timestamp will be permanently recorded."}</p>
+            <div className="detail-grid"><p><strong>Student:</strong> {custodianAction.request.student}</p><p><strong>Department:</strong> {custodianAction.request.department}</p><p><strong>Items:</strong> {custodianAction.request.item}</p><p><strong>Professor:</strong> {custodianAction.request.authorizedBy || custodianAction.request.assignedProfessor}</p></div>
+            <label className="authorization-consent"><input type="checkbox" checked={custodianConfirmed} onChange={(event) => setCustodianConfirmed(event.target.checked)} /><span>I reviewed this transaction and authorize the system to apply my personal custodian signature, printed name, and current timestamp.</span></label>
+            <div className="modal-actions"><button type="button" disabled={custodianBusy} onClick={() => setCustodianAction(null)}>Cancel</button><button type="button" className="approve-btn" disabled={!custodianConfirmed || custodianBusy} onClick={submitCustodianAction}>{custodianBusy ? "Saving..." : custodianAction.type === "verify" ? "Verify and Sign" : "Approve and Sign"}</button></div>
+          </div>
+        </div>
+      )}
 
       {returnRequest && (
         <div className="modal-overlay" onClick={() => !returning && setReturnRequest(null)}>

@@ -120,6 +120,10 @@ function serializeBorrowRequest(request) {
     authorizationToken: request.authorization_token ?? null,
     authorizedBy: request.professor_name ?? null,
     authorizedAt: request.authorized_at ?? null,
+    custodianVerifiedBy: request.custodian_verified_name ?? null,
+    custodianVerifiedAt: request.custodian_verified_at ?? null,
+    custodianApprovedBy: request.custodian_approved_name ?? null,
+    custodianApprovedAt: request.custodian_approved_at ?? null,
     items: Array.isArray(request.items) ? request.items : [],
   };
 }
@@ -691,6 +695,10 @@ async function listBorrowRequests(req, res, next) {
               (SELECT review_token FROM public.borrow_request_authorizations WHERE request_id=br.id) AS authorization_token,
               (SELECT professor_name FROM public.borrow_request_authorizations WHERE request_id=br.id) AS professor_name,
               (SELECT authorized_at FROM public.borrow_request_authorizations WHERE request_id=br.id) AS authorized_at,
+              (SELECT verified_name FROM public.borrow_request_custodian_authorizations WHERE request_id=br.id) AS custodian_verified_name,
+              (SELECT verified_at FROM public.borrow_request_custodian_authorizations WHERE request_id=br.id) AS custodian_verified_at,
+              (SELECT approved_name FROM public.borrow_request_custodian_authorizations WHERE request_id=br.id) AS custodian_approved_name,
+              (SELECT approved_at FROM public.borrow_request_custodian_authorizations WHERE request_id=br.id) AS custodian_approved_at,
               (br.status = 'Borrowed' AND br.return_date < (now() AT TIME ZONE 'Asia/Manila')::date) AS overdue,
               COALESCE(
                 json_agg(json_build_object(
@@ -1060,9 +1068,9 @@ async function updateBorrowRequestStatus(req, res, next) {
         message: request.assigned_professor_user_id ? "This request is assigned to another professor." : "This request has no assigned professor.",
       });
     }
-    if (nextStatus === "Approved" && !["staff", "admin"].includes(req.user.role)) {
+    if (nextStatus === "Approved") {
       await client.query("ROLLBACK");
-      return res.status(403).json({ error: "STOCKROOM_APPROVAL_REQUIRED", message: "Only authorized stockroom Staff or an Administrator can give final approval." });
+      return res.status(409).json({ error: "CUSTODIAN_WORKFLOW_REQUIRED", message: "Complete custodian verification and approval instead of changing this status directly." });
     }
     if (nextStatus === "Rejected" && req.user.role === "professor"
       && String(req.body?.reason ?? "").trim().length < 5) {

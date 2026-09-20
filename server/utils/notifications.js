@@ -26,4 +26,15 @@ async function notifyRoles(client, roles, entry) {
   );
 }
 
-module.exports = { notificationValues, notifyRoles, notifyUser };
+async function notifyDepartmentRole(client, departmentId, role, entry) {
+  if (!departmentId || !role) return;
+  await client.query(
+    `INSERT INTO public.notifications
+      (recipient_user_id, type, title, message, related_path, entity_type, entity_id)
+     SELECT user_id, $3, $4, $5, $6, $7, $8 FROM public.profiles
+      WHERE department_id=$1 AND role=$2 AND is_active=true`,
+    [departmentId, role, ...notificationValues(entry)]
+  );
+}
+
+module.exports = { notificationValues, notifyDepartmentRole, notifyRoles, notifyUser };
