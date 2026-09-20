@@ -159,7 +159,10 @@ async function lookupAssetQr(req, res, next) {
     if (!parsed) return res.status(400).json({ error: "INVALID_ASSET_QR", message: "This asset QR is invalid." });
     const result = await pool.query(
       `SELECT asset.*, inventory.item_name, inventory.tracking_type FROM public.inventory_assets asset
-       JOIN public.inventory inventory ON inventory.id=asset.inventory_id WHERE asset.qr_public_id=$1`, [parsed.publicId]
+       JOIN public.inventory inventory ON inventory.id=asset.inventory_id
+       LEFT JOIN public.laboratory_rooms room ON room.id=inventory.room_id
+       WHERE asset.qr_public_id=$1 AND ($2::boolean=false OR room.department_id=$3::bigint)`,
+      [parsed.publicId, req.user.role === "staff", req.user.department_id]
     );
     const asset = result.rows[0];
     if (!asset || asset.qr_version !== parsed.version) return res.status(404).json({ error: "ASSET_QR_OUTDATED", message: "This asset QR is unknown or outdated." });

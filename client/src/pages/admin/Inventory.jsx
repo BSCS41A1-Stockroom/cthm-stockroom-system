@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { authenticatedFetch } from "../../lib/api";
+import { useAuth } from "../../auth/useAuth";
 
 import "../../styles/inventory.css";
 import "../../styles/inspection.css";
@@ -17,6 +18,7 @@ import InventoryDetailsModal from "../../components/admin/Inventory/InventoryDet
 import InventoryFullViewModal from "../../components/admin/Inventory/InventoryFullViewModal";
 
 export default function Inventory() {
+    const { profile } = useAuth();
     const [inventory, setInventory] = useState([]);
     const [rooms, setRooms] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -238,6 +240,7 @@ export default function Inventory() {
                 setSearch={setSearch}
                 onReconcile={() => setReconciliationOpen(true)}
                 onViewFullInventory={() => setFullViewOpen(true)}
+                canReconcile={profile?.role === "admin"}
             />
 
 
