@@ -1,14 +1,18 @@
 import { useEffect, useState } from "react";
 import { authenticatedFetch } from "../../lib/api";
+import { useAuth } from "../../auth/useAuth";
 import "../../styles/authorization.css";
 
-export default function SignatureSettings({ custodian = false }) {
+export default function SignatureSettings({ custodian = false, administrator = false }) {
+    const { profile } = useAuth();
+    const isAdministrator = administrator || profile?.role === "admin";
+    const isCustodian = custodian || profile?.role === "staff";
     const [image, setImage] = useState("");
     const [message, setMessage] = useState("");
     const [saving, setSaving] = useState(false);
-    const endpoint = custodian ? "/api/authorizations/custodian-signature" : "/api/authorizations/signature";
-    const accountType = custodian ? "custodian" : "professor";
-    const displayType = custodian ? "Custodian" : "Professor";
+    const endpoint = isAdministrator ? "/api/authorizations/admin-signature" : isCustodian ? "/api/authorizations/custodian-signature" : "/api/authorizations/signature";
+    const accountType = isAdministrator ? "administrator" : isCustodian ? "custodian" : "professor";
+    const displayType = isAdministrator ? "Administrator" : isCustodian ? "Custodian" : "Professor";
 
     useEffect(() => {
         authenticatedFetch(endpoint)
@@ -52,9 +56,9 @@ export default function SignatureSettings({ custodian = false }) {
     return (
         <main className="signature-page">
             <header className="signature-page-header">
-                <div className="signature-page-eyebrow">{custodian ? "Custodian Verification" : "Professor Authorization"}</div>
+                <div className="signature-page-eyebrow">{isAdministrator ? "Department-Head Approval" : isCustodian ? "Custodian Verification" : "Professor Authorization"}</div>
                 <h1>Signature Settings</h1>
-                <p>{custodian ? "Manage the personal electronic signature used for custodian verification and approval." : "Manage the electronic signature used when authorizing borrowing requests."}</p>
+                <p>{isAdministrator ? "Manage the personal electronic signature used for final department-head approval." : isCustodian ? "Manage the personal electronic signature used for request verification, item release, and return receiving." : "Manage the electronic signature used when authorizing borrowing requests."}</p>
             </header>
             <section className="signature-card">
                 <div className="signature-card-header">
