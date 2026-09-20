@@ -63,6 +63,13 @@ app.use("/api/authorizations", authorizationRoutes);
 app.use((error, req, res, next) => {
   console.error(error);
 
+  if (["42P01", "42703"].includes(String(error?.code ?? ""))) {
+    return res.status(503).json({
+      error: "DATABASE_MIGRATION_REQUIRED",
+      message: "The database setup is incomplete. Apply the latest Supabase migration, then retry.",
+    });
+  }
+
   const retryableDatabaseError = ["53300", "57P01", "57P02", "57P03", "08000", "08001", "08003", "08004", "08006", "08007", "08P01"]
     .includes(String(error?.code ?? ""))
     || ["ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "EPIPE", "ENETUNREACH", "EAI_AGAIN"]
