@@ -1040,10 +1040,14 @@ async function updateBorrowRequestStatus(req, res, next) {
   if (!/^[1-9]\d*$/.test(String(requestId ?? ""))) {
     return res.status(400).json({ error: "INVALID_REQUEST_ID", message: "Borrowing request ID is invalid." });
   }
-  const client = await pool.connect();
-
   try {
     await processExpiredRequests();
+  } catch (error) {
+    return next(error);
+  }
+
+  const client = await pool.connect();
+  try {
     await client.query("BEGIN");
     const requestResult = await client.query(
       `SELECT * FROM borrow_requests WHERE id = $1 FOR UPDATE`,
