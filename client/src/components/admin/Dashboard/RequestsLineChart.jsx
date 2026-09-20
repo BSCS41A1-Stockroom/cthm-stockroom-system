@@ -1,7 +1,7 @@
 import {
     ResponsiveContainer,
-    LineChart,
-    Line,
+    BarChart,
+    Bar,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -13,13 +13,12 @@ const COLORS = {
     navy: "#17263C",
     muted: "#697381",
     grid: "#E5E0D6",
-    ivory: "#F5F3EE",
 };
 
 export default function RequestsLineChart({ data = [] }) {
     return (
         <ResponsiveContainer width="100%" height={260}>
-            <LineChart
+            <BarChart
                 data={data}
                 margin={{
                     top: 10,
@@ -27,6 +26,8 @@ export default function RequestsLineChart({ data = [] }) {
                     left: 0,
                     bottom: 5,
                 }}
+                barGap={6}
+                barCategoryGap="24%"
             >
                 <CartesianGrid
                     stroke={COLORS.grid}
@@ -55,9 +56,13 @@ export default function RequestsLineChart({ data = [] }) {
                     }}
                     axisLine={false}
                     tickLine={false}
+                    allowDecimals={false}
                 />
 
                 <Tooltip
+                    cursor={{
+                        fill: "rgba(23, 38, 60, 0.04)",
+                    }}
                     contentStyle={{
                         background: "#FFFFFF",
                         border: `1px solid ${COLORS.grid}`,
@@ -77,46 +82,22 @@ export default function RequestsLineChart({ data = [] }) {
                     }}
                 />
 
-                <Line
-                    type="monotone"
+                <Bar
                     dataKey="approved"
                     name="Approved"
-                    stroke={COLORS.gold}
-                    strokeWidth={3}
-                    dot={{
-                        r: 4,
-                        fill: COLORS.navy,
-                        stroke: COLORS.gold,
-                        strokeWidth: 2,
-                    }}
-                    activeDot={{
-                        r: 6,
-                        fill: COLORS.navy,
-                        stroke: COLORS.gold,
-                        strokeWidth: 2,
-                    }}
+                    fill={COLORS.gold}
+                    radius={[5, 5, 0, 0]}
+                    maxBarSize={28}
                 />
 
-                <Line
-                    type="monotone"
+                <Bar
                     dataKey="returned"
                     name="Returned"
-                    stroke={COLORS.navy}
-                    strokeWidth={3}
-                    dot={{
-                        r: 4,
-                        fill: COLORS.gold,
-                        stroke: COLORS.navy,
-                        strokeWidth: 2,
-                    }}
-                    activeDot={{
-                        r: 6,
-                        fill: COLORS.gold,
-                        stroke: COLORS.navy,
-                        strokeWidth: 2,
-                    }}
+                    fill={COLORS.navy}
+                    radius={[5, 5, 0, 0]}
+                    maxBarSize={28}
                 />
-            </LineChart>
+            </BarChart>
         </ResponsiveContainer>
     );
 }
