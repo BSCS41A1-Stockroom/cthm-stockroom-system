@@ -15,6 +15,7 @@ import { authenticatedFetch } from "../../lib/api";
 import ReceiptModal from "../../components/ReceiptModal";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
+import { isInRoleQueue, stageLabel } from "../../utils/requestWorkflow";
 
 function formatDate(date) {
   if (!date) return "-";
@@ -32,6 +33,7 @@ export default function Requests() {
   const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [view, setView] = useState("queue");
   const [selected, setSelected] = useState(null);
   const [returnRequest, setReturnRequest] = useState(null);
   const [returnForm, setReturnForm] = useState({ items: [], remarks: "" });
@@ -152,8 +154,16 @@ export default function Requests() {
     };
   }, [loadRequests]);
 
+  const queueCount = useMemo(
+    () => requests.filter((request) => isInRoleQueue(request, profile?.role)).length,
+    [requests, profile?.role],
+  );
+
   const filtered = useMemo(() => {
-    return requests.filter((r) => {
+    const viewRequests = profile?.role === "admin" || view === "all"
+      ? requests
+      : requests.filter((request) => isInRoleQueue(request, profile?.role));
+    return viewRequests.filter((r) => {
       const matchesSearch =
         r.student.toLowerCase().includes(search.toLowerCase()) ||
         r.item.toLowerCase().includes(search.toLowerCase()) ||
@@ -164,7 +174,7 @@ export default function Requests() {
 
       return matchesSearch && matchesStatus;
     });
-  }, [requests, search, statusFilter]);
+  }, [requests, search, statusFilter, view, profile?.role]);
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
 
@@ -249,7 +259,7 @@ export default function Requests() {
 
           <div className="requests-title">
               <h2>Borrow Requests</h2>
-              <p>Review and manage student equipment borrowing requests.</p>
+              <p>{profile?.role === "department_head" ? "Approve staff-verified requests for your department." : profile?.role === "staff" ? "Verify requests and track items ready for release or return." : "Monitor borrowing requests across all departments."}</p>
           </div>
 
           <div className="requests-count">
@@ -257,6 +267,11 @@ export default function Requests() {
           </div>
 
       </div>
+
+      {profile?.role !== "admin" && <div className="request-view-tabs" role="tablist" aria-label="Request views">
+        <button type="button" role="tab" aria-selected={view === "queue"} className={view === "queue" ? "active" : ""} onClick={() => { setView("queue"); setPage(1); }}>My Work Queue <span>{queueCount}</span></button>
+        <button type="button" role="tab" aria-selected={view === "all"} className={view === "all" ? "active" : ""} onClick={() => { setView("all"); setPage(1); }}>All Department Requests <span>{requests.length}</span></button>
+      </div>}
 
       <div className="requests-toolbar">
 
@@ -266,13 +281,13 @@ export default function Requests() {
                   type="text"
                   placeholder="Search request..."
                   value={search}
-                  onChange={(e)=>setSearch(e.target.value)}
+                  onChange={(e)=>{ setSearch(e.target.value); setPage(1); }}
               />
           </div>
 
           <select
               value={statusFilter}
-              onChange={(e)=>setStatusFilter(e.target.value)}
+              onChange={(e)=>{ setStatusFilter(e.target.value); setPage(1); }}
           >
               <option>All</option>
               <option>Pending</option>
@@ -317,7 +332,7 @@ export default function Requests() {
 
             {!loading && paginated.length === 0 && (
               <tr>
-                <td colSpan={8} className="requests-empty">No borrowing requests found.</td>
+                <td colSpan={8} className="requests-empty">{view === "queue" && profile?.role !== "admin" ? "No requests currently require your action." : "No borrowing requests found."}</td>
               </tr>
             )}
 
@@ -341,13 +356,7 @@ export default function Requests() {
                   <span
                     className={`status-badge ${r.status.toLowerCase()}`}
                   >
-                    {r.status === "Approved"
-                      ? "Ready for Claim"
-                      : r.status === "Validated" && profile?.role === "staff"
-                        ? r.custodianVerifiedAt ? "Awaiting Final Approval" : "Awaiting Verification"
-                        : r.status === "Validated" && profile?.role === "department_head"
-                          ? r.custodianVerifiedAt ? "Awaiting Your Approval" : "Awaiting Staff Verification"
-                        : r.status}{r.overdue ? " · Overdue" : ""}
+                    {stageLabel(r)}{r.overdue ? " · Overdue" : ""}
                   </span>
                 </td>
 
@@ -386,13 +395,13 @@ export default function Requests() {
                       <button className="approve-btn" aria-label={`Verify ${r.id}`} title="Step 1 of 2: Verify request" onClick={() => { setCustodianAction({ type:"verify",request:r }); setCustodianConfirmed(false); }}><FaCheck /></button>
                     )}
                     {r.status === "Validated" && profile?.role === "staff" && r.custodianVerifiedAt && !r.custodianApprovedAt && (
-                      <span title="Waiting for General Admin approval">Awaiting Admin</span>
+                      <span title="Waiting for the assigned Department Head">Awaiting Department Head</span>
                     )}
                     {r.status === "Validated" && profile?.role === "department_head" && r.custodianVerifiedAt && !r.custodianApprovedAt && (
                       <button className="approve-btn final-approval-btn" aria-label={`Give final approval to ${r.id}`} title="Department-head final approval" onClick={() => { setCustodianAction({ type:"approve",request:r }); setCustodianConfirmed(false); }}><FaCheck /></button>
                     )}
 
-                    {r.status === "Borrowed" && (
+                    {r.status === "Borrowed" && profile?.role === "staff" && (
                       <button
                         className="return-btn"
                         onClick={() => openReturn(r)}

@@ -3056,3 +3056,44 @@ button.professor-stat-card:hover {
     }
 
 }
+
+.professor-request-tabs {
+  display: flex;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 16px;
+  padding: 6px;
+  border: 1px solid #dfe5ec;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.professor-request-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #627083;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.professor-request-tabs button.active { background: #17263c; color: #fff; }
+.professor-request-tabs button span { color: #b69b62; }
+
+.professor-workflow-status {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 10px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #f2f5f7;
+  color: #53677c;
+  font-size: 12px;
+  font-weight: 800;
+}
