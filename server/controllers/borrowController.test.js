@@ -349,8 +349,27 @@ test("serializes database borrowing rows for the student request page", () => {
     custodianVerifiedAt: null,
     custodianApprovedBy: null,
     custodianApprovedAt: null,
+    releasedBy: null,
+    releasedAt: null,
+    returnedBy: null,
+    returnedAt: null,
+    documentState: "released",
     items: [{ name: "Pan", quantity: 2 }],
   });
+});
+
+test("derives partially returned and finalized document states from request data", () => {
+  const partiallyReturned = serializeBorrowRequest({
+    status: "Borrowed",
+    items: [{ quantity: 2, accountedQuantity: 1 }],
+  });
+  const finalized = serializeBorrowRequest({
+    status: "Returned",
+    items: [{ quantity: 2, accountedQuantity: 2 }],
+  });
+
+  assert.equal(partiallyReturned.documentState, "partially_returned");
+  assert.equal(finalized.documentState, "finalized");
 });
 
 test("loads conflict context under an immutable authenticated-user advisory lock", async () => {
