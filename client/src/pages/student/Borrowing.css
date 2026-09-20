@@ -4061,3 +4061,386 @@
   min-width: 100%;
   padding: 24px;
 }
+
+/* ============================================================
+   BORROWER'S FORM DOCUMENT PREVIEW
+   ============================================================ */
+
+.print-preview-document {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: #e9e9e9;
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+.borrower-docx-preview-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.borrower-docx-preview {
+  width: 100%;
+}
+
+/*
+ * docx-preview creates its own page wrappers.
+ * Keep the original page proportions and allow
+ * the entire document to extend vertically.
+ */
+
+.borrower-docx-preview > section,
+.borrower-docx-preview > div {
+  max-width: 100%;
+}
+
+/* Don't crop the generated document */
+
+.borrower-docx-preview-container,
+.borrower-docx-preview {
+  overflow: visible;
+}
+
+/* Keep the DOCX page itself readable */
+
+.borrower-docx-preview section.docx {
+  margin: 0 auto 24px auto !important;
+}
+
+.print-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(23, 38, 60, 0.72);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.print-preview-modal {
+  width: min(1200px, 96vw);
+  height: min(94vh, 1100px);
+
+  background: #f5f3ee;
+  border-radius: 14px;
+
+  display: flex;
+  flex-direction: column;
+
+  overflow: hidden;
+
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.28);
+}
+
+.print-preview-header {
+  flex: 0 0 auto;
+}
+
+.print-preview-footer {
+  flex: 0 0 auto;
+}
+
+.print-preview-document {
+  flex: 1 1 auto;
+  min-height: 0;
+
+  overflow-y: auto;
+  overflow-x: auto;
+
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ============================================================
+   OFFICIAL BORROWER'S FORM — DOCX PREVIEW
+   FINAL PREVIEW LAYOUT
+============================================================ */
+
+.print-preview-overlay {
+    position: fixed !important;
+    inset: 0 !important;
+
+    z-index: 99999 !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    padding: 20px !important;
+
+    background: rgba(23, 38, 60, 0.72) !important;
+
+    box-sizing: border-box !important;
+}
+
+
+.print-preview-modal {
+    width: min(1200px, 96vw) !important;
+    height: min(94vh, 1100px) !important;
+
+    max-width: 1200px !important;
+    max-height: 94vh !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+
+    min-width: 0 !important;
+    min-height: 0 !important;
+
+    overflow: hidden !important;
+
+    background: #f5f3ee !important;
+
+    border-radius: 12px !important;
+
+    box-shadow:
+        0 24px 70px rgba(0, 0, 0, 0.28) !important;
+
+    box-sizing: border-box !important;
+}
+
+
+/* ============================================================
+   HEADER
+============================================================ */
+
+.print-preview-header {
+    flex: 0 0 auto !important;
+
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+
+    min-width: 0 !important;
+
+    padding: 17px 20px !important;
+
+    background: #ffffff !important;
+
+    border-bottom: 1px solid var(--borrow-border) !important;
+
+    box-sizing: border-box !important;
+}
+
+
+/* ============================================================
+   DOCUMENT VIEWPORT
+============================================================ */
+
+.print-preview-document {
+    position: relative !important;
+
+    flex: 1 1 auto !important;
+
+    width: 100% !important;
+
+    min-width: 0 !important;
+    min-height: 0 !important;
+
+    height: auto !important;
+
+    overflow-y: auto !important;
+    overflow-x: auto !important;
+
+    padding: 35px !important;
+
+    background: #d9d9d9 !important;
+
+    box-sizing: border-box !important;
+
+    -webkit-overflow-scrolling: touch !important;
+}
+
+
+/* ============================================================
+   DOCX OUTER CONTAINER
+============================================================ */
+
+#borrower-docx-preview {
+    position: relative !important;
+
+    width: max-content !important;
+
+    min-width: 100% !important;
+
+    height: auto !important;
+
+    min-height: 0 !important;
+
+    display: block !important;
+
+    overflow: visible !important;
+
+    box-sizing: border-box !important;
+}
+
+
+/* ============================================================
+   DOCX-PREVIEW WRAPPER
+============================================================ */
+
+#borrower-docx-preview .docx-wrapper {
+    width: max-content !important;
+
+    min-width: 100% !important;
+
+    height: auto !important;
+
+    min-height: 0 !important;
+
+    display: block !important;
+
+    overflow: visible !important;
+
+    box-sizing: border-box !important;
+
+    padding: 0 !important;
+}
+
+
+/* ============================================================
+   ACTUAL DOCX PAGES
+============================================================ */
+
+#borrower-docx-preview section.docx {
+    flex: 0 0 auto !important;
+
+    overflow: visible !important;
+
+    max-height: none !important;
+
+    box-sizing: border-box !important;
+
+    margin-left: auto !important;
+    margin-right: auto !important;
+
+    margin-bottom: 28px !important;
+}
+
+
+/*
+ * DO NOT USE:
+ *
+ * height: auto;
+ * width: 100%;
+ * max-width: 100%;
+ *
+ * on section.docx.
+ *
+ * Those rules can destroy the original Word page dimensions.
+ */
+
+
+/* ============================================================
+   INNER DOCX CONTENT
+============================================================ */
+
+#borrower-docx-preview .docx-wrapper > section.docx > div {
+    overflow: visible !important;
+}
+
+
+/* ============================================================
+   TABLES
+============================================================ */
+
+#borrower-docx-preview table {
+    max-width: none !important;
+}
+
+
+/* ============================================================
+   HEADER / FOOTER INSIDE DOCX
+============================================================ */
+
+#borrower-docx-preview header,
+#borrower-docx-preview footer {
+    overflow: visible !important;
+}
+
+
+/* ============================================================
+   LOADING
+============================================================ */
+
+.print-preview-loading {
+    position: absolute !important;
+
+    top: 20px !important;
+    left: 20px !important;
+
+    z-index: 10 !important;
+
+    padding: 10px 14px !important;
+
+    background: rgba(255, 255, 255, 0.95) !important;
+
+    border: 1px solid var(--borrow-border) !important;
+
+    border-radius: 6px !important;
+
+    color: var(--borrow-navy) !important;
+
+    font-size: 11px !important;
+    font-weight: 700 !important;
+
+    box-shadow:
+        0 5px 15px rgba(0, 0, 0, 0.08) !important;
+}
+
+
+/* ============================================================
+   FOOTER
+============================================================ */
+
+.print-preview-footer {
+    flex: 0 0 auto !important;
+
+    display: flex !important;
+
+    align-items: center !important;
+
+    justify-content: flex-end !important;
+
+    gap: 8px !important;
+
+    padding: 11px 17px !important;
+
+    background: #ffffff !important;
+
+    border-top: 1px solid var(--borrow-border) !important;
+
+    box-sizing: border-box !important;
+}
+
+
+/* ============================================================
+   MOBILE
+============================================================ */
+
+@media (max-width: 700px) {
+
+    .print-preview-overlay {
+        padding: 8px !important;
+    }
+
+    .print-preview-modal {
+        width: 100% !important;
+        height: 96vh !important;
+        max-height: 96vh !important;
+
+        border-radius: 9px !important;
+    }
+
+    .print-preview-document {
+        padding: 15px !important;
+    }
+}
