@@ -45,6 +45,16 @@ function generateBorrowerForm(data) {
     escapeXml(data.controlNo || "")
   );
 
+  const departmentLine = [data.department, data.section].filter(Boolean).join(" / ");
+  if (departmentLine) {
+    documentXml = documentXml.replace(/Department\/Program:\s*_{5,}/,
+      `Department/Program: ${escapeXml(departmentLine)}`);
+  }
+  if (data.returnDate) {
+    documentXml = documentXml.replace(/Intended Date of Return:\s*_{5,}/,
+      `Intended Date of Return: ${escapeXml(data.returnDate)}`);
+  }
+
   // ============================================================
   // ITEM TABLE
   // ============================================================
@@ -60,6 +70,20 @@ function generateBorrowerForm(data) {
 
   if (data.professorSignature && data.professorName) {
     documentXml = fillProfessorAuthorization(documentXml, zip, data);
+  }
+  if (data.verifiedSignature && data.verifiedName) {
+    documentXml = fillCustodianAuthorization(documentXml, zip, {
+      kind: "verified", name: data.verifiedName, signedAt: data.verifiedAt,
+      signature: data.verifiedSignature, mimeType: data.verifiedSignatureMime,
+      caption: /Custodian Signature Over Printed Name/i, documentId: 9002,
+    });
+  }
+  if (data.approvedSignature && data.approvedName) {
+    documentXml = fillCustodianAuthorization(documentXml, zip, {
+      kind: "approved", name: data.approvedName, signedAt: data.approvedAt,
+      signature: data.approvedSignature, mimeType: data.approvedSignatureMime,
+      caption: /Custodian Department Head/i, documentId: 9003,
+    });
   }
 
   zip.file(
@@ -110,6 +134,38 @@ function fillProfessorAuthorization(documentXml, zip, data) {
   const signedCell = targetCell.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, "").replace(/<\/w:tc>$/, `${drawing}</w:tc>`);
   const signedRow = signatureRow.replace(targetCell, signedCell);
   return documentXml.replace(signatureRow, signedRow);
+}
+
+function fillCustodianAuthorization(documentXml, zip, authorization) {
+  const relationshipId = `rIdCustodian${authorization.kind}Signature`;
+  const extension = authorization.mimeType === "image/jpeg" ? "jpg" : "png";
+  const mediaName = `custodian-${authorization.kind}-signature.${extension}`;
+  zip.file(`word/media/${mediaName}`, authorization.signature);
+  const relationshipsPath = "word/_rels/document.xml.rels";
+  const relationships = zip.file(relationshipsPath)?.asText();
+  if (!relationships) throw new Error("DOCX relationships file is missing.");
+  zip.file(relationshipsPath, relationships.replace("</Relationships>",
+    `<Relationship Id="${relationshipId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${mediaName}"/></Relationships>`));
+  const contentTypesPath = "[Content_Types].xml";
+  let contentTypes = zip.file(contentTypesPath)?.asText();
+  if (!contentTypes) throw new Error("DOCX content types file is missing.");
+  if (!new RegExp(`Extension="${extension}"`, "i").test(contentTypes)) {
+    contentTypes = contentTypes.replace("</Types>", `<Default Extension="${extension}" ContentType="${extension === "jpg" ? "image/jpeg" : "image/png"}"/></Types>`);
+    zip.file(contentTypesPath, contentTypes);
+  }
+  const signedLine = `${authorization.name} | ${authorization.signedAt || ""}`;
+  const drawing = `<w:p><w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="1428750" cy="476250"/><wp:docPr id="${authorization.documentId}" name="Custodian ${authorization.kind} Signature"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="0" name="Custodian Signature"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relationshipId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1428750" cy="476250"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p><w:p><w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr><w:t>${escapeXml(signedLine)}</w:t></w:r></w:p>`;
+  const rows = documentXml.match(/<w:tr(?:\s[^>]*)?>[\s\S]*?<\/w:tr>/g) || [];
+  const captionIndex = rows.findIndex((row) => authorization.caption.test(extractText(row)));
+  if (captionIndex < 1) return documentXml;
+  const captionCells = rows[captionIndex].match(/<w:tc(?:\s[^>]*)?>[\s\S]*?<\/w:tc>/g) || [];
+  const targetIndex = captionCells.findIndex((cell) => authorization.caption.test(extractText(cell)));
+  const signatureRow = rows[captionIndex - 1];
+  const signatureCells = signatureRow.match(/<w:tc(?:\s[^>]*)?>[\s\S]*?<\/w:tc>/g) || [];
+  if (targetIndex < 0 || !signatureCells[targetIndex]) return documentXml;
+  const targetCell = signatureCells[targetIndex];
+  const signedCell = targetCell.replace(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g, "").replace(/<\/w:tc>$/, `${drawing}</w:tc>`);
+  return documentXml.replace(signatureRow, signatureRow.replace(targetCell, signedCell));
 }
 
 

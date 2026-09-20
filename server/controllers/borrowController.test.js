@@ -68,7 +68,7 @@ test("validates identified serialized missing-asset incident details", () => {
   assert.equal(returnErrors(normalizeReturn({ items: [{ inventoryId: 7, missingQuantity: 1, conditionNote: "Missing" }], missingAssets: [{ assetId: 42, reason: "No" }] })).some((error) => error.includes("5 to 500")), true);
 });
 
-test("status approval does not execute serialized return processing", async () => {
+test("direct status approval is blocked in favor of signed custodian workflow", async () => {
   const calls = [];
   const client = { async query(sql) {
     calls.push(sql);
@@ -81,12 +81,13 @@ test("status approval does not execute serialized return processing", async () =
   const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
   try { await updateBorrowRequestStatus({ params: { id: "5" }, body: { status: "Approved" }, user: { id: "admin", role: "admin" } }, response, (error) => { throw error; }); }
   finally { pool.connect = originalConnect; }
-  assert.equal(response.statusCode, 200);
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.error, "CUSTODIAN_WORKFLOW_REQUIRED");
   assert.equal(calls.some((sql) => sql.includes("borrowing_asset_assignments")), false);
-  assert.equal(calls.at(-1), "COMMIT");
+  assert.equal(calls.at(-1), "ROLLBACK");
 });
 
-test("department staff can approve a request only after department scoping succeeds", async () => {
+test("department staff cannot bypass signed custodian approval", async () => {
   const calls = [];
   const client = { async query(sql) {
     calls.push(sql);
@@ -99,8 +100,9 @@ test("department staff can approve a request only after department scoping succe
   const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
   try { await updateBorrowRequestStatus({ params: { id: "6" }, body: { status: "Approved" }, user: { id: "staff", role: "staff", department_id: 4 } }, response, (error) => { throw error; }); }
   finally { pool.connect = originalConnect; }
-  assert.equal(response.statusCode, 200);
-  assert.equal(calls.at(-1), "COMMIT");
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.error, "CUSTODIAN_WORKFLOW_REQUIRED");
+  assert.equal(calls.at(-1), "ROLLBACK");
 });
 
 test("department staff cannot update another department's request", async () => {
@@ -342,6 +344,10 @@ test("serializes database borrowing rows for the student request page", () => {
     authorizationToken: null,
     authorizedBy: null,
     authorizedAt: null,
+    custodianVerifiedBy: null,
+    custodianVerifiedAt: null,
+    custodianApprovedBy: null,
+    custodianApprovedAt: null,
     items: [{ name: "Pan", quantity: 2 }],
   });
 });

@@ -3,7 +3,7 @@ import "./MyRequests.css";
 import { authenticatedFetch } from "../../lib/api";
 import { supabase } from "../../lib/supabase";
 import ReceiptModal from "../../components/ReceiptModal";
-import { FaReceipt } from "react-icons/fa";
+import { FaDownload, FaReceipt } from "react-icons/fa";
 import AuthorizationQr from "../../components/AuthorizationQr";
 
 const STATUS_META = {
@@ -37,6 +37,7 @@ export default function MyRequests() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeRequest, setActiveRequest] = useState(null);
   const [receiptRequestId, setReceiptRequestId] = useState(null);
+  const [documentBusyId, setDocumentBusyId] = useState(null);
 
   useEffect(() => {
     fetchRequests();
@@ -63,6 +64,23 @@ export default function MyRequests() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function downloadBorrowerForm(request) {
+    setDocumentBusyId(request.id); setLoadError("");
+    try {
+      const response = await authenticatedFetch(`/api/authorizations/${request.authorizationToken}/document`);
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.message || "Unable to download the borrower form.");
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `Borrowers-Form-BR-${String(request.id).padStart(3, "0")}.docx`;
+      document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
+    } catch (error) { setLoadError(error.message); }
+    finally { setDocumentBusyId(null); }
   }
 
   const filteredRequests = useMemo(() => {
@@ -242,6 +260,7 @@ export default function MyRequests() {
             {activeRequest.actualReturnedAt && <div className="modal-section"><h3>Completed return</h3><p>{new Date(activeRequest.actualReturnedAt).toLocaleString()}</p></div>}
             <div className="request-detail-actions">
               <button type="button" className="detail-secondary-btn" onClick={() => setActiveRequest(null)}>Close</button>
+              {activeRequest.authorizationStatus === "authorized" && <button type="button" className="receipt-action-btn" disabled={documentBusyId === activeRequest.id} onClick={() => downloadBorrowerForm(activeRequest)}><FaDownload /> {documentBusyId === activeRequest.id ? "Preparing..." : "Download Form"}</button>}
               {["borrowed", "returned"].includes(activeRequest.status) && <button type="button" className="receipt-action-btn" onClick={() => setReceiptRequestId(activeRequest.id)}><FaReceipt /> View Receipts</button>}
             </div>
           </div>
