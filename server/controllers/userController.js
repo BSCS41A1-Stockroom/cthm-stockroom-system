@@ -9,6 +9,7 @@ const ROLES = new Set([
     "student",
     "professor",
     "staff",
+    "department_head",
     "admin",
 ]);
 
@@ -31,7 +32,7 @@ function cleanEnvironmentValue(value) {
 
 function serviceRoleKey(value) {
     if (
-        /^\s*\*["']?Bearer\s/i.test(
+        /^\s*["']?Bearer\s/i.test(
             String(value ?? "")
         )
     ) {
@@ -239,7 +240,7 @@ function userErrors(
 
     if (!ROLES.has(user.role)) {
         errors.push(
-            "Role must be student, professor, staff, or admin."
+            "Role must be student, professor, staff, department head, or admin."
         );
     }
 
@@ -254,7 +255,7 @@ function userErrors(
     }
 
     if (
-        ["professor", "staff"].includes(
+        ["professor", "staff", "department_head"].includes(
             user.role
         ) &&
         !/^[1-9]\d*$/.test(
@@ -262,7 +263,7 @@ function userErrors(
         )
     ) {
         errors.push(
-            "An active department is required for Professor and Staff accounts."
+            "An active department is required for Professor, Staff, and Department Head accounts."
         );
     }
 
@@ -292,7 +293,7 @@ async function professorDepartmentExists(
     user
 ) {
     if (
-        !["professor", "staff"].includes(
+        !["professor", "staff", "department_head"].includes(
             user.role
         )
     ) {
@@ -512,7 +513,7 @@ async function inviteUser(req, res, next) {
 
                 user.isActive,
 
-                ["professor", "staff"].includes(
+                ["professor", "staff", "department_head"].includes(
                     user.role
                 )
                     ? user.departmentId
@@ -779,7 +780,7 @@ async function updateUser(
 
                     user.isActive,
 
-                    ["professor", "staff"].includes(
+                    ["professor", "staff", "department_head"].includes(
                         user.role
                     )
                         ? user.departmentId

@@ -123,7 +123,8 @@ test("processes a complete return and updates inventory condition counters atomi
   const client = {
     async query(sql, params) {
       calls.push({ sql, params });
-      if (sql.includes("SELECT * FROM borrow_requests")) return { rowCount: 1, rows: [{ id: 10, status: "Borrowed", user_id: "student-user" }] };
+      if (sql.includes("SELECT * FROM borrow_requests")) return { rowCount: 1, rows: [{ id: 10, status: "Borrowed", user_id: "student-user", department_id: 4 }] };
+      if (sql.includes("FROM public.profiles profile") && sql.includes("custodian_signatures")) return { rowCount: 1, rows: [{ full_name:"Receiving Staff",image_data:Buffer.from("signature"),mime_type:"image/png",image_hash:"a".repeat(64) }] };
       if (sql.includes("SELECT inventory_id, quantity FROM borrow_request_items")) return { rows: [{ inventory_id: 7, quantity: 2 }] };
       if (sql.includes("SUM(good_quantity")) return { rows: [] };
       if (sql.includes("INSERT INTO borrowing_returns")) return { rows: [{ id: 20, request_id: 10 }] };
@@ -139,7 +140,7 @@ test("processes a complete return and updates inventory condition counters atomi
   pool.connect = async () => client;
   const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
   try {
-    await processBorrowingReturn({ params: { id: "10" }, body: { items: [{ inventoryId: 7, goodQuantity: 1, damagedQuantity: 1, conditionNote: "Handle damage" }] }, user: { id: "admin-user", role: "admin" } }, response, (error) => { throw error; });
+    await processBorrowingReturn({ params: { id: "10" }, body: { items: [{ inventoryId: 7, goodQuantity: 1, damagedQuantity: 1, conditionNote: "Handle damage" }] }, user: { id: "staff-user", role: "staff", department_id:4 } }, response, (error) => { throw error; });
   } finally {
     pool.connect = originalConnect;
   }

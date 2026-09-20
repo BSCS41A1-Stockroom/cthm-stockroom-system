@@ -3,6 +3,7 @@ import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
 import { supabase } from "../lib/supabase";
 import { PASSWORD_REQUIREMENTS, passwordErrors } from "../utils/passwordPolicy";
+import { getRoleDestination } from "../auth/roleRouting";
 import "./Login.css";
 
 export default function SetPassword() {
@@ -14,7 +15,7 @@ export default function SetPassword() {
   const [saved, setSaved] = useState(false);
 
   if (loading) return <div className="auth-state">Verifying your invitation...</div>;
-  if (saved) return <Navigate to={profile?.role === "student" ? "/" : "/admin"} replace />;
+  if (saved) return <Navigate to={getRoleDestination(profile?.role) || "/login"} replace />;
 
   async function handleSubmit(event) {
     event.preventDefault();

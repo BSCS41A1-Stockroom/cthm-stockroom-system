@@ -32,6 +32,14 @@ const STATUS_TRANSITIONS = Object.freeze({
   Returned: new Set(),
 });
 
+async function loadStaffTransactionSignature(client, userId) {
+  const result = await client.query(`SELECT profile.full_name,signature.image_data,signature.mime_type,signature.image_hash
+    FROM public.profiles profile
+    LEFT JOIN public.custodian_signatures signature ON signature.custodian_user_id=profile.user_id
+    WHERE profile.user_id=$1 AND profile.role='staff' AND profile.is_active=true`, [userId]);
+  return result.rows[0] ?? null;
+}
+
 function inventoryDeltas(previousStatus, nextStatus, quantity) {
   return {
     reserved: (RESERVED_STATUSES.has(nextStatus) ? quantity : 0)
@@ -741,7 +749,7 @@ async function listBorrowRequests(req, res, next) {
           AND ($4::boolean = false OR br.department_id = $5::bigint)
         GROUP BY br.id,department.id,section.id,professor.user_id
         ORDER BY br.created_at DESC, br.id DESC`,
-      [studentOnly, req.user.id, req.user.role === "professor", req.user.role === "staff", req.user.department_id]
+      [studentOnly, req.user.id, req.user.role === "professor", ["staff", "department_head"].includes(req.user.role), req.user.department_id]
     );
 
     return res.json({ requests: result.rows.map(serializeBorrowRequest) });
@@ -790,6 +798,11 @@ async function processBorrowingReturn(req, res, next) {
     if (request.status !== "Borrowed") {
       await client.query("ROLLBACK");
       return res.status(409).json({ error: "REQUEST_NOT_BORROWED", message: "Only borrowed requests can be returned." });
+    }
+    const receivingSignature = await loadStaffTransactionSignature(client, req.user.id);
+    if (!receivingSignature?.image_data) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error:"SIGNATURE_REQUIRED",message:"Save your Custodian Signature before receiving returned items." });
     }
 
     const requestedResult = await client.query(
@@ -879,6 +892,10 @@ async function processBorrowingReturn(req, res, next) {
       `INSERT INTO borrowing_returns (request_id, processed_by, remarks, idempotency_key) VALUES ($1, $2, $3, $4) RETURNING *`,
       [requestId, req.user.id, returnData.remarks || null, returnData.idempotencyKey || null]
     );
+    await client.query(`INSERT INTO public.borrowing_transaction_signatures
+      (request_id,transaction_type,return_id,staff_user_id,staff_name,signature_image,signature_mime_type,signature_hash)
+      VALUES ($1,'return',$2,$3,$4,$5,$6,$7)`,[requestId,returnResult.rows[0].id,req.user.id,receivingSignature.full_name,
+      receivingSignature.image_data,receivingSignature.mime_type,receivingSignature.image_hash]);
     for (const item of submittedItems) {
       const accounted = item.goodQuantity + item.damagedQuantity + item.missingQuantity;
       await client.query(
@@ -1092,7 +1109,12 @@ async function updateBorrowRequestStatus(req, res, next) {
 
     let releaseDateKey = null;
     let releaseReturnDate = null;
+    let releasingSignature = null;
     if (nextStatus === "Borrowed") {
+      if (req.user.role !== "staff") {
+        await client.query("ROLLBACK");
+        return res.status(403).json({ error:"STAFF_RELEASE_REQUIRED",message:"A department Staff account must scan and release the items." });
+      }
       let claim;
       try {
         claim = verifyClaimTicket(req.body?.claimToken, { requestId, staffId: req.user.id });
@@ -1109,6 +1131,11 @@ async function updateBorrowRequestStatus(req, res, next) {
           error: "VERIFIED_QR_REQUIRED",
           message: "Scan the borrower's current account QR and confirm their identity before releasing items.",
         });
+      }
+      releasingSignature = await loadStaffTransactionSignature(client, req.user.id);
+      if (!releasingSignature?.image_data) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error:"SIGNATURE_REQUIRED",message:"Save your Custodian Signature before releasing items." });
       }
       const qrState = await client.query(`SELECT is_active, qr_status, qr_version, qr_revoked_at FROM public.profiles WHERE user_id=$1`, [request.user_id]);
       const qrProfile = qrState.rows[0];
@@ -1256,6 +1283,10 @@ async function updateBorrowRequestStatus(req, res, next) {
     if (nextStatus === "Borrowed") {
       const extra = scannedAssets.find((asset) => !consumedAssetIds.has(String(asset.id)));
       if (extra) { await client.query("ROLLBACK"); return res.status(409).json({ error: "ASSET_NOT_REQUESTED", message: `${extra.asset_number} does not belong to this borrowing request.` }); }
+      await client.query(`INSERT INTO public.borrowing_transaction_signatures
+        (request_id,transaction_type,staff_user_id,staff_name,signature_image,signature_mime_type,signature_hash)
+        VALUES ($1,'release',$2,$3,$4,$5,$6)`,[requestId,req.user.id,releasingSignature.full_name,
+        releasingSignature.image_data,releasingSignature.mime_type,releasingSignature.image_hash]);
     }
 
     if (nextStatus === "Borrowed") {

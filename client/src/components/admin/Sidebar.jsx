@@ -53,7 +53,10 @@ export default function Sidebar({
             label: "Activity Logs",
         },
         { path: "/admin/users", icon: <FaUsersCog />, label: "Users" },
-    ].filter((item) => !["/admin/activity-logs", "/admin/users"].includes(item.path) || profile?.role === "admin");
+    ].filter((item) => {
+        if (profile?.role === "department_head") return ["/admin/requests", "/admin/reports"].includes(item.path);
+        return !["/admin/activity-logs", "/admin/users"].includes(item.path) || profile?.role === "admin";
+    });
 
     return (
         <>
