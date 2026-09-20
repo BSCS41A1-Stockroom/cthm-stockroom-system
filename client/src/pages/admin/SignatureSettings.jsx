@@ -1,331 +1,81 @@
-
 import { useEffect, useState } from "react";
-
 import { authenticatedFetch } from "../../lib/api";
-
 import "../../styles/authorization.css";
 
-
-export default function SignatureSettings() {
-
+export default function SignatureSettings({ custodian = false }) {
     const [image, setImage] = useState("");
     const [message, setMessage] = useState("");
     const [saving, setSaving] = useState(false);
-
+    const endpoint = custodian ? "/api/authorizations/custodian-signature" : "/api/authorizations/signature";
+    const accountType = custodian ? "custodian" : "professor";
+    const displayType = custodian ? "Custodian" : "Professor";
 
     useEffect(() => {
-
-        authenticatedFetch(
-            "/api/authorizations/signature"
-        )
-            .then((response) => response.json())
-            .then((result) => {
+        authenticatedFetch(endpoint)
+            .then(async (response) => {
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message || "Unable to load your signature.");
                 setImage(result.image || "");
             })
-            .catch(() => {
-                setMessage(
-                    "Unable to load your signature."
-                );
-            });
-
-    }, []);
-
+            .catch((error) => setMessage(error.message || "Unable to load your signature."));
+    }, [endpoint]);
 
     const choose = (event) => {
-
-        const file =
-            event.target.files?.[0];
-
-        if (
-            !file ||
-            ![
-                "image/png",
-                "image/jpeg"
-            ].includes(file.type) ||
-            file.size > 262144
-        ) {
-            setMessage(
-                "Choose a PNG or JPEG no larger than 256 KB."
-            );
+        const file = event.target.files?.[0];
+        if (!file || !["image/png", "image/jpeg"].includes(file.type) || file.size > 262144) {
+            setMessage("Choose a PNG or JPEG no larger than 256 KB.");
             return;
         }
-
-
-        const reader =
-            new FileReader();
-
-
-        reader.onload = () => {
-
-            setImage(
-                String(reader.result)
-            );
-
-            setMessage("");
-
-        };
-
-
+        const reader = new FileReader();
+        reader.onload = () => { setImage(String(reader.result)); setMessage(""); };
         reader.readAsDataURL(file);
-
     };
-
 
     const save = async () => {
-
-        if (!image) {
-            setMessage(
-                "Choose your signature image first."
-            );
-            return;
-        }
-
-
+        if (!image) return setMessage("Choose your signature image first.");
         setSaving(true);
         setMessage("");
-
-
         try {
-
-            const response =
-                await authenticatedFetch(
-                    "/api/authorizations/signature",
-                    {
-                        method: "PUT",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json"
-                        },
-
-                        body: JSON.stringify({
-                            image
-                        }),
-                    }
-                );
-
-
-            const result =
-                await response.json();
-
-
-            if (!response.ok) {
-                throw new Error(
-                    result.message ||
-                    "Unable to save signature."
-                );
-            }
-
-
-            setMessage(
-                "Signature saved securely to your professor account."
-            );
-
+            const response = await authenticatedFetch(endpoint, {
+                method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image }),
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.message || "Unable to save signature.");
+            setMessage(`Signature saved securely to your ${accountType} account.`);
         } catch (error) {
-
-            setMessage(
-                error.message ||
-                "Unable to save signature."
-            );
-
-        } finally {
-
-            setSaving(false);
-
-        }
-
+            setMessage(error.message || "Unable to save signature.");
+        } finally { setSaving(false); }
     };
 
+    const hasError = message.toLowerCase().includes("unable") || message.toLowerCase().includes("choose");
 
     return (
-
         <main className="signature-page">
-
             <header className="signature-page-header">
-
-                <div className="signature-page-eyebrow">
-                    Professor Authorization
-                </div>
-
-                <h1>
-                    Signature Settings
-                </h1>
-
-                <p>
-                    Manage the electronic signature used
-                    when authorizing borrowing requests.
-                </p>
-
+                <div className="signature-page-eyebrow">{custodian ? "Custodian Verification" : "Professor Authorization"}</div>
+                <h1>Signature Settings</h1>
+                <p>{custodian ? "Manage the personal electronic signature used for custodian verification and approval." : "Manage the electronic signature used when authorizing borrowing requests."}</p>
             </header>
-
-
             <section className="signature-card">
-
                 <div className="signature-card-header">
-
-                    <div>
-                        <span className="signature-card-label">
-                            E-Signature
-                        </span>
-
-                        <h2>
-                            Professor Signature
-                        </h2>
-
-                        <p>
-                            Your signature is applied only
-                            after you review and explicitly
-                            authorize a request.
-                        </p>
-                    </div>
-
-                    <div className="signature-status">
-                        {image
-                            ? "Signature Ready"
-                            : "Not Set"}
-                    </div>
-
+                    <div><span className="signature-card-label">E-Signature</span><h2>{displayType} Signature</h2><p>Your signature is applied only after you explicitly confirm an authorized action.</p></div>
+                    <div className="signature-status">{image ? "Signature Ready" : "Not Set"}</div>
                 </div>
-
-
                 <div className="signature-preview-wrapper">
-
-                    <div className="signature-preview-label">
-                        Signature Preview
-                    </div>
-
-                    <div className="signature-preview">
-
-                        {image ? (
-
-                            <img
-                                src={image}
-                                alt="Professor signature preview"
-                            />
-
-                        ) : (
-
-                            <div className="signature-empty">
-
-                                <span className="signature-empty-mark">
-                                    ✦
-                                </span>
-
-                                <strong>
-                                    No signature saved
-                                </strong>
-
-                                <small>
-                                    Upload your signature
-                                    image below.
-                                </small>
-
-                            </div>
-
-                        )}
-
-                    </div>
-
+                    <div className="signature-preview-label">Signature Preview</div>
+                    <div className="signature-preview">{image ? <img src={image} alt={`${displayType} signature preview`} /> : <div className="signature-empty"><span className="signature-empty-mark">✦</span><strong>No signature saved</strong><small>Upload your signature image below.</small></div>}</div>
                 </div>
-
-
                 <div className="signature-upload-area">
-
-                    <label className="signature-upload">
-
-                        <span>
-                            Choose Signature Image
-                        </span>
-
-                        <input
-                            type="file"
-                            accept="image/png,image/jpeg"
-                            onChange={choose}
-                        />
-
-                    </label>
-
-                    <div className="signature-file-info">
-
-                        <strong>
-                            PNG or JPEG
-                        </strong>
-
-                        <span>
-                            Maximum file size: 256 KB
-                        </span>
-
-                    </div>
-
+                    <label className="signature-upload"><span>Choose Signature Image</span><input type="file" accept="image/png,image/jpeg" onChange={choose} /></label>
+                    <div className="signature-file-info"><strong>PNG or JPEG</strong><span>Maximum file size: 256 KB</span></div>
                 </div>
-
-
-                <p className="signature-help">
-
-                    Use a transparent PNG for the cleanest
-                    result. Your profile full name and
-                    signing date are added automatically
-                    when the signature is used for an
-                    authorization.
-
-                </p>
-
-
-                {message && (
-
-                    <div
-                        className={`authorization-message ${
-                            message.toLowerCase().includes("unable") ||
-                            message.toLowerCase().includes("choose")
-                                ? "error"
-                                : "success"
-                        }`}
-                    >
-                        {message}
-                    </div>
-
-                )}
-
-
+                <p className="signature-help">Use a transparent PNG for the cleanest result. Your profile name and signing date are added automatically. Never upload another person&apos;s signature.</p>
+                {message && <div className={`authorization-message ${hasError ? "error" : "success"}`}>{message}</div>}
                 <div className="signature-card-footer">
-
-                    <div className="signature-security">
-
-                        <span className="security-icon">
-                            ✓
-                        </span>
-
-                        <div>
-                            <strong>
-                                Secure Professor Authorization
-                            </strong>
-
-                            <small>
-                                Your signature is associated
-                                with your professor account.
-                            </small>
-                        </div>
-
-                    </div>
-
-
-                    <button
-                        type="button"
-                        className="signature-save-button"
-                        onClick={save}
-                        disabled={saving}
-                    >
-                        {saving
-                            ? "Saving..."
-                            : "Save Signature"}
-                    </button>
-
+                    <div className="signature-security"><span className="security-icon">✓</span><div><strong>Secure {displayType} Authorization</strong><small>Your signature is associated only with your personal {accountType} account.</small></div></div>
+                    <button type="button" className="signature-save-button" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save Signature"}</button>
                 </div>
-
             </section>
-
         </main>
-
     );
 }
-

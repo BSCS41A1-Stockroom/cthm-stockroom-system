@@ -72,6 +72,12 @@ export default function ProfileMenu({ variant = "student" }) {
               <span>Signature Settings</span>
             </Link>
           )}
+          {profile?.role === "staff" && (
+            <Link className="profile-dropdown-link" role="menuitem" to="/admin/signature" onClick={() => setOpen(false)}>
+              <FaSignature aria-hidden="true" />
+              <span>Custodian Signature</span>
+            </Link>
+          )}
           <button type="button" className="profile-signout" role="menuitem" onClick={requestSignOut}>Sign out</button>
         </div>
       )}
