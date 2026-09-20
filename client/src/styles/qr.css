@@ -2614,6 +2614,35 @@
 
 @media (max-width: 600px) {
 
+    .mobile-scanner-page {
+        place-items: stretch;
+        padding: 0;
+        background: var(--qr-navy-deep);
+    }
+
+    .mobile-scanner-card {
+        width: 100%;
+        min-height: 100vh;
+        min-height: 100dvh;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .mobile-scanner-brand {
+        padding-top: max(18px, env(safe-area-inset-top));
+    }
+
+    .mobile-scanner-card .camera-frame,
+    .mobile-scanner-card .camera-reader,
+    .mobile-scanner-card .camera-reader video {
+        min-height: min(58vh, 460px);
+    }
+
+    .mobile-scanner-card > .qr-warning {
+        padding-bottom: max(18px, env(safe-area-inset-bottom));
+    }
+
     .scan-page > header {
         align-items: flex-start;
     }
@@ -2723,4 +2752,153 @@
         width: 160px;
         height: 160px;
     }
+}
+
+/* =========================================================
+   PAIRED PHONE SCANNER
+========================================================= */
+
+.mobile-scanner-page {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: max(18px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+    background: radial-gradient(circle at top, rgba(182, 155, 98, 0.18), transparent 38%), linear-gradient(155deg, var(--qr-navy-deep), var(--qr-navy));
+    color: var(--qr-text);
+}
+
+.mobile-scanner-card {
+    width: min(100%, 520px);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 14px;
+    background: var(--qr-white);
+    box-shadow: 0 24px 70px rgba(5, 12, 22, 0.32);
+}
+
+.mobile-scanner-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 18px 20px 8px;
+    color: var(--qr-gold);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.25px;
+    text-transform: uppercase;
+}
+
+.mobile-scanner-card > h1 {
+    margin: 0;
+    padding: 0 20px 13px;
+    color: var(--qr-navy);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(24px, 7vw, 32px);
+    font-weight: 600;
+}
+
+.connection-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0 20px 14px;
+    padding: 7px 10px;
+    border-radius: 999px;
+    background: var(--qr-warning-bg);
+    color: var(--qr-warning);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.connection-badge > span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 0 3px rgba(154, 113, 40, 0.14);
+}
+
+.connection-badge.connected,
+.connection-badge.complete {
+    background: var(--qr-success-bg);
+    color: var(--qr-success);
+}
+
+.connection-badge.error {
+    background: var(--qr-danger-bg);
+    color: var(--qr-danger);
+}
+
+.mobile-scanner-message {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    margin: 0;
+    padding: 13px 20px;
+    border-top: 1px solid var(--qr-border-light);
+    background: var(--qr-ivory);
+    color: var(--qr-text);
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.mobile-scanner-message svg {
+    flex: 0 0 auto;
+    margin-top: 2px;
+    color: var(--qr-gold);
+}
+
+.mobile-scanner-card .camera-frame,
+.mobile-scanner-card .camera-reader,
+.mobile-scanner-card .camera-reader video {
+    min-height: min(62vh, 430px);
+}
+
+.mobile-scanner-card .camera-frame {
+    border-block: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mobile-scanner-actions {
+    display: flex;
+    gap: 10px;
+    padding: 16px 20px 10px;
+}
+
+.mobile-scanner-actions button {
+    min-height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex: 1;
+    border: 1px solid var(--qr-navy);
+    border-radius: 7px;
+    background: var(--qr-navy);
+    color: var(--qr-white);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.mobile-scanner-actions button.secondary-button {
+    border-color: var(--qr-border);
+    background: var(--qr-white);
+    color: var(--qr-navy);
+}
+
+.mobile-scanner-actions button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.mobile-scanner-card > .qr-warning {
+    margin: 0;
+    padding: 4px 20px 18px;
+    color: var(--qr-muted);
+    font-size: 10px;
+    line-height: 1.55;
 }
