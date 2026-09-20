@@ -53,6 +53,22 @@ function requestWithToken(path, options, token) {
   });
 }
 
+function isSafeRead(options) {
+  return String(options?.method ?? "GET").toUpperCase() === "GET";
+}
+
+async function requestWithTransientRetry(path, options, token) {
+  try {
+    const response = await requestWithToken(path, options, token);
+    if (!isSafeRead(options) || ![502, 503, 504].includes(response.status)) return response;
+  } catch (error) {
+    if (!isSafeRead(options) || error?.name === "AbortError") throw error;
+  }
+
+  await new Promise((resolve) => globalThis.setTimeout(resolve, 500));
+  return requestWithToken(path, options, token);
+}
+
 export async function authenticatedFetch(path, options = {}) {
   const { data, error } = await supabase.auth.getSession();
   if (error) {
@@ -76,7 +92,7 @@ export async function authenticatedFetch(path, options = {}) {
     session = refreshed.data.session;
   }
 
-  let response = await requestWithToken(path, options, session.access_token);
+  let response = await requestWithTransientRetry(path, options, session.access_token);
   if (response.status !== 401) return response;
 
   const refreshed = await refreshSession();
@@ -86,7 +102,7 @@ export async function authenticatedFetch(path, options = {}) {
     }
     throw new Error("Your session could not be refreshed right now. Check your connection and try again.");
   }
-  response = await requestWithToken(path, options, refreshed.data.session.access_token);
+  response = await requestWithTransientRetry(path, options, refreshed.data.session.access_token);
   if (response.status === 401) {
     throw new Error("The server could not verify your session. Please retry. If this continues, sign in again.");
   }
