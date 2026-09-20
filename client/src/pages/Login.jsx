@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/useAuth";
+import { canResumeDestination, getRoleDestination } from "../auth/roleRouting";
 import "./Login.css";
 
 export default function Login() {
@@ -38,59 +39,11 @@ export default function Login() {
     };
 
     // =========================================================
-    // ROLE NORMALIZATION
-    // =========================================================
-
-    const normalizeRole = (role) => {
-        if (!role) return null;
-
-        return String(role)
-            .trim()
-            .toLowerCase()
-            .replace(/[\s_-]+/g, "");
-    };
-
-    // =========================================================
-    // ROLE-BASED DEFAULT DESTINATION
-    // =========================================================
-
-    const getRoleDestination = (role) => {
-        const normalizedRole = normalizeRole(role);
-
-        switch (normalizedRole) {
-            case "student":
-                return "/";
-
-            case "professor":
-            case "faculty":
-            case "teacher":
-                return "/professor";
-
-            case "admin":
-            case "administrator":
-                return "/admin";
-
-            default:
-                return "/login";
-        }
-    };
-
-    // =========================================================
     // REDIRECT ALREADY AUTHENTICATED USER
     // =========================================================
 
     if (!loading && user && profile) {
         const roleDestination = getRoleDestination(profile.role);
-
-        console.log("LOGIN REDIRECT DEBUG:", {
-            user: user.email,
-            profile,
-            originalRole: profile.role,
-            normalizedRole: normalizeRole(profile.role),
-            roleDestination,
-            queryDestination,
-            from: location.state?.from,
-        });
 
         const requestedDestination =
             safeDestination(location.state?.from) ||
@@ -106,46 +59,13 @@ export default function Login() {
          * We ignore /admin and send professor to /professor.
          */
 
-        const isProfessor =
-            ["professor", "faculty", "teacher"].includes(
-                normalizeRole(profile.role)
-            );
-
-        const isStudent =
-            normalizeRole(profile.role) === "student";
-
-        const isAdmin =
-            ["admin", "administrator"].includes(
-                normalizeRole(profile.role)
-            );
-
-        let destination = roleDestination;
-
-        if (requestedDestination) {
-            if (
-                isProfessor &&
-                requestedDestination.startsWith("/professor")
-            ) {
-                destination = requestedDestination;
-            } else if (
-                isStudent &&
-                (
-                    requestedDestination === "/" ||
-                    requestedDestination.startsWith("/borrowing") ||
-                    requestedDestination.startsWith("/calendar") ||
-                    requestedDestination.startsWith("/my-requests") ||
-                    requestedDestination.startsWith("/my-qr") ||
-                    requestedDestination.startsWith("/my-accountability")
-                )
-            ) {
-                destination = requestedDestination;
-            } else if (
-                isAdmin &&
-                requestedDestination.startsWith("/admin")
-            ) {
-                destination = requestedDestination;
-            }
+        if (!roleDestination) {
+            return <div className="auth-state auth-error">Your account role is not supported. Contact an administrator.</div>;
         }
+
+        const destination = canResumeDestination(profile.role, requestedDestination)
+            ? requestedDestination
+            : roleDestination;
 
         return (
             <Navigate
