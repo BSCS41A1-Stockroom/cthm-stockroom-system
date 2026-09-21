@@ -666,6 +666,14 @@
     box-shadow: var(--admin-shadow);
 }
 
+.dashboard-chart-loading {
+    display: grid;
+    place-items: center;
+    height: 260px;
+    color: var(--admin-muted);
+    font-size: 14px;
+}
+
 
 /* =========================================================
    DASHBOARD

@@ -33,20 +33,24 @@ export function useReportData(from, to) {
   }, [from, to]);
 
   useEffect(() => {
-    const timer = window.setTimeout(refresh, 0);
-    const refreshWhenVisible = () => { if (document.visibilityState === "visible") refresh(); };
-    window.addEventListener("focus", refresh);
+    let refreshTimer = window.setTimeout(refresh, 0);
+    const scheduleRefresh = () => {
+      window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(refresh, 150);
+    };
+    const refreshWhenVisible = () => { if (document.visibilityState === "visible") scheduleRefresh(); };
+    window.addEventListener("focus", scheduleRefresh);
     document.addEventListener("visibilitychange", refreshWhenVisible);
     const channel = supabase
       .channel(`reporting-${from}-${to}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "borrow_requests" }, refresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "borrow_request_items" }, refresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "inventory" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "borrow_requests" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "borrow_request_items" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "inventory" }, scheduleRefresh)
       .subscribe();
 
     return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener("focus", refresh);
+      window.clearTimeout(refreshTimer);
+      window.removeEventListener("focus", scheduleRefresh);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
       supabase.removeChannel(channel);
     };
