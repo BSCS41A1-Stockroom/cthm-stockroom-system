@@ -223,7 +223,8 @@ export default function Users() {
         );
 
     useEffect(() => {
-        loadAcademicAssignments();
+        const timer = window.setTimeout(loadAcademicAssignments, 0);
+        return () => window.clearTimeout(timer);
     }, [
         loadAcademicAssignments,
     ]);
@@ -335,15 +336,16 @@ export default function Users() {
 
                 departmentId:
                     [
+                        "student",
                         "professor",
                         "staff",
+                        "department_head",
                     ].includes(role)
                         ? current.departmentId
                         : "",
 
                 sectionId:
-                    role ===
-                    "professor"
+                    ["student", "professor"].includes(role)
                         ? current.sectionId
                         : "",
             })
@@ -395,22 +397,20 @@ export default function Users() {
 
         try {
             if (
-                form.role ===
-                    "professor" &&
+                ["student", "professor", "staff", "department_head"].includes(form.role) &&
                 !form.departmentId
             ) {
                 throw new Error(
-                    "Please select a department for the professor."
+                    "Please select a department for this account."
                 );
             }
 
             if (
-                form.role ===
-                    "professor" &&
+                ["student", "professor"].includes(form.role) &&
                 !form.sectionId
             ) {
                 throw new Error(
-                    "Please select a section for the professor."
+                    "Please select a section for this account."
                 );
             }
 
@@ -426,8 +426,10 @@ export default function Users() {
 
                 departmentId:
                     [
+                        "student",
                         "professor",
                         "staff",
+                        "department_head",
                     ].includes(
                         form.role
                     )
@@ -435,8 +437,7 @@ export default function Users() {
                         : null,
 
                 sectionId:
-                    form.role ===
-                    "professor"
+                    ["student", "professor"].includes(form.role)
                         ? form.sectionId
                         : null,
             };
@@ -1245,8 +1246,7 @@ export default function Users() {
                                         </td>
 
                                         <td>
-                                            {user.role ===
-                                                "professor" &&
+                                            {["student", "professor"].includes(user.role) &&
                                             user.section_name
                                                 ? user.section_name
                                                 : "-"}
@@ -1485,6 +1485,10 @@ export default function Users() {
                                     Staff
                                 </option>
 
+                                <option value="department_head">
+                                    Department Head
+                                </option>
+
                                 <option value="admin">
                                     General
                                     Administrator
@@ -1523,8 +1527,10 @@ export default function Users() {
                         )}
 
                         {[
+                            "student",
                             "professor",
                             "staff",
+                            "department_head",
                         ].includes(
                             form.role
                         ) && (
@@ -1577,8 +1583,7 @@ export default function Users() {
                             </label>
                         )}
 
-                        {form.role ===
-                            "professor" && (
+                        {["student", "professor"].includes(form.role) && (
                             <label>
                                 Section
 
