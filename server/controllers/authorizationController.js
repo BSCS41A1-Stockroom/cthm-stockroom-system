@@ -305,6 +305,9 @@ async function getAuthorizationReview(req, res, next) {
     const result = await loadReview(req.params.token, req.user.id);
     if (!result.rowCount) return res.status(404).json({ error: "REVIEW_NOT_FOUND", message: "This authorization request was not found." });
     const review = result.rows[0];
+    if (["Withdrawn", "Cancelled"].includes(review.status)) {
+      return res.status(410).json({ error: "REVIEW_LINK_CLOSED", message: "This request was withdrawn or cancelled; its authorization link is no longer active." });
+    }
     review.signature_preview = review.current_signature
       ? `data:${review.current_signature_mime};base64,${review.current_signature.toString("base64")}` : null;
     delete review.current_signature;

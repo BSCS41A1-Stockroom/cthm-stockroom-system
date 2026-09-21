@@ -40,6 +40,15 @@ submit competing reservations, verifies that the row lock prevents
 over-allocation, and removes its uniquely named test schema afterward. Do not
 point `TEST_DATABASE_URL` at production.
 
+The lifecycle integration test also applies migration 040 inside a uniquely
+named, temporary schema and runs the actual cancellation controller SQL. It
+checks student withdrawal, staff/student races, inventory release, audit and
+notification writes, authorization invalidation, terminal-state rejection, and
+transaction rollback. The test refuses to run if `TEST_DATABASE_URL` equals
+`DATABASE_URL`. It does **not** validate every production migration or the
+complete professor-to-return workflow; complete a manual smoke test in the
+disposable Supabase project before deployment.
+
 ## API
 
 Validate without saving:
