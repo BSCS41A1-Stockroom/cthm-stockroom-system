@@ -122,7 +122,7 @@ export default function MyRequests() {
   }, [requests, search, statusFilter]);
 
   return (
-    <div className="requests-page">
+    <div className="requests-page student-requests-page">
       <header className="requests-header">
         <h1>My Requests</h1>
         <p className="requests-subtitle">

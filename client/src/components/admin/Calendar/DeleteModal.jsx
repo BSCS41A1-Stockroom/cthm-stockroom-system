@@ -1,4 +1,5 @@
 import { useState } from "react";
+import "../../../styles/deleteModal.css";
 
 export default function DeleteModal({ open, event, onDelete, onClose }) {
   const [deleting, setDeleting] = useState(false);

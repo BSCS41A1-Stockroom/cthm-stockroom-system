@@ -2378,3 +2378,65 @@
         display: none !important;
     }
 }
+
+/* Calendar dialogs are scoped here so request and inventory page styles cannot
+   change their positioning when those routes are loaded in the same bundle. */
+.calendar-page .modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(16, 27, 45, 0.55);
+    backdrop-filter: blur(3px);
+}
+
+.calendar-page .modal {
+    display: flex;
+    flex-direction: column;
+    width: min(760px, 100%);
+    max-height: calc(100dvh - 40px);
+    overflow: hidden;
+    border: 1px solid var(--calendar-border);
+    border-radius: 14px;
+    background: var(--calendar-white);
+    box-shadow: 0 24px 60px rgba(16, 27, 45, 0.2);
+}
+
+.calendar-page .modal-header,
+.calendar-page .modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 22px;
+    flex-shrink: 0;
+}
+.calendar-page .modal-header { border-bottom: 1px solid var(--calendar-border); }
+.calendar-page .modal-header h2 { margin: 0; color: var(--calendar-navy); font-size: 20px; }
+.calendar-page .modal-footer { justify-content: flex-end; border-top: 1px solid var(--calendar-border); }
+.calendar-page .modal-body { min-height: 0; padding: 20px 22px; overflow-y: auto; }
+.calendar-page .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.calendar-page .form-group { display: flex; min-width: 0; flex-direction: column; gap: 6px; }
+.calendar-page .form-group.full-width { grid-column: 1 / -1; }
+.calendar-page .form-group label { color: var(--calendar-navy); font-size: 12px; font-weight: 700; }
+.calendar-page .form-group input,
+.calendar-page .form-group select,
+.calendar-page .form-group textarea { width: 100%; min-height: 39px; padding: 9px 11px; border: 1px solid var(--calendar-border); border-radius: 7px; background: #fff; color: var(--calendar-charcoal); font: inherit; font-size: 13px; }
+.calendar-page .form-group textarea { min-height: 100px; resize: vertical; }
+.calendar-page .modal-footer button,
+.calendar-page .modal-header button { min-height: 38px; padding: 8px 14px; border: 1px solid var(--calendar-border); border-radius: 7px; background: #fff; color: var(--calendar-navy); font: inherit; font-weight: 700; cursor: pointer; }
+.calendar-page .modal-footer .save-btn { border-color: var(--calendar-navy); background: var(--calendar-navy); color: #fff; }
+.calendar-page .modal-footer button:disabled { cursor: not-allowed; opacity: .6; }
+.calendar-page .modal .form-error { margin: 0 0 14px; padding: 11px 13px; border: 1px solid #ead8d3; border-radius: 7px; background: #faf3f1; color: var(--calendar-danger); }
+
+@media (max-width: 600px) {
+    .calendar-page .modal-overlay { padding: 12px; }
+    .calendar-page .modal { max-height: calc(100dvh - 24px); }
+    .calendar-page .modal-header,
+    .calendar-page .modal-footer { padding: 13px 16px; }
+    .calendar-page .modal-body { padding: 16px; }
+    .calendar-page .form-grid { grid-template-columns: 1fr; }
+}

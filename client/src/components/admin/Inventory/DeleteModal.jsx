@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { authenticatedFetch } from "../../../lib/api";
 import { useFeedback } from "../../common/feedbackContext";
+import "../../../styles/deleteModal.css";
 
 export default function DeleteModal({
     open,

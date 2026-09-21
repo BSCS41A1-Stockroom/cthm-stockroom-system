@@ -663,6 +663,9 @@
     min-width: 0;
 }
 
+.topbar-title-main,.topbar-title-sub{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topbar-right{min-width:0;flex-shrink:0}
+
 
 /* =========================================================
    BURGER

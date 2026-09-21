@@ -1,0 +1,29 @@
+:is(.student-requests-page, .admin-requests-page) .receipt-overlay.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, .58);
+  overflow-y: auto;
+}
+
+.receipt-overlay .receipt-dialog {
+  width: min(900px, 100%);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+}
+
+.receipt-overlay .official-receipt dd,
+.receipt-overlay .receipt-brand,
+.receipt-overlay .official-receipt td { overflow-wrap: anywhere; }
+
+@media (max-width: 650px) {
+  :is(.student-requests-page, .admin-requests-page) .receipt-overlay.modal-overlay {
+    align-items: center;
+    padding: 12px;
+  }
+  .receipt-overlay .receipt-dialog { max-height: calc(100dvh - 24px); }
+}
