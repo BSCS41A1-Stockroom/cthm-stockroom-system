@@ -240,8 +240,24 @@ export default function ScanQr() {
   async function submitReturn(event) {
   event.preventDefault();
 
-  if (!returnRequest || !returnForm || scanLock.current) return;
+  console.log("[QR RETURN] BUTTON SUBMIT REACHED");
 
+  console.log("[QR RETURN] STATE:", {
+    returnRequest,
+    returnForm,
+    scanLocked: scanLock.current,
+    busy,
+  });
+
+  if (!returnRequest || !returnForm || scanLock.current) {
+    console.log("[QR RETURN] STOPPED BEFORE API CALL:", {
+      hasReturnRequest: !!returnRequest,
+      hasReturnForm: !!returnForm,
+      scanLocked: scanLock.current,
+    });
+    setMessage("Return submission was blocked before sending the request.");
+    return;
+  }
   /*
    * Validate normal / bulk items.
    */
@@ -633,7 +649,14 @@ export default function ScanQr() {
           </label>
         </section>)}
         <label>Return remarks<textarea rows="3" maxLength="1000" value={returnForm.remarks} onChange={(event) => setReturnForm({ ...returnForm, remarks: event.target.value })} /></label>
-        <button className="release-button" type="submit" disabled={busy}>{busy ? "Recording return..." : "Record Return"}</button>
+        <button
+  className="release-button"
+  type="submit"
+  disabled={busy}
+  onClick={() => console.log("[QR RETURN] Record Return CLICKED")}
+>
+  {busy ? "Recording return..." : "Record Return"}
+</button>
       </form>}
     </section></div>}
   </div>;
