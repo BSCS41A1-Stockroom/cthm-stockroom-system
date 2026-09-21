@@ -70,7 +70,7 @@ router.patch(
 
 router.post(
   "/:id/returns",
-  requireRoles("staff"),
+  requireRoles("staff", "admin"),
   processBorrowingReturn
 );
 
