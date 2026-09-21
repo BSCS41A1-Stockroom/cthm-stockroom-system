@@ -11,6 +11,7 @@ const {
   validateBorrowRequest,
   updateBorrowRequestStatus,
   processBorrowingReturn,
+  cancelBorrowRequest,
 } = require("../controllers/borrowController");
 
 const router = express.Router();
@@ -71,6 +72,12 @@ router.post(
   "/:id/returns",
   requireRoles("staff"),
   processBorrowingReturn
+);
+
+router.post(
+  "/:id/cancel",
+  requireRoles("student", "staff", "admin"),
+  cancelBorrowRequest
 );
 
 

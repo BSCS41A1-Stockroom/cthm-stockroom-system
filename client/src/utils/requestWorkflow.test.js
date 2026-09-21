@@ -8,6 +8,8 @@ test("classifies every borrowing workflow stage consistently", () => {
   assert.equal(stageLabel({ status: "Validated", custodianVerifiedAt: "2026-09-20" }), "Waiting for Custodian Head");
   assert.equal(stageLabel({ status: "Approved" }), "Ready for Claim");
   assert.equal(requestStage({ status: "Returned" }), "returned");
+  assert.equal(stageLabel({ status: "Withdrawn" }), "Withdrawn");
+  assert.equal(stageLabel({ status: "Cancelled" }), "Cancelled");
 });
 
 test("places requests only in the corresponding role queue", () => {
@@ -21,4 +23,6 @@ test("places requests only in the corresponding role queue", () => {
   assert.equal(isInRoleQueue(headRequest, "admin"), true);
   assert.equal(isInRoleQueue(headRequest, "staff"), false);
   assert.equal(isInRoleQueue({ status: "Approved" }, "staff"), true);
+  assert.equal(isInRoleQueue({ status: "Withdrawn" }, "staff"), false);
+  assert.equal(isInRoleQueue({ status: "Cancelled" }, "admin"), false);
 });

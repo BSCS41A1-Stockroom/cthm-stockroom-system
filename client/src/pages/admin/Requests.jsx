@@ -46,6 +46,10 @@ export default function Requests() {
   const [custodianConfirmed, setCustodianConfirmed] = useState(false);
   const [custodianBusy, setCustodianBusy] = useState(false);
   const [documentBusyId, setDocumentBusyId] = useState(null);
+  const [cancelRequest, setCancelRequest] = useState(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelError, setCancelError] = useState("");
   const loadSequence = useRef(0);
   const ITEMS_PER_PAGE = 8;
 
@@ -93,6 +97,9 @@ export default function Requests() {
           returnedBy: request.returnedBy,
           returnedAt: request.returnedAt,
           documentState: request.documentState,
+          cancellationReason: request.cancellationReason,
+          cancelledAt: request.cancelledAt,
+          cancelledBy: request.cancelledBy,
         };
       });
       if (sequence === loadSequence.current) setRequests(nextRequests);
@@ -243,6 +250,23 @@ export default function Requests() {
     finally { setCustodianBusy(false); }
   };
 
+  const submitCancellation = async (event) => {
+    event.preventDefault();
+    if (!cancelRequest || cancelReason.trim().length < 5 || cancelBusy) return;
+    setCancelBusy(true); setCancelError("");
+    try {
+      const response = await authenticatedFetch(`/api/borrowings/${cancelRequest.databaseId}/cancel`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: cancelReason.trim() }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.message || "Unable to cancel this request.");
+      setCancelRequest(null); setCancelReason(""); setSelected(null);
+      await loadRequests();
+    } catch (error) { setCancelError(error.message); }
+    finally { setCancelBusy(false); }
+  };
+
   const downloadBorrowerForm = async (request) => {
     setDocumentBusyId(request.databaseId); setLoadError("");
     try {
@@ -304,6 +328,8 @@ export default function Requests() {
               <option>Borrowed</option>
               <option>Rejected</option>
               <option>Expired</option>
+              <option>Withdrawn</option>
+              <option>Cancelled</option>
               <option>Returned</option>
           </select>
 
@@ -514,6 +540,7 @@ export default function Requests() {
               <p><strong>Return:</strong> {selected.returnDate}</p>
 
               <p><strong>Purpose:</strong> {selected.purpose}</p>
+              {selected.cancelledAt && <p><strong>{selected.status === "Withdrawn" ? "Withdrawn" : "Cancelled"}:</strong> {selected.cancellationReason} · {selected.cancelledBy || "Former user"} · {new Date(selected.cancelledAt).toLocaleString()}</p>}
 
               <p><strong>Custodian verification:</strong> {selected.custodianVerifiedBy || "Pending"}</p>
 
@@ -533,6 +560,8 @@ export default function Requests() {
 
               <button type="button" className="modal-secondary-btn" onClick={() => setSelected(null)}>Close</button>
 
+              {["Pending", "Validated"].includes(selected.status) && ["staff", "admin"].includes(profile?.role) && <button type="button" className="modal-danger-btn" onClick={() => { setCancelRequest(selected); setCancelReason(""); setCancelError(""); }}>Cancel Request</button>}
+
               {selected.authorizationStatus === "authorized" && <button type="button" className="modal-receipt-btn" disabled={documentBusyId === selected.databaseId} onClick={() => downloadBorrowerForm(selected)}><FaDownload /> {documentBusyId === selected.databaseId ? "Preparing..." : "Download Form"}</button>}
 
               {["Borrowed", "Returned"].includes(selected.status) && <button type="button" className="modal-receipt-btn" onClick={() => setReceiptRequestId(selected.databaseId)}><FaReceipt /> View Receipts</button>}
@@ -546,6 +575,16 @@ export default function Requests() {
       )}
 
       {receiptRequestId && <ReceiptModal requestId={receiptRequestId} onClose={() => setReceiptRequestId(null)} />}
+
+      {cancelRequest && <div className="modal-overlay" onClick={() => !cancelBusy && setCancelRequest(null)}>
+        <form className="request-modal cancellation-modal" role="dialog" aria-modal="true" aria-labelledby="cancel-request-title" onSubmit={submitCancellation} onClick={(event) => event.stopPropagation()}>
+          <h2 id="cancel-request-title">Cancel {cancelRequest.id}?</h2>
+          <p>This releases the reserved inventory and ends the approval process. The record stays in request history for auditing.</p>
+          {cancelError && <p className="form-error">{cancelError}</p>}
+          <label>Cancellation reason <span className="required-note">Required, at least 5 characters</span><textarea required minLength="5" maxLength="500" rows="4" value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} placeholder="Explain why this request is being cancelled" /></label>
+          <div className="modal-actions"><button type="button" disabled={cancelBusy} onClick={() => setCancelRequest(null)}>Keep Request</button><button type="submit" className="modal-danger-btn" disabled={cancelBusy || cancelReason.trim().length < 5}>{cancelBusy ? "Cancelling..." : "Cancel Request"}</button></div>
+        </form>
+      </div>}
 
       {custodianAction && (
         <div className="modal-overlay" onClick={() => !custodianBusy && setCustodianAction(null)}>

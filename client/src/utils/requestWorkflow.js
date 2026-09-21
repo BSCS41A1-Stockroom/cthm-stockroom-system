@@ -7,6 +7,8 @@ export const REQUEST_STAGES = Object.freeze({
   RETURNED: "returned",
   REJECTED: "rejected",
   EXPIRED: "expired",
+  WITHDRAWN: "withdrawn",
+  CANCELLED: "cancelled",
 });
 
 export function requestStage(request = {}) {
@@ -22,6 +24,8 @@ export function requestStage(request = {}) {
   if (status === "returned") return REQUEST_STAGES.RETURNED;
   if (status === "rejected") return REQUEST_STAGES.REJECTED;
   if (status === "expired") return REQUEST_STAGES.EXPIRED;
+  if (status === "withdrawn") return REQUEST_STAGES.WITHDRAWN;
+  if (status === "cancelled") return REQUEST_STAGES.CANCELLED;
   return status || "unknown";
 }
 
@@ -35,6 +39,8 @@ export function stageLabel(request) {
     [REQUEST_STAGES.RETURNED]: "Returned",
     [REQUEST_STAGES.REJECTED]: "Rejected",
     [REQUEST_STAGES.EXPIRED]: "Expired",
+    [REQUEST_STAGES.WITHDRAWN]: "Withdrawn",
+    [REQUEST_STAGES.CANCELLED]: "Cancelled",
   })[requestStage(request)] || "Unknown";
 }
 

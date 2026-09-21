@@ -1438,3 +1438,23 @@
     font-size: 12px;
     line-height: 1.55;
 }
+
+.modal-danger-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 15px;
+    border: 1px solid #A85A58;
+    border-radius: 8px;
+    background: #A85A58;
+    color: #FFFFFF;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+}
+
+.modal-danger-btn:disabled { cursor: not-allowed; opacity: .6; }
+.cancellation-modal { max-width: 540px; }
+.cancellation-modal > label { display: grid; gap: 7px; margin-top: 18px; font-weight: 700; }
+.cancellation-modal textarea { resize: vertical; min-height: 100px; border: 1px solid var(--requests-border); border-radius: 8px; padding: 11px; font: inherit; }
+.required-note { color: var(--requests-muted); font-size: 12px; font-weight: 500; }

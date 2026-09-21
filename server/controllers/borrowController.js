@@ -15,7 +15,7 @@ const {
   detectBorrowingConflicts,
 } = require("../algorithms/conflictDetection");
 const { writeAuditLog } = require("../utils/auditLog");
-const { notifyRoles, notifyUser } = require("../utils/notifications");
+const { notifyDepartmentRole, notifyRoles, notifyUser } = require("../utils/notifications");
 const { loadInventoryCommitment, usableInventoryQuantity } = require("../utils/inventoryCommitments");
 const { parseAssetQr, verifyClaimTicket } = require("../utils/qrCredential");
 const { processExpiredRequests } = require("./overdueController");
@@ -110,7 +110,8 @@ function serializeBorrowRequest(request) {
   const items = Array.isArray(request.items) ? request.items : [];
   const returnedUnits = items.reduce((sum, item) => sum + Number(item.accountedQuantity ?? 0), 0);
   const status = String(request.status ?? "").toLowerCase();
-  const documentState = status === "returned" ? "finalized"
+  const documentState = ["withdrawn", "cancelled", "rejected", "expired"].includes(status) ? "closed"
+    : status === "returned" ? "finalized"
     : status === "borrowed" && returnedUnits > 0 ? "partially_returned"
       : status === "borrowed" ? "released"
         : status === "approved" ? "approved" : "authorization_in_progress";
@@ -133,7 +134,7 @@ function serializeBorrowRequest(request) {
     actualReturnedAt: request.actual_returned_at ?? null,
     overdue: Boolean(request.overdue),
     authorizationStatus: request.authorization_status ?? null,
-    authorizationToken: request.authorization_token ?? null,
+    authorizationToken: ["withdrawn", "cancelled"].includes(status) ? null : request.authorization_token ?? null,
     authorizedBy: request.professor_name ?? null,
     authorizedAt: request.authorized_at ?? null,
     custodianVerifiedBy: request.custodian_verified_name ?? null,
@@ -145,6 +146,10 @@ function serializeBorrowRequest(request) {
     returnedBy: request.returned_name ?? null,
     returnedAt: request.returned_at ?? null,
     documentState,
+    cancellationType: request.cancellation_type ?? null,
+    cancellationReason: request.cancellation_reason ?? null,
+    cancelledAt: request.cancelled_at ?? null,
+    cancelledBy: request.cancelled_by_name ?? null,
     items,
   };
 }
@@ -730,6 +735,8 @@ async function listBorrowRequests(req, res, next) {
     const result = await pool.query(
       `SELECT br.id, br.student_name, br.student_id, br.borrow_date,
               br.return_date, br.actual_returned_at, br.purpose, br.status, br.created_at,
+              br.cancelled_by,br.cancelled_at,br.cancellation_reason,br.cancellation_type,
+              canceller.full_name AS cancelled_by_name,
               br.department_id,department.name AS department_name,department.code AS department_code,
               br.section_id,section.name AS section_name,br.assigned_professor_user_id,
               professor.full_name AS assigned_professor_name,
@@ -774,6 +781,7 @@ async function listBorrowRequests(req, res, next) {
          LEFT JOIN public.academic_departments department ON department.id=br.department_id
          LEFT JOIN public.academic_sections section ON section.id=br.section_id
          LEFT JOIN public.profiles professor ON professor.user_id=br.assigned_professor_user_id
+         LEFT JOIN public.profiles canceller ON canceller.user_id=br.cancelled_by
          LEFT JOIN (
            SELECT request_id, inventory_id,
                   SUM(good_quantity)::integer AS good_quantity,
@@ -785,7 +793,7 @@ async function listBorrowRequests(req, res, next) {
         WHERE ($1::boolean = false OR br.user_id = $2::uuid)
           AND ($3::boolean = false OR br.assigned_professor_user_id = $2::uuid)
           AND ($4::boolean = false OR br.department_id = $5::bigint)
-        GROUP BY br.id,department.id,section.id,professor.user_id
+        GROUP BY br.id,department.id,section.id,professor.user_id,canceller.user_id
         ORDER BY br.created_at DESC, br.id DESC`,
       [studentOnly, req.user.id, req.user.role === "professor", ["staff", "department_head"].includes(req.user.role), req.user.department_id]
     );
@@ -793,6 +801,90 @@ async function listBorrowRequests(req, res, next) {
     return res.json({ requests: result.rows.map(serializeBorrowRequest) });
   } catch (error) {
     return next(error);
+  }
+}
+
+async function cancelBorrowRequest(req, res, next) {
+  const requestId = req.params.id;
+  const withdrawal = req.user.role === "student";
+  const reasonInput = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  if (!/^[1-9]\d*$/.test(String(requestId ?? ""))) {
+    return res.status(400).json({ error: "INVALID_REQUEST_ID", message: "Borrowing request ID is invalid." });
+  }
+  if (!withdrawal && (reasonInput.length < 5 || reasonInput.length > 500)) {
+    return res.status(422).json({ error: "CANCELLATION_REASON_REQUIRED", message: "Provide a cancellation reason between 5 and 500 characters." });
+  }
+  if (withdrawal && reasonInput.length > 500) {
+    return res.status(422).json({ error: "INVALID_WITHDRAWAL_REASON", message: "The withdrawal reason cannot exceed 500 characters." });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const found = await client.query("SELECT * FROM public.borrow_requests WHERE id=$1 FOR UPDATE", [requestId]);
+    if (!found.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "REQUEST_NOT_FOUND", message: "Borrowing request was not found." });
+    }
+    const request = found.rows[0];
+    if (withdrawal && String(request.user_id) !== String(req.user.id)) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "REQUEST_NOT_FOUND", message: "Borrowing request was not found." });
+    }
+    if (req.user.role === "staff" && String(request.department_id) !== String(req.user.department_id)) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "REQUEST_NOT_FOUND", message: "Borrowing request was not found in your department." });
+    }
+    if (!["Pending", "Validated"].includes(request.status)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "REQUEST_NOT_CANCELLABLE", message: "Only pending or validated requests can be withdrawn or cancelled." });
+    }
+    const items = await client.query(
+      "SELECT inventory_id,quantity FROM public.borrow_request_items WHERE request_id=$1 ORDER BY inventory_id FOR UPDATE",
+      [requestId]
+    );
+    for (const item of items.rows) {
+      const released = await client.query(
+        `UPDATE public.inventory SET reserved_quantity=reserved_quantity-$1,updated_at=now()
+          WHERE id=$2 AND reserved_quantity >= $1 RETURNING id`,
+        [Number(item.quantity), item.inventory_id]
+      );
+      if (!released.rowCount) throw new Error(`Inventory counters are inconsistent for item '${item.inventory_id}'.`);
+    }
+    const nextStatus = withdrawal ? "Withdrawn" : "Cancelled";
+    const reason = reasonInput || "Withdrawn by student.";
+    const updated = await client.query(
+      `UPDATE public.borrow_requests SET status=$1,cancelled_by=$2,cancelled_at=now(),
+         cancellation_reason=$3,cancellation_type=$4,updated_at=now() WHERE id=$5 RETURNING *`,
+      [nextStatus, req.user.id, reason, withdrawal ? "withdrawn" : "cancelled", requestId]
+    );
+    await client.query(
+      `UPDATE public.borrow_request_authorizations SET status='rejected',rejected_at=coalesce(rejected_at,now()),
+         rejection_reason=$2,updated_at=now() WHERE request_id=$1`,
+      [requestId, reason]
+    );
+    await client.query("DELETE FROM public.calendar_events WHERE borrow_request_id=$1", [requestId]);
+    await writeAuditLog(client, req.user, {
+      action: withdrawal ? "borrowing_withdrawn" : "borrowing_cancelled",
+      entityType: "borrowing_request", entityId: requestId,
+      oldValues: { status: request.status }, newValues: { status: nextStatus, reason },
+      metadata: { previousStage: request.status, cancellationType: withdrawal ? "withdrawn" : "cancelled" },
+    });
+    const notice = { type: `borrowing_${nextStatus.toLowerCase()}`, title: `Borrowing request ${nextStatus.toLowerCase()}`,
+      message: `BR-${String(requestId).padStart(3, "0")} was ${nextStatus.toLowerCase()}. Reason: ${reason}`,
+      relatedPath: withdrawal ? "/my-requests" : "/requests", entityType: "borrowing_request", entityId: requestId };
+    if (!withdrawal) await notifyUser(client, request.user_id, { ...notice, relatedPath: "/my-requests" });
+    if (request.status === "Pending") await notifyUser(client, request.assigned_professor_user_id, notice);
+    if (request.status === "Validated") {
+      await notifyDepartmentRole(client, request.department_id, "staff", notice);
+      await notifyRoles(client, ["admin"], notice);
+    }
+    await client.query("COMMIT");
+    return res.json({ request: updated.rows[0] });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    return next(error);
+  } finally {
+    client.release();
   }
 }
 
@@ -1414,6 +1506,7 @@ async function updateBorrowRequestStatus(req, res, next) {
 
 module.exports = {
   authenticatedStudentRequest,
+  cancelBorrowRequest,
   createBorrowRequest,
   getAssignmentOptions,
   getBorrowingPolicy,

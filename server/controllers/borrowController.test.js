@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const pool = require("../config/db");
 const {
   authenticatedStudentRequest,
+  cancelBorrowRequest,
   getBorrowingPolicy,
   inventoryDeltas,
   loadValidationContext,
@@ -116,6 +117,51 @@ test("department staff cannot update another department's request", async () => 
   finally { pool.connect = originalConnect; }
   assert.equal(response.statusCode, 404);
   assert.equal(response.body.error, "REQUEST_NOT_FOUND");
+});
+
+test("student withdrawal atomically releases reservations, invalidates review, and records audit", async () => {
+  const calls = [];
+  const client = { async query(sql, params) {
+    calls.push({ sql, params });
+    if (sql.includes("SELECT * FROM public.borrow_requests")) return { rowCount: 1, rows: [{ id: 21, status: "Pending", user_id: "student", assigned_professor_user_id: "professor", department_id: 2 }] };
+    if (sql.includes("SELECT inventory_id,quantity")) return { rowCount: 1, rows: [{ inventory_id: 7, quantity: 2 }] };
+    if (sql.includes("UPDATE public.borrow_requests SET status")) return { rowCount: 1, rows: [{ id: 21, status: "Withdrawn" }] };
+    return { rowCount: 1, rows: [] };
+  }, release() {} };
+  const original = pool.connect; pool.connect = async () => client;
+  const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(value) { this.body = value; return this; } };
+  try { await cancelBorrowRequest({ params: { id: "21" }, body: {}, user: { id: "student", role: "student" } }, res, (error) => { throw error; }); }
+  finally { pool.connect = original; }
+  assert.equal(res.body.request.status, "Withdrawn");
+  assert.deepEqual(calls.find(({ sql }) => sql.includes("reserved_quantity=reserved_quantity-$1")).params, [2, 7]);
+  assert.ok(calls.some(({ sql }) => sql.includes("borrow_request_authorizations SET status='rejected'")));
+  assert.ok(calls.some(({ sql, params }) => sql.includes("INSERT INTO public.audit_logs") && params.includes("borrowing_withdrawn")));
+  assert.equal(calls.at(-1).sql, "COMMIT");
+});
+
+test("withdrawal refuses another student's request and terminal requests without changing inventory", async () => {
+  for (const row of [{ status: "Pending", user_id: "other" }, { status: "Approved", user_id: "student" }]) {
+    const calls = [];
+    const client = { async query(sql) { calls.push(sql); if (sql.includes("SELECT * FROM public.borrow_requests")) return { rowCount: 1, rows: [row] }; return { rowCount: 1, rows: [] }; }, release() {} };
+    const original = pool.connect; pool.connect = async () => client;
+    const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(value) { this.body = value; return this; } };
+    try { await cancelBorrowRequest({ params: { id: "21" }, body: {}, user: { id: "student", role: "student" } }, res, (error) => { throw error; }); }
+    finally { pool.connect = original; }
+    assert.equal(res.statusCode, row.user_id === "other" ? 404 : 409);
+    assert.equal(calls.at(-1), "ROLLBACK");
+    assert.equal(calls.some((sql) => sql.includes("UPDATE public.inventory")), false);
+  }
+});
+
+test("staff cancellation requires a reason and is limited to their department", async () => {
+  const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(value) { this.body = value; return this; } };
+  await cancelBorrowRequest({ params: { id: "21" }, body: { reason: "bad" }, user: { role: "staff" } }, res);
+  assert.equal(res.statusCode, 422);
+  const client = { async query(sql) { if (sql.includes("SELECT * FROM public.borrow_requests")) return { rowCount: 1, rows: [{ status: "Validated", department_id: 3 }] }; return { rowCount: 1, rows: [] }; }, release() {} };
+  const original = pool.connect; pool.connect = async () => client;
+  try { await cancelBorrowRequest({ params: { id: "21" }, body: { reason: "Wrong request" }, user: { id: "staff", role: "staff", department_id: 2 } }, res, (error) => { throw error; }); }
+  finally { pool.connect = original; }
+  assert.equal(res.statusCode, 404);
 });
 
 test("processes a complete return and updates inventory condition counters atomically", async () => {
@@ -357,6 +403,10 @@ test("serializes database borrowing rows for the student request page", () => {
     returnedBy: null,
     returnedAt: null,
     documentState: "released",
+    cancellationType: null,
+    cancellationReason: null,
+    cancelledAt: null,
+    cancelledBy: null,
     items: [{ name: "Pan", quantity: 2 }],
   });
 });

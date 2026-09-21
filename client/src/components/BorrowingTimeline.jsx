@@ -6,6 +6,7 @@ const DOCUMENT_LABELS = {
   released: "Released",
   partially_returned: "Partially Returned",
   finalized: "Finalized",
+  closed: "Closed",
 };
 
 function displayTime(value) {
@@ -27,7 +28,7 @@ export default function BorrowingTimeline({ request }) {
     { label: partialReturn ? "Items Partially Returned" : "Items Returned", actor: request.returnedBy, at: request.returnedAt || request.actualReturnedAt, done: status === "returned", partial: partialReturn },
   ];
   const firstPending = steps.findIndex((step) => !step.done && !step.partial);
-  const terminal = ["rejected", "expired"].includes(status);
+  const terminal = ["rejected", "expired", "withdrawn", "cancelled"].includes(status);
   const summary = terminal
     ? `This request is ${status}.`
     : request.overdue

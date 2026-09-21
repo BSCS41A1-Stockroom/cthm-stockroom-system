@@ -1226,3 +1226,22 @@
     transition: none;
   }
 }
+
+.detail-danger-btn {
+  border: 1px solid var(--requests-danger);
+  border-radius: 8px;
+  background: var(--requests-danger);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 10px 15px;
+}
+
+.detail-danger-btn:hover:not(:disabled) { filter: brightness(.94); }
+.detail-danger-btn:disabled { cursor: not-allowed; opacity: .6; }
+.withdrawal-dialog { max-width: 520px; }
+.withdrawal-content { padding: 4px 24px 22px; color: var(--requests-muted); line-height: 1.6; }
+.withdrawal-content label { display: grid; gap: 7px; margin-top: 18px; color: var(--requests-navy); font-weight: 700; }
+.withdrawal-content label span { color: var(--requests-muted); font-size: 12px; font-weight: 500; }
+.withdrawal-content textarea { resize: vertical; min-height: 90px; border: 1px solid var(--requests-border); border-radius: 8px; padding: 11px; font: inherit; }
