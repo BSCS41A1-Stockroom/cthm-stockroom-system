@@ -4444,3 +4444,4 @@
         padding: 15px !important;
     }
 }
+.borrower-consent-field{display:flex;align-items:flex-start;gap:10px;margin:0 0 14px;padding:14px 16px;border:1px solid #dce2e8;border-radius:12px;background:#f8fafc;color:#445164;font-size:13px;line-height:1.5}.borrower-consent-field input{flex:0 0 auto;width:17px;height:17px;margin-top:2px;accent-color:#17263c}.borrower-consent-field span{font-weight:600}

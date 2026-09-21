@@ -539,6 +539,21 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
 
   try {
     await client.query("BEGIN");
+    let borrowerSignature = null;
+    if (persist && validationOptions.requireStudentSignature) {
+      if (validationOptions.studentConsent !== true) {
+        await client.query("ROLLBACK");
+        return { request, validation: { valid:false,status:"Rejected",reasons:[{ code:"BORROWER_CONSENT_REQUIRED",message:"Confirm that the borrowing information is correct and consent to applying your saved signature." }],assignment:null,checkedConstraints:[],conflicts:[] } };
+      }
+      const signatureResult = await client.query(`SELECT signature.image_data,signature.mime_type,signature.image_hash,profile.full_name
+        FROM public.student_signatures signature JOIN public.profiles profile ON profile.user_id=signature.student_user_id
+        WHERE signature.student_user_id=$1 AND profile.role='student' AND profile.is_active=true FOR UPDATE OF signature`,[validationOptions.userId]);
+      borrowerSignature = signatureResult.rows[0] ?? null;
+      if (!borrowerSignature) {
+        await client.query("ROLLBACK");
+        return { request, validation: { valid:false,status:"Rejected",reasons:[{ code:"BORROWER_SIGNATURE_REQUIRED",message:"Set up your borrower signature in Profile & Security before submitting a request." }],assignment:null,checkedConstraints:[],conflicts:[] } };
+      }
+    }
     if (validationOptions.requireAcademicAssignment) {
       const assignmentError = await validateAcademicAssignment(client, request);
       if (assignmentError) {
@@ -634,6 +649,12 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
       ]
     );
     const savedRequest = requestResult.rows[0];
+    if (borrowerSignature) {
+      await client.query(`INSERT INTO public.borrow_request_student_signatures
+        (request_id,student_user_id,student_name,signature_image,signature_mime_type,signature_hash,consented_at)
+        VALUES ($1,$2,$3,$4,$5,$6,now())`,[savedRequest.id,validationOptions.userId,borrowerSignature.full_name,
+        borrowerSignature.image_data,borrowerSignature.mime_type,borrowerSignature.image_hash]);
+    }
     const authorizationResult = await client.query(
       `INSERT INTO public.borrow_request_authorizations (request_id) VALUES ($1) RETURNING review_token`,
       [savedRequest.id]
@@ -1059,7 +1080,8 @@ async function createBorrowRequest(req, res, next) {
       authenticatedStudentRequest(req.body, req.user),
       true,
       pool,
-      { userId: req.user.id, actor: req.user, requireAcademicAssignment: true }
+      { userId: req.user.id, actor: req.user, requireAcademicAssignment: true,
+        requireStudentSignature: true, studentConsent: req.body?.borrowerConsent === true }
     );
     return res.status(result.validation.valid ? 201 : 422).json(result);
   } catch (error) {

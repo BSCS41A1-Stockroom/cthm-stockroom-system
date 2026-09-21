@@ -7,7 +7,6 @@ import {
     FaCalendarAlt,
     FaClipboardList,
     FaQrcode,
-    FaSignature,
     FaShieldAlt,
     FaTimes,
 } from "react-icons/fa";
@@ -35,11 +34,6 @@ const STUDENT_NAV = [
         icon: FaClipboardList,
     },
     {
-        to: "/my-qr",
-        label: "My QR",
-        icon: FaQrcode,
-    },
-    {
         to: "/my-accountability",
         label: "Accountability",
         icon: FaShieldAlt,
@@ -52,11 +46,6 @@ const PROFESSOR_NAV = [
         label: "Dashboard",
         icon: FaHome,
         end: true,
-    },
-    {
-        to: "/professor/signature",
-        label: "Signature Settings",
-        icon: FaSignature,
     },
     {
         to: "/professor/qr",

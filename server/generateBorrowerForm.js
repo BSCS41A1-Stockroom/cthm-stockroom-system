@@ -2,7 +2,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const JSZip = require("jszip");
+const PizZip = require("pizzip");
 
 const TEMPLATE_PATH = path.join(
   __dirname,
@@ -312,18 +312,15 @@ function fillExistingItemRows(bodyXml, items) {
   });
 }
 
-async function generateBorrowerForm(data = {}) {
+function generateBorrowerForm(data = {}) {
   if (!fs.existsSync(TEMPLATE_PATH)) {
     throw new Error(
       `Borrower's Form template not found: ${TEMPLATE_PATH}`
     );
   }
 
-  const templateBuffer = await fs.promises.readFile(
-    TEMPLATE_PATH
-  );
-
-  const zip = await JSZip.loadAsync(templateBuffer);
+  const templateBuffer = fs.readFileSync(TEMPLATE_PATH);
+  const zip = new PizZip(templateBuffer);
 
   const documentFile = zip.file("word/document.xml");
 
@@ -335,7 +332,7 @@ async function generateBorrowerForm(data = {}) {
 
   // IMPORTANT: Only document.xml is edited.
   // Header/footer/media/styles/relationships remain byte-for-byte untouched.
-  let documentXml = await documentFile.async("string");
+  let documentXml = documentFile.asText();
 
   const bodyStart = documentXml.indexOf("<w:body");
   const bodyOpenEnd = documentXml.indexOf(">", bodyStart);
@@ -407,6 +404,8 @@ async function generateBorrowerForm(data = {}) {
     items
   );
 
+  documentXml = beforeBody + updatedBody + afterBody;
+
   if (data.professorSignature && data.professorName) {
     documentXml = fillProfessorAuthorization(documentXml, zip, data);
   }
@@ -422,6 +421,27 @@ async function generateBorrowerForm(data = {}) {
       kind: "approved", name: data.approvedName, signedAt: data.approvedAt,
       signature: data.approvedSignature, mimeType: data.approvedSignatureMime,
       caption: /Custodian Department Head/i, documentId: 9003,
+    });
+  }
+  if (data.borrowerSignature && data.borrowerName) {
+    documentXml = fillCustodianAuthorization(documentXml, zip, {
+      kind: "borrower", name: data.borrowerName, signedAt: data.borrowerConsentedAt,
+      signature: data.borrowerSignature, mimeType: data.borrowerSignatureMime,
+      caption: /Borrowers Signature Over Printed Name/i, documentId: 9004,
+    });
+  }
+  if (data.releasedSignature && data.releasedName) {
+    documentXml = fillCustodianAuthorization(documentXml, zip, {
+      kind: "released", name: data.releasedName, signedAt: data.releasedAt,
+      signature: data.releasedSignature, mimeType: data.releasedSignatureMime,
+      caption: /Custodian Signature Over Printed Name/i, rowOccurrence: 1, cellOccurrence: 0, documentId: 9005,
+    });
+  }
+  if (data.returnedSignature && data.returnedName) {
+    documentXml = fillCustodianAuthorization(documentXml, zip, {
+      kind: "returned", name: data.returnedName, signedAt: data.returnedAt,
+      signature: data.returnedSignature, mimeType: data.returnedSignatureMime,
+      caption: /Custodian Signature Over Printed Name/i, rowOccurrence: 1, cellOccurrence: 1, documentId: 9006,
     });
   }
 
@@ -525,6 +545,26 @@ function replacePlaceholder(
     return documentXml;
   }
 
+  return documentXml;
+}
+
+function fillProfessorAuthorization(documentXml, zip, data) {
+  const relationshipId = "rIdProfessorAuthorizationSignature";
+  const extension = data.professorSignatureMime === "image/jpeg" ? "jpg" : "png";
+  const mediaName = `professor-authorization-signature.${extension}`;
+  zip.file(`word/media/${mediaName}`, data.professorSignature);
+  const relationshipsPath = "word/_rels/document.xml.rels";
+  const relationships = zip.file(relationshipsPath)?.asText();
+  if (!relationships) throw new Error("DOCX relationships file is missing.");
+  zip.file(relationshipsPath, relationships.replace("</Relationships>",
+    `<Relationship Id="${relationshipId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${mediaName}"/></Relationships>`));
+  const contentTypesPath = "[Content_Types].xml";
+  let contentTypes = zip.file(contentTypesPath)?.asText();
+  if (!contentTypes) throw new Error("DOCX content types file is missing.");
+  if (!new RegExp(`Extension="${extension}"`, "i").test(contentTypes)) {
+    contentTypes = contentTypes.replace("</Types>", `<Default Extension="${extension}" ContentType="${extension === "jpg" ? "image/jpeg" : "image/png"}"/></Types>`);
+    zip.file(contentTypesPath, contentTypes);
+  }
   const signedLine = `${data.professorName} | ${data.authorizedAt || ""}`;
   const drawing = `<w:p><w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="1428750" cy="476250"/><wp:docPr id="9001" name="Professor Signature"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="0" name="Professor Signature"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relationshipId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1428750" cy="476250"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p><w:p><w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr><w:t>${escapeXml(signedLine)}</w:t></w:r></w:p>`;
 
@@ -563,10 +603,12 @@ function fillCustodianAuthorization(documentXml, zip, authorization) {
   const signedLine = `${authorization.name} | ${authorization.signedAt || ""}`;
   const drawing = `<w:p><w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="1428750" cy="476250"/><wp:docPr id="${authorization.documentId}" name="Custodian ${authorization.kind} Signature"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="0" name="Custodian Signature"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relationshipId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1428750" cy="476250"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p><w:p><w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr><w:t>${escapeXml(signedLine)}</w:t></w:r></w:p>`;
   const rows = documentXml.match(/<w:tr(?:\s[^>]*)?>[\s\S]*?<\/w:tr>/g) || [];
-  const captionIndex = rows.findIndex((row) => authorization.caption.test(extractText(row)));
+  const matches = rows.map((row,index) => authorization.caption.test(extractText(row)) ? index : -1).filter((index) => index >= 0);
+  const captionIndex = matches[authorization.rowOccurrence ?? 0] ?? -1;
   if (captionIndex < 1) return documentXml;
   const captionCells = rows[captionIndex].match(/<w:tc(?:\s[^>]*)?>[\s\S]*?<\/w:tc>/g) || [];
-  const targetIndex = captionCells.findIndex((cell) => authorization.caption.test(extractText(cell)));
+  const matchingCellIndexes = captionCells.map((cell,index) => authorization.caption.test(extractText(cell)) ? index : -1).filter((index) => index >= 0);
+  const targetIndex = matchingCellIndexes[authorization.cellOccurrence ?? 0] ?? -1;
   const signatureRow = rows[captionIndex - 1];
   const signatureCells = signatureRow.match(/<w:tc(?:\s[^>]*)?>[\s\S]*?<\/w:tc>/g) || [];
   if (targetIndex < 0 || !signatureCells[targetIndex]) return documentXml;

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { createPortal } from "react-dom";
-import { FaQrcode, FaSignature } from "react-icons/fa";
+import { FaUserShield } from "react-icons/fa";
 import { useAuth } from "../../auth/useAuth";
 
 export default function ProfileMenu({ variant = "student" }) {
@@ -13,6 +13,7 @@ export default function ProfileMenu({ variant = "student" }) {
   const menuRef = useRef(null);
   const name = profile?.full_name || "Account";
   const role = profile?.role || "user";
+  const profilePath = role === "student" ? "/student/profile" : role === "professor" ? "/professor/profile" : "/admin/profile";
 
   useEffect(() => {
     if (!open && !confirmingSignOut) return undefined;
@@ -61,30 +62,10 @@ export default function ProfileMenu({ variant = "student" }) {
       {open && (
         <div className="profile-dropdown" role="menu">
           <div className="profile-dropdown-details"><strong>{name}</strong><span>{user?.email || profile?.student_id || role}</span></div>
-          {profile?.role === "student" && (
-            <Link className="profile-dropdown-link" role="menuitem" to="/my-qr" onClick={() => setOpen(false)}>
-              <FaQrcode aria-hidden="true" />
-              <span>My Account QR</span>
-            </Link>
-          )}
-          {profile?.role === "professor" && (
-            <Link className="profile-dropdown-link" role="menuitem" to="/professor/signature" onClick={() => setOpen(false)}>
-              <FaSignature aria-hidden="true" />
-              <span>Signature Settings</span>
-            </Link>
-          )}
-          {profile?.role === "staff" && (
-            <Link className="profile-dropdown-link" role="menuitem" to="/admin/signature" onClick={() => setOpen(false)}>
-              <FaSignature aria-hidden="true" />
-              <span>Custodian Signature</span>
-            </Link>
-          )}
-          {profile?.role === "department_head" && (
-            <Link className="profile-dropdown-link" role="menuitem" to="/admin/signature" onClick={() => setOpen(false)}>
-              <FaSignature aria-hidden="true" />
-              <span>Department Head Signature</span>
-            </Link>
-          )}
+          <Link className="profile-dropdown-link" role="menuitem" to={profilePath} onClick={() => setOpen(false)}>
+            <FaUserShield aria-hidden="true" />
+            <span>Profile &amp; Security</span>
+          </Link>
           <button type="button" className="profile-signout" role="menuitem" onClick={requestSignOut}>Sign out</button>
         </div>
       )}

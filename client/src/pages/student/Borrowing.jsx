@@ -57,6 +57,7 @@ export default function BorrowingInterface() {
   const [assignmentLoading, setAssignmentLoading] = useState(true);
 
   const [submitting, setSubmitting] = useState(false);
+  const [borrowerConsent, setBorrowerConsent] = useState(false);
 
   const [formError, setFormError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
@@ -342,7 +343,7 @@ export default function BorrowingInterface() {
    * ============================================================
    */
 
-  function validate() {
+  function validate(requireConsent = false) {
     if (!studentName.trim()) {
       return "Student name is required.";
     }
@@ -391,6 +392,10 @@ export default function BorrowingInterface() {
       return "Purpose is required.";
     }
 
+    if (requireConsent && !borrowerConsent) {
+      return "Confirm the borrower declaration before submitting your request.";
+    }
+
     for (const item of selectedList) {
       const { available } = inventoryTotals(item);
 
@@ -416,7 +421,7 @@ export default function BorrowingInterface() {
     setFormError("");
     setSuccessMsg("");
 
-    const validation = validate();
+    const validation = validate(true);
 
     if (validation) {
       setFormError(validation);
@@ -443,6 +448,7 @@ export default function BorrowingInterface() {
             departmentId,
             sectionId,
             assignedProfessorId,
+            borrowerConsent,
 
             items: selectedList.map((item) => ({
               inventoryId: item.id,
@@ -477,6 +483,7 @@ export default function BorrowingInterface() {
       setSectionId("");
       setAssignedProfessorId("");
       setProfessorQuery("");
+      setBorrowerConsent(false);
       setSelectedItemDetails(null);
 
       loadInventory();
@@ -568,22 +575,6 @@ export default function BorrowingInterface() {
           remarks: "",
         })),
     };
-  }
-
-  function generateControlNumber(date) {
-    const pad = (value) =>
-      String(value).padStart(2, "0");
-
-    return (
-      "BR-" +
-      date.getFullYear() +
-      pad(date.getMonth() + 1) +
-      pad(date.getDate()) +
-      "-" +
-      pad(date.getHours()) +
-      pad(date.getMinutes()) +
-      pad(date.getSeconds())
-    );
   }
 
   async function generateBorrowerFormFiles() {
@@ -1869,6 +1860,11 @@ export default function BorrowingInterface() {
 
           </div>
 
+
+          <label className="borrower-consent-field">
+            <input type="checkbox" checked={borrowerConsent} onChange={(event) => setBorrowerConsent(event.target.checked)} />
+            <span>I confirm that the request information is correct and authorize the system to apply a snapshot of my saved borrower signature to this request.</span>
+          </label>
 
           <div className="borrow-footer-actions">
 
