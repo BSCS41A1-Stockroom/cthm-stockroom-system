@@ -10,6 +10,7 @@ test("routes department staff to the shared stockroom portal", () => {
 
 test("keeps every supported role inside its own portal", () => {
   assert.equal(getRoleDestination("student"), "/");
+  assert.equal(canResumeDestination("student", "/student/profile"), true);
   assert.equal(getRoleDestination("professor"), "/professor");
   assert.equal(getRoleDestination("admin"), "/admin");
   assert.equal(getRoleDestination("department_head"), "/admin/requests");

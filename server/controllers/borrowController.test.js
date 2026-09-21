@@ -472,6 +472,28 @@ test("rolls back a duplicate before any borrowing or inventory write", async () 
   assert.equal(statements.some((sql) => /^\s*(INSERT|UPDATE)/.test(sql)), false);
 });
 
+test("requires explicit borrower consent before persisting a request", async () => {
+  const statements = [];
+  const client = { async query(sql) { statements.push(sql); return { rows: [] }; }, release() {} };
+  const result = await withValidation(policyFixture().request,true,{ async connect() { return client; } },{
+    userId:"00000000-0000-4000-8000-000000000001",requireStudentSignature:true,studentConsent:false,
+  });
+  assert.equal(result.validation.valid,false);
+  assert.equal(result.validation.reasons[0].code,"BORROWER_CONSENT_REQUIRED");
+  assert.equal(statements.at(-1),"ROLLBACK");
+});
+
+test("requires a saved student signature before persisting a request", async () => {
+  const statements = [];
+  const client = { async query(sql) { statements.push(sql); return { rows: [] }; }, release() {} };
+  const result = await withValidation(policyFixture().request,true,{ async connect() { return client; } },{
+    userId:"00000000-0000-4000-8000-000000000001",requireStudentSignature:true,studentConsent:true,
+  });
+  assert.equal(result.validation.valid,false);
+  assert.equal(result.validation.reasons[0].code,"BORROWER_SIGNATURE_REQUIRED");
+  assert.equal(statements.at(-1),"ROLLBACK");
+});
+
 test("runs all eight borrowing-policy constraints for a valid request", () => {
   const validation = validatePolicyConstraints(policyFixture());
 

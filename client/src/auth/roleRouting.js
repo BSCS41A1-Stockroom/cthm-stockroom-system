@@ -32,7 +32,7 @@ export function canResumeDestination(role, destination) {
     return destination === "/professor" || destination.startsWith("/professor/") || destination.startsWith("/authorize/");
   }
   if (normalizedRole === "student") {
-    return destination === "/" || ["/borrowing", "/calendar", "/my-requests", "/my-qr", "/my-accountability"]
+    return destination === "/" || ["/borrowing", "/calendar", "/my-requests", "/my-qr", "/my-accountability", "/student/profile"]
       .some((path) => destination === path || destination.startsWith(`${path}/`));
   }
   if (["staff", "custodian", "departmenthead", "admin", "administrator"].includes(normalizedRole)) {

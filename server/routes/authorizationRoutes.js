@@ -1,11 +1,13 @@
 "use strict";
 const express = require("express");
 const { authenticate, requireRoles } = require("../middleware/auth");
-const { approveCustodianRequest, authorizeRequest, downloadAuthorizedDocument, getAuthorizationReview, getCustodianReview, getMyCustodianSignature, getMyDepartmentHeadSignature, getMySignature, saveMyCustodianSignature, saveMyDepartmentHeadSignature, saveMySignature, verifyCustodianRequest } = require("../controllers/authorizationController");
+const { approveCustodianRequest, authorizeRequest, downloadAuthorizedDocument, getAuthorizationReview, getCustodianReview, getMyCustodianSignature, getMyDepartmentHeadSignature, getMySignature, getMyStudentSignature, saveMyCustodianSignature, saveMyDepartmentHeadSignature, saveMySignature, saveMyStudentSignature, verifyCustodianRequest } = require("../controllers/authorizationController");
 const router = express.Router();
 router.use(authenticate);
 router.get("/signature", requireRoles("professor"), getMySignature);
 router.put("/signature", requireRoles("professor"), saveMySignature);
+router.get("/student-signature", requireRoles("student"), getMyStudentSignature);
+router.put("/student-signature", requireRoles("student"), saveMyStudentSignature);
 router.get("/custodian-signature", requireRoles("staff"), getMyCustodianSignature);
 router.put("/custodian-signature", requireRoles("staff"), saveMyCustodianSignature);
 router.get("/department-head-signature", requireRoles("department_head"), getMyDepartmentHeadSignature);

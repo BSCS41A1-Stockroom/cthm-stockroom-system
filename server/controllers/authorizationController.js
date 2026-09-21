@@ -60,6 +60,32 @@ async function saveMySignature(req, res, next) {
   } catch (error) { return next(error); }
 }
 
+async function getMyStudentSignature(req, res, next) {
+  try {
+    const result = await pool.query(`SELECT image_data,mime_type,updated_at FROM public.student_signatures WHERE student_user_id=$1`, [req.user.id]);
+    const row = result.rows[0];
+    return res.json({ configured:Boolean(row),image:row ? `data:${row.mime_type};base64,${row.image_data.toString("base64")}` : null,updatedAt:row?.updated_at ?? null });
+  } catch (error) { return next(error); }
+}
+
+async function saveMyStudentSignature(req, res, next) {
+  const signature = decodeSignature(req.body?.image);
+  if (!signature) return res.status(422).json({ error:"INVALID_SIGNATURE",message:"Upload a valid PNG or JPEG signature no larger than 256 KB." });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const previous = await client.query(`SELECT image_hash,updated_at FROM public.student_signatures WHERE student_user_id=$1 FOR UPDATE`,[req.user.id]);
+    await client.query(`INSERT INTO public.student_signatures (student_user_id,image_data,mime_type,image_hash,updated_at)
+      VALUES ($1,$2,$3,$4,now()) ON CONFLICT (student_user_id) DO UPDATE SET image_data=excluded.image_data,mime_type=excluded.mime_type,image_hash=excluded.image_hash,updated_at=now()`,
+    [req.user.id,signature.data,signature.mimeType,signature.imageHash]);
+    await writeAuditLog(client,req.user,{action:previous.rowCount?"student_signature_replaced":"student_signature_created",entityType:"student_signature",entityId:req.user.id,
+      oldValues:previous.rowCount?{imageHash:previous.rows[0].image_hash,updatedAt:previous.rows[0].updated_at}:null,newValues:{imageHash:signature.imageHash}});
+    await client.query("COMMIT");
+    return res.json({configured:true,imageHash:signature.imageHash});
+  } catch (error) { await client.query("ROLLBACK"); return next(error); }
+  finally { client.release(); }
+}
+
 async function loadReview(token, userId) {
   return pool.query(`SELECT authz.review_token,authz.status AS authorization_status,authz.authorized_at,
       authz.professor_name,request.id,request.student_name,request.student_id,request.borrow_date,request.return_date,
@@ -343,7 +369,9 @@ async function downloadAuthorizedDocument(req, res, next) {
     } else if (!access.rowCount) {
       return res.status(404).json({ error: "SIGNED_DOCUMENT_NOT_FOUND", message: "The signed document is not available." });
     }
-    const result = await pool.query(`SELECT authz.*,custodian.*,released.staff_name AS released_name,released.signed_at AS released_at,
+    const result = await pool.query(`SELECT authz.*,custodian.*,borrower.student_name AS borrower_name,borrower.consented_at AS borrower_consented_at,
+        borrower.signature_image AS borrower_signature_image,borrower.signature_mime_type AS borrower_signature_mime_type,
+        released.staff_name AS released_name,released.signed_at AS released_at,
         released.signature_image AS released_signature_image,released.signature_mime_type AS released_signature_mime_type,
         returned.staff_name AS returned_name,returned.signed_at AS returned_at,returned.signature_image AS returned_signature_image,
         returned.signature_mime_type AS returned_signature_mime_type,
@@ -359,6 +387,7 @@ async function downloadAuthorizedDocument(req, res, next) {
             FROM public.borrowing_return_items returned_item WHERE returned_item.request_id=request.id AND returned_item.inventory_id=item.inventory_id),'')
           ) ORDER BY item.inventory_id),'[]'::json) AS items
       FROM public.borrow_request_authorizations AS authz JOIN public.borrow_requests request ON request.id=authz.request_id
+      LEFT JOIN public.borrow_request_student_signatures borrower ON borrower.request_id=request.id
       LEFT JOIN public.borrow_request_custodian_authorizations custodian ON custodian.request_id=request.id
       LEFT JOIN public.borrowing_transaction_signatures released ON released.request_id=request.id AND released.transaction_type='release'
       LEFT JOIN LATERAL (SELECT latest.* FROM public.borrowing_transaction_signatures latest
@@ -369,7 +398,7 @@ async function downloadAuthorizedDocument(req, res, next) {
       WHERE authz.review_token=$1 AND authz.status='authorized'
         AND ($2::boolean OR request.assigned_professor_user_id=$3::uuid OR request.user_id=$3::uuid
           OR ($4::boolean AND request.department_id=$5::bigint))
-      GROUP BY authz.request_id,custodian.request_id,released.id,returned.id,returned.staff_name,returned.signed_at,
+      GROUP BY authz.request_id,custodian.request_id,borrower.request_id,released.id,returned.id,returned.staff_name,returned.signed_at,
         returned.signature_image,returned.signature_mime_type,request.id,department.id,section.id`,
       [req.params.token, req.user.role === "admin", req.user.id, ["staff","department_head"].includes(req.user.role), req.user.department_id]);
     const row = result.rows[0];
@@ -385,6 +414,7 @@ async function downloadAuthorizedDocument(req, res, next) {
       controlNo: `BR-${String(row.request_id).padStart(3,"0")} | ${documentState.replaceAll("-"," ")}`, items: row.items,
       professorName: row.professor_name, authorizedAt: displayTime(row.authorized_at),
       professorSignature: row.signature_image, professorSignatureMime: row.signature_mime_type,
+      borrowerName:row.borrower_name,borrowerConsentedAt:displayTime(row.borrower_consented_at),borrowerSignature:row.borrower_signature_image,borrowerSignatureMime:row.borrower_signature_mime_type,
       verifiedName:row.verified_name,verifiedAt:displayTime(row.verified_at),verifiedSignature:row.verified_signature_image,verifiedSignatureMime:row.verified_signature_mime_type,
       approvedName:row.approved_name,approvedAt:displayTime(row.approved_at),approvedSignature:row.approved_signature_image,approvedSignatureMime:row.approved_signature_mime_type,
       releasedName:row.released_name,releasedAt:displayTime(row.released_at),releasedSignature:row.released_signature_image,releasedSignatureMime:row.released_signature_mime_type,
@@ -395,4 +425,4 @@ async function downloadAuthorizedDocument(req, res, next) {
   } catch (error) { return next(error); }
 }
 
-module.exports = { approveCustodianRequest, authorizeRequest, decodeSignature, downloadAuthorizedDocument, getAuthorizationReview, getCustodianReview, getMyCustodianSignature, getMyDepartmentHeadSignature, getMySignature, ownershipError, saveMyCustodianSignature, saveMyDepartmentHeadSignature, saveMySignature, verifyCustodianRequest };
+module.exports = { approveCustodianRequest, authorizeRequest, decodeSignature, downloadAuthorizedDocument, getAuthorizationReview, getCustodianReview, getMyCustodianSignature, getMyDepartmentHeadSignature, getMySignature, getMyStudentSignature, ownershipError, saveMyCustodianSignature, saveMyDepartmentHeadSignature, saveMySignature, saveMyStudentSignature, verifyCustodianRequest };

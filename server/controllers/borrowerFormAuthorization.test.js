@@ -57,3 +57,15 @@ test("places releasing and receiving staff signature snapshots on their transact
   assert.ok(zip.file("word/media/custodian-released-signature.png"));
   assert.ok(zip.file("word/media/custodian-returned-signature.png"));
 });
+
+test("places the immutable borrower signature snapshot on the student signature line", () => {
+  const signature=Buffer.from([137,80,78,71,13,10,26,10,0]);
+  const form=generateBorrowerForm({items:[{description:"Pan",quantity:1}],
+    borrowerName:"Student One",borrowerConsentedAt:"September 21, 2026",
+    borrowerSignature:signature,borrowerSignatureMime:"image/png"});
+  const zip=new PizZip(form); const xml=zip.file("word/document.xml").asText();
+  assert.match(xml,/r:embed="rIdCustodianborrowerSignature"/);
+  assert.match(xml,/Student One/);
+  assert.match(xml,/September 21, 2026/);
+  assert.ok(zip.file("word/media/custodian-borrower-signature.png"));
+});

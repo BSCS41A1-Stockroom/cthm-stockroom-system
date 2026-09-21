@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Navigate, Routes, Route } from "react-router-dom";
 
 // =========================================================
 // LAYOUTS
@@ -14,7 +14,6 @@ import Home from "../pages/student/Home";
 import Borrowing from "../pages/student/Borrowing";
 import Calendar from "../pages/student/Calendar";
 import MyRequests from "../pages/student/MyRequests";
-import AccountQr from "../pages/student/AccountQr";
 import Accountability from "../pages/Accountability";
 
 // =========================================================
@@ -36,7 +35,6 @@ import Reports from "../pages/admin/Reports";
 import AuditLogs from "../pages/admin/AuditLogs";
 import Users from "../pages/admin/Users";
 import ScanQr from "../pages/admin/ScanQr";
-import SignatureSettings from "../pages/admin/SignatureSettings";
 import AuthorizationReview from "../pages/admin/AuthorizationReview";
 import MobileQrScanner from "../pages/admin/MobileQrScanner";
 
@@ -46,6 +44,7 @@ import MobileQrScanner from "../pages/admin/MobileQrScanner";
 import Login from "../pages/Login";
 import SetPassword from "../pages/SetPassword";
 import VerifyReceipt from "../pages/VerifyReceipt";
+import ProfileSecurity from "../pages/ProfileSecurity";
 import ProtectedRoute from "../auth/ProtectedRoute";
 
 
@@ -111,10 +110,8 @@ export default function AppRoutes() {
                         element={<MyRequests />}
                     />
 
-                    <Route
-                        path="/my-qr"
-                        element={<AccountQr />}
-                    />
+                    <Route path="/student/profile" element={<ProfileSecurity />} />
+                    <Route path="/my-qr" element={<Navigate to="/student/profile" replace />} />
 
                     <Route
                         path="/my-accountability"
@@ -163,10 +160,8 @@ export default function AppRoutes() {
                         element={<ProfessorPendingRequests />}
                     />
 
-                    <Route
-                        path="/professor/signature"
-                        element={<SignatureSettings />}
-                    />
+                    <Route path="/professor/profile" element={<ProfileSecurity />} />
+                    <Route path="/professor/signature" element={<Navigate to="/professor/profile" replace />} />
 
                     <Route
                         path="/authorize/:token"
@@ -207,10 +202,11 @@ export default function AppRoutes() {
                     <Route element={<ProtectedRoute roles={["staff", "department_head", "admin"]} />}>
                         <Route path="/admin/requests" element={<Requests />} />
                         <Route path="/admin/reports" element={<Reports />} />
+                        <Route path="/admin/profile" element={<ProfileSecurity />} />
                     </Route>
 
                     <Route element={<ProtectedRoute roles={["staff", "department_head"]} />}>
-                        <Route path="/admin/signature" element={<SignatureSettings />} />
+                        <Route path="/admin/signature" element={<Navigate to="/admin/profile" replace />} />
                     </Route>
 
                 </Route>
