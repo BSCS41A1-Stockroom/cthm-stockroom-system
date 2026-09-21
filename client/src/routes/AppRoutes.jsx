@@ -1,57 +1,55 @@
-import { Suspense, lazy } from "react";
 import { Navigate, Routes, Route } from "react-router-dom";
 
 // =========================================================
 // LAYOUTS
 // =========================================================
-const StudentLayout = lazy(() => import("../layouts/StudentLayout"));
-const ProfessorLayout = lazy(() => import("../layouts/ProfessorLayout"));
-const AdminLayout = lazy(() => import("../layouts/AdminLayout"));
+import StudentLayout from "../layouts/StudentLayout";
+import ProfessorLayout from "../layouts/ProfessorLayout";
+import AdminLayout from "../layouts/AdminLayout";
 
 // =========================================================
 // STUDENT PAGES
 // =========================================================
-const Home = lazy(() => import("../pages/student/Home"));
-const Borrowing = lazy(() => import("../pages/student/Borrowing"));
-const Calendar = lazy(() => import("../pages/student/Calendar"));
-const MyRequests = lazy(() => import("../pages/student/MyRequests"));
-const Accountability = lazy(() => import("../pages/Accountability"));
+import Home from "../pages/student/Home";
+import Borrowing from "../pages/student/Borrowing";
+import Calendar from "../pages/student/Calendar";
+import MyRequests from "../pages/student/MyRequests";
+import Accountability from "../pages/Accountability";
 
 // =========================================================
 // PROFESSOR PAGES
 // =========================================================
-const ProfessorDashboard = lazy(() => import("../pages/professor/Dashboard"));
-const ProfessorQRScanner = lazy(() => import("../pages/professor/QRScanner"));
-const ProfessorCalendar = lazy(() => import("../pages/professor/Calendar"));
-const ProfessorPendingRequests = lazy(() => import("../pages/professor/PendingRequests"));
+import ProfessorDashboard from "../pages/professor/Dashboard";
+import ProfessorQRScanner from "../pages/professor/QRScanner";
+import ProfessorCalendar from "../pages/professor/Calendar";
+import ProfessorPendingRequests from "../pages/professor/PendingRequests";
 
 // =========================================================
 // ADMIN PAGES
 // =========================================================
-const Dashboard = lazy(() => import("../pages/admin/Dashboard"));
-const Inventory = lazy(() => import("../pages/admin/Inventory"));
-const Requests = lazy(() => import("../pages/admin/Requests"));
-const AdminCalendar = lazy(() => import("../pages/admin/Calendar"));
-const Reports = lazy(() => import("../pages/admin/Reports"));
-const AuditLogs = lazy(() => import("../pages/admin/AuditLogs"));
-const Users = lazy(() => import("../pages/admin/Users"));
-const ScanQr = lazy(() => import("../pages/admin/ScanQr"));
-const AuthorizationReview = lazy(() => import("../pages/admin/AuthorizationReview"));
-const MobileQrScanner = lazy(() => import("../pages/admin/MobileQrScanner"));
+import Dashboard from "../pages/admin/Dashboard";
+import Inventory from "../pages/admin/Inventory";
+import Requests from "../pages/admin/Requests";
+import AdminCalendar from "../pages/admin/Calendar";
+import Reports from "../pages/admin/Reports";
+import AuditLogs from "../pages/admin/AuditLogs";
+import Users from "../pages/admin/Users";
+import ScanQr from "../pages/admin/ScanQr";
+import AuthorizationReview from "../pages/admin/AuthorizationReview";
+import MobileQrScanner from "../pages/admin/MobileQrScanner";
 
 // =========================================================
 // OTHER PAGES
 // =========================================================
-const Login = lazy(() => import("../pages/Login"));
-const SetPassword = lazy(() => import("../pages/SetPassword"));
-const VerifyReceipt = lazy(() => import("../pages/VerifyReceipt"));
-const ProfileSecurity = lazy(() => import("../pages/ProfileSecurity"));
+import Login from "../pages/Login";
+import SetPassword from "../pages/SetPassword";
+import VerifyReceipt from "../pages/VerifyReceipt";
+import ProfileSecurity from "../pages/ProfileSecurity";
 import ProtectedRoute from "../auth/ProtectedRoute";
 
 
 export default function AppRoutes() {
     return (
-        <Suspense fallback={<div role="status" aria-live="polite" style={{ padding: "2rem", color: "#344154" }}>Loading page...</div>}>
         <Routes>
 
             {/* =================================================
@@ -223,6 +221,5 @@ export default function AppRoutes() {
             </Route>
 
         </Routes>
-        </Suspense>
     );
 }
