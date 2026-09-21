@@ -20,6 +20,7 @@ const { loadInventoryCommitment, usableInventoryQuantity } = require("../utils/i
 const { parseAssetQr, verifyClaimTicket } = require("../utils/qrCredential");
 const { processExpiredRequests } = require("./overdueController");
 const { createTransactionReceipt } = require("../utils/transactionReceipt");
+const { archiveBorrowingDocument } = require("../utils/borrowingDocumentArchive");
 
 const RESERVED_STATUSES = new Set(["Pending", "Validated", "Approved"]);
 const BORROWED_STATUSES = new Set(["Borrowed"]);
@@ -1063,6 +1064,7 @@ async function processBorrowingReturn(req, res, next) {
         returnId: returnResult.rows[0].id,
       },
     });
+    await archiveBorrowingDocument(client,{requestId,state:complete?"finalized":"partially_returned",actorId:req.user.id});
     await client.query("COMMIT");
     return res.status(201).json({ return: returnResult.rows[0], request: updatedResult.rows[0], receipt, complete });
   } catch (error) {
@@ -1382,6 +1384,10 @@ async function updateBorrowRequestStatus(req, res, next) {
     const receipt = nextStatus === "Borrowed"
       ? await createTransactionReceipt(client, { requestId, receiptType: "claim", createdBy: req.user.id })
       : null;
+
+    if (nextStatus === "Borrowed") {
+      await archiveBorrowingDocument(client,{requestId,state:"released",actorId:req.user.id});
+    }
 
     if (receipt) {
       await writeAuditLog(client, req.user, {

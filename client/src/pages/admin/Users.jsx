@@ -335,7 +335,6 @@ export default function Users() {
                     [
                         "professor",
                         "staff",
-                        "department_head",
                     ].includes(role)
                         ? current.departmentId
                         : "",
@@ -427,7 +426,6 @@ export default function Users() {
                     [
                         "professor",
                         "staff",
-                        "department_head",
                     ].includes(
                         form.role
                     )
@@ -1485,11 +1483,6 @@ export default function Users() {
                                     Staff
                                 </option>
 
-                                <option value="department_head">
-                                    Department
-                                    Head
-                                </option>
-
                                 <option value="admin">
                                     General
                                     Administrator
@@ -1530,7 +1523,6 @@ export default function Users() {
                         {[
                             "professor",
                             "staff",
-                            "department_head",
                         ].includes(
                             form.role
                         ) && (

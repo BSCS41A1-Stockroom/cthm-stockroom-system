@@ -17,6 +17,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import { isInRoleQueue, stageLabel } from "../../utils/requestWorkflow";
 import BorrowingTimeline from "../../components/BorrowingTimeline";
+import DocumentArchive from "../../components/DocumentArchive";
 
 function formatDate(date) {
   if (!date) return "-";
@@ -266,7 +267,7 @@ export default function Requests() {
 
           <div className="requests-title">
               <h2>Borrow Requests</h2>
-              <p>{profile?.role === "department_head" ? "Approve staff-verified requests for your department." : profile?.role === "staff" ? "Verify requests and track items ready for release or return." : "Monitor borrowing requests across all departments."}</p>
+              <p>{profile?.role === "staff" ? "Verify requests and track items ready for release or return." : "Manage all departments and give final Custodian Head approval to staff-verified requests."}</p>
           </div>
 
           <div className="requests-count">
@@ -402,9 +403,9 @@ export default function Requests() {
                       <button className="approve-btn" aria-label={`Verify ${r.id}`} title="Step 1 of 2: Verify request" onClick={() => { setCustodianAction({ type:"verify",request:r }); setCustodianConfirmed(false); }}><FaCheck /></button>
                     )}
                     {r.status === "Validated" && profile?.role === "staff" && r.custodianVerifiedAt && !r.custodianApprovedAt && (
-                      <span title="Waiting for the assigned Department Head">Awaiting Department Head</span>
+                      <span title="Waiting for final Custodian Head approval">Awaiting Custodian Head</span>
                     )}
-                    {r.status === "Validated" && profile?.role === "department_head" && r.custodianVerifiedAt && !r.custodianApprovedAt && (
+                    {r.status === "Validated" && profile?.role === "admin" && r.custodianVerifiedAt && !r.custodianApprovedAt && (
                       <button className="approve-btn final-approval-btn" aria-label={`Give final approval to ${r.id}`} title="Department-head final approval" onClick={() => { setCustodianAction({ type:"approve",request:r }); setCustodianConfirmed(false); }}><FaCheck /></button>
                     )}
 
@@ -526,6 +527,7 @@ export default function Requests() {
             </div>
 
             <BorrowingTimeline request={selected} />
+            <DocumentArchive requestId={selected.id} />
 
             <div className="modal-actions">
 
@@ -549,7 +551,7 @@ export default function Requests() {
         <div className="modal-overlay" onClick={() => !custodianBusy && setCustodianAction(null)}>
           <div className="request-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
             <h2>{custodianAction.type === "verify" ? "Staff Verification" : "Department-Head Approval"} · {custodianAction.request.id}</h2>
-            <p>{custodianAction.type === "verify" ? "Confirm that you reviewed the request, its department, schedule, and inventory availability. The assigned Department Head must provide final approval afterward." : "Confirm final department-head approval. This step changes the request to Ready for Claim and permanently records your Department Head signature, printed name, and timestamp."}</p>
+            <p>{custodianAction.type === "verify" ? "Confirm that you reviewed the request, its department, schedule, and inventory availability. The Custodian Head Admin must provide final approval afterward." : "Confirm final Custodian Head approval. This changes the request to Ready for Claim and permanently records your Admin account signature, printed name, and timestamp."}</p>
             <div className="detail-grid"><p><strong>Student:</strong> {custodianAction.request.student}</p><p><strong>Department:</strong> {custodianAction.request.department}</p><p><strong>Items:</strong> {custodianAction.request.item}</p><p><strong>Professor:</strong> {custodianAction.request.authorizedBy || custodianAction.request.assignedProfessor}</p></div>
             <label className="authorization-consent"><input type="checkbox" checked={custodianConfirmed} onChange={(event) => setCustodianConfirmed(event.target.checked)} /><span>I reviewed this transaction and authorize the system to apply my personal signature, printed name, and current timestamp.</span></label>
             <div className="modal-actions"><button type="button" disabled={custodianBusy} onClick={() => setCustodianAction(null)}>Cancel</button><button type="button" className="approve-btn" disabled={!custodianConfirmed || custodianBusy} onClick={submitCustodianAction}>{custodianBusy ? "Saving..." : custodianAction.type === "verify" ? "Verify and Sign" : "Approve and Sign"}</button></div>

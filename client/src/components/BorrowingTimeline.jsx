@@ -22,7 +22,7 @@ export default function BorrowingTimeline({ request }) {
     { label: "Request Submitted", actor: request.studentName || request.student, at: request.requestedAt, done: Boolean(request.requestedAt) },
     { label: "Professor Authorized", actor: request.authorizedBy, at: request.authorizedAt, done: Boolean(request.authorizedAt) },
     { label: "Staff Verified", actor: request.custodianVerifiedBy, at: request.custodianVerifiedAt, done: Boolean(request.custodianVerifiedAt) },
-    { label: "Department Head Approved", actor: request.custodianApprovedBy, at: request.custodianApprovedAt, done: Boolean(request.custodianApprovedAt) },
+    { label: "Custodian Head Approved", actor: request.custodianApprovedBy, at: request.custodianApprovedAt, done: Boolean(request.custodianApprovedAt) },
     { label: "Items Released", actor: request.releasedBy, at: request.releasedAt, done: Boolean(request.releasedAt) },
     { label: partialReturn ? "Items Partially Returned" : "Items Returned", actor: request.returnedBy, at: request.returnedAt || request.actualReturnedAt, done: status === "returned", partial: partialReturn },
   ];

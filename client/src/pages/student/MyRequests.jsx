@@ -6,6 +6,7 @@ import ReceiptModal from "../../components/ReceiptModal";
 import { FaDownload, FaReceipt } from "react-icons/fa";
 import AuthorizationQr from "../../components/AuthorizationQr";
 import BorrowingTimeline from "../../components/BorrowingTimeline";
+import DocumentArchive from "../../components/DocumentArchive";
 
 const STATUS_META = {
   pending: { label: "Pending", className: "badge-pending" },
@@ -260,6 +261,7 @@ export default function MyRequests() {
             {activeRequest.status === "pending" && <AuthorizationQr token={activeRequest.authorizationToken} />}
             {activeRequest.actualReturnedAt && <div className="modal-section"><h3>Completed return</h3><p>{new Date(activeRequest.actualReturnedAt).toLocaleString()}</p></div>}
             <BorrowingTimeline request={activeRequest} />
+            <DocumentArchive requestId={activeRequest.id} />
             <div className="request-detail-actions">
               <button type="button" className="detail-secondary-btn" onClick={() => setActiveRequest(null)}>Close</button>
               {activeRequest.authorizationStatus === "authorized" && <button type="button" className="receipt-action-btn" disabled={documentBusyId === activeRequest.id} onClick={() => downloadBorrowerForm(activeRequest)}><FaDownload /> {documentBusyId === activeRequest.id ? "Preparing..." : "Download Form"}</button>}

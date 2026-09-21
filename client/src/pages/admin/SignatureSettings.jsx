@@ -7,13 +7,14 @@ export default function SignatureSettings({ custodian = false, departmentHead = 
     const { profile } = useAuth();
     const isStudent = profile?.role === "student";
     const isDepartmentHead = departmentHead || profile?.role === "department_head";
+    const isAdmin = profile?.role === "admin";
     const isCustodian = custodian || profile?.role === "staff";
     const [image, setImage] = useState("");
     const [message, setMessage] = useState("");
     const [saving, setSaving] = useState(false);
-    const endpoint = isStudent ? "/api/authorizations/student-signature" : isDepartmentHead ? "/api/authorizations/department-head-signature" : isCustodian ? "/api/authorizations/custodian-signature" : "/api/authorizations/signature";
-    const accountType = isStudent ? "student" : isDepartmentHead ? "department head" : isCustodian ? "custodian" : "professor";
-    const displayType = isStudent ? "Borrower" : isDepartmentHead ? "Department Head" : isCustodian ? "Custodian" : "Professor";
+    const endpoint = isStudent ? "/api/authorizations/student-signature" : isAdmin ? "/api/authorizations/admin-signature" : isDepartmentHead ? "/api/authorizations/department-head-signature" : isCustodian ? "/api/authorizations/custodian-signature" : "/api/authorizations/signature";
+    const accountType = isStudent ? "student" : isAdmin ? "Custodian Head Admin" : isDepartmentHead ? "department head" : isCustodian ? "custodian" : "professor";
+    const displayType = isStudent ? "Borrower" : isAdmin ? "Custodian Head" : isDepartmentHead ? "Department Head" : isCustodian ? "Custodian" : "Professor";
 
     useEffect(() => {
         authenticatedFetch(endpoint)
@@ -57,9 +58,9 @@ export default function SignatureSettings({ custodian = false, departmentHead = 
     return (
         <main className="signature-page">
             <header className="signature-page-header">
-                <div className="signature-page-eyebrow">{isStudent ? "Borrower Consent" : isDepartmentHead ? "Department-Head Approval" : isCustodian ? "Custodian Verification" : "Professor Authorization"}</div>
+                <div className="signature-page-eyebrow">{isStudent ? "Borrower Consent" : isAdmin ? "Final Custodian Approval" : isDepartmentHead ? "Department-Head Approval" : isCustodian ? "Custodian Verification" : "Professor Authorization"}</div>
                 <h1>Signature Settings</h1>
-                <p>{isStudent ? "Manage the personal electronic signature captured with each borrowing request you explicitly submit." : isDepartmentHead ? "Manage the personal electronic signature used for final approval within your assigned department." : isCustodian ? "Manage the personal electronic signature used for request verification, item release, and return receiving." : "Manage the electronic signature used when authorizing borrowing requests."}</p>
+                <p>{isStudent ? "Manage the personal electronic signature captured with each borrowing request you explicitly submit." : isAdmin ? "Manage the personal Custodian Head signature used when you give final approval to staff-verified requests." : isDepartmentHead ? "Manage the personal electronic signature used for final approval within your assigned department." : isCustodian ? "Manage the personal electronic signature used for request verification, item release, and return receiving." : "Manage the electronic signature used when authorizing borrowing requests."}</p>
             </header>
             <section className="signature-card">
                 <div className="signature-card-header">
