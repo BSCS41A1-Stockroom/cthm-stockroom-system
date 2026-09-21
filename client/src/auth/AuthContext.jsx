@@ -11,29 +11,45 @@ export function AuthProvider({ children }) {
     let active = true;
     let profileChannel = null;
     let sessionGeneration = 0;
+    let subscribedUserId = null;
+    let profileLoaded = false;
     async function loadProfile(user, generation = sessionGeneration) {
       if (!user || !active) { setProfile(null); return; }
       const { data } = await supabase.from("profiles").select("user_id, role, full_name, student_id, department_id, is_active").eq("user_id", user.id).maybeSingle();
       if (!active || generation !== sessionGeneration) return;
+      profileLoaded = Boolean(data);
       setProfile(data ?? null);
       if (data?.is_active === false) await supabase.auth.signOut();
     }
     async function applySession(nextSession) {
       if (!active) return;
       const generation = ++sessionGeneration;
+      profileLoaded = false;
       setSession(nextSession); setProfile(null);
-      if (profileChannel) await supabase.removeChannel(profileChannel);
+      if (profileChannel) {
+        await supabase.removeChannel(profileChannel);
+        profileChannel = null;
+        subscribedUserId = null;
+      }
       if (!active || generation !== sessionGeneration) return;
       if (nextSession?.user) {
         await loadProfile(nextSession.user, generation);
         if (!active || generation !== sessionGeneration) return;
         profileChannel = supabase.channel(`own-profile-${nextSession.user.id}`)
           .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `user_id=eq.${nextSession.user.id}` }, () => loadProfile(nextSession.user, generation)).subscribe();
+        subscribedUserId = nextSession.user.id;
       }
       if (active) setLoading(false);
     }
-    supabase.auth.getSession().then(({ data }) => applySession(data.session));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => applySession(nextSession));
+    // onAuthStateChange emits INITIAL_SESSION, so a separate getSession call
+    // would start a second profile request and tear down the first channel.
+    const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (["SIGNED_IN", "TOKEN_REFRESHED"].includes(event) && profileLoaded && nextSession?.user?.id === subscribedUserId) {
+        setSession(nextSession);
+        return;
+      }
+      applySession(nextSession);
+    });
     return () => { active = false; sessionGeneration += 1; listener.subscription.unsubscribe(); if (profileChannel) supabase.removeChannel(profileChannel); };
   }, []);
 
