@@ -240,8 +240,24 @@ export default function ScanQr() {
   async function submitReturn(event) {
   event.preventDefault();
 
-  if (!returnRequest || !returnForm || scanLock.current) return;
+  console.log("[QR RETURN] BUTTON SUBMIT REACHED");
 
+  console.log("[QR RETURN] STATE:", {
+    returnRequest,
+    returnForm,
+    scanLocked: scanLock.current,
+    busy,
+  });
+
+  if (!returnRequest || !returnForm || scanLock.current) {
+    console.log("[QR RETURN] STOPPED BEFORE API CALL:", {
+      hasReturnRequest: !!returnRequest,
+      hasReturnForm: !!returnForm,
+      scanLocked: scanLock.current,
+    });
+    setMessage("Return submission was blocked before sending the request.");
+    return;
+  }
   /*
    * Validate normal / bulk items.
    */
