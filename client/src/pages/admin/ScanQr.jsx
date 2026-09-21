@@ -1,7 +1,7 @@
 "use strict";
 
 import React, { useEffect, useRef, useState } from "react";
-import { authenticatedFetch } from "../utils/authenticatedFetch";
+import { authenticatedFetch } from "../../utils/authenticatedFetch";
 
 export default function ScanQr() {
   const [scanValue, setScanValue] = useState("");
