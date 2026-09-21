@@ -5,6 +5,7 @@ const pool = require("../config/db");
 const { writeAuditLog } = require("../utils/auditLog");
 const { notifyDepartmentRole, notifyRoles, notifyUser } = require("../utils/notifications");
 const generateBorrowerForm = require("../generateBorrowerForm");
+const { archiveBorrowingDocument } = require("../utils/borrowingDocumentArchive");
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IMAGE = /^data:(image\/(?:png|jpeg));base64,([A-Za-z0-9+/=]+)$/;
@@ -230,6 +231,7 @@ async function verifyCustodianRequest(req, res, next) {
       verified_signature_hash=excluded.verified_signature_hash,verified_at=excluded.verified_at,updated_at=now()
       WHERE borrow_request_custodian_authorizations.verified_at IS NULL`,
       [row.id,req.user.id,row.current_staff_name,row.current_signature,row.current_signature_mime,row.current_signature_hash]);
+    await archiveBorrowingDocument(client,{requestId:row.id,state:"staff_verified",actorId:req.user.id});
     await writeAuditLog(client,req.user,{ action:"borrowing_custodian_verified",entityType:"borrowing_request",entityId:row.id,
       newValues:{ verifiedBy:row.current_staff_name,signatureHash:row.current_signature_hash } });
     await notifyUser(client,row.user_id,{ type:"custodian_verified",title:"Request verified by stockroom",message:`BR-${String(row.id).padStart(3,"0")} is awaiting final Custodian Head approval.`,relatedPath:"/my-requests",entityType:"borrowing_request",entityId:row.id });
@@ -277,6 +279,7 @@ async function approveCustodianRequest(req, res, next) {
       authorization_snapshot=$7::jsonb,document_hash=$8,updated_at=now() WHERE request_id=$1 AND approved_at IS NULL`,
       [row.id,req.user.id,row.current_custodian_head_name,row.current_signature,row.current_signature_mime,row.current_signature_hash,JSON.stringify(snapshot),documentHash,approvedAt]);
     await client.query(`UPDATE public.borrow_requests SET status='Approved',approved_by=$2,approved_at=$3::timestamptz,updated_at=now() WHERE id=$1 AND status='Validated'`,[row.id,req.user.id,approvedAt]);
+    await archiveBorrowingDocument(client,{requestId:row.id,state:"approved",actorId:req.user.id});
     await client.query(`INSERT INTO public.calendar_events (title,event_date,event_type,description,borrow_request_id)
       VALUES ($1,$2,'borrowing',$3,$4)
       ON CONFLICT (borrow_request_id,event_type) WHERE borrow_request_id IS NOT NULL AND event_type IN ('borrowing','return_due')
@@ -345,6 +348,7 @@ async function authorizeRequest(req, res, next) {
       signature_image=$4,signature_mime_type=$5,signature_hash=$6,authorized_at=$9::timestamptz,request_snapshot=$7::jsonb,document_hash=$8,updated_at=now() WHERE request_id=$1`,
       [row.request_id,req.user.id,row.full_name,row.image_data,row.mime_type,row.image_hash,JSON.stringify(snapshot),documentHash,authorizedAt]);
     await client.query(`UPDATE public.borrow_requests SET status='Validated',updated_at=now() WHERE id=$1`, [row.request_id]);
+    await archiveBorrowingDocument(client,{requestId:row.request_id,state:"professor_authorized",actorId:req.user.id});
     await writeAuditLog(client, req.user, { action: "borrowing_professor_authorized", entityType: "borrowing_request", entityId: row.request_id,
       newValues: { professorName: row.full_name, signatureHash: row.image_hash, documentHash } });
     await notifyRoles(client,["admin"],{ type:"professor_authorized",title:"Professor authorization completed",message:`BR-${String(row.request_id).padStart(3,"0")} is awaiting department custodian review.`,relatedPath:"/admin/requests",entityType:"borrowing_request",entityId:row.request_id });
@@ -367,6 +371,15 @@ async function downloadAuthorizedDocument(req, res, next) {
       }
     } else if (!access.rowCount) {
       return res.status(404).json({ error: "SIGNED_DOCUMENT_NOT_FOUND", message: "The signed document is not available." });
+    }
+    const archived = await pool.query(`SELECT filename,mime_type,content,sha256 FROM public.borrowing_document_archives
+      WHERE request_id=$1 ORDER BY version DESC LIMIT 1`,[access.rows[0].request_id]);
+    if (archived.rowCount) {
+      const document=archived.rows[0];
+      res.setHeader("Content-Type",document.mime_type);
+      res.setHeader("Content-Disposition",`attachment; filename="${document.filename.replace(/["\r\n]/g,"")}"`);
+      res.setHeader("X-Document-SHA256",document.sha256);
+      return res.send(document.content);
     }
     const result = await pool.query(`SELECT authz.*,custodian.*,borrower.student_name AS borrower_name,borrower.consented_at AS borrower_consented_at,
         borrower.signature_image AS borrower_signature_image,borrower.signature_mime_type AS borrower_signature_mime_type,

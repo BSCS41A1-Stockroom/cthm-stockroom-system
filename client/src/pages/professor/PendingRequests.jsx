@@ -6,6 +6,7 @@ import { supabase } from "../../lib/supabase";
 import "../../styles/professor.css";
 import { isInRoleQueue, stageLabel } from "../../utils/requestWorkflow";
 import BorrowingTimeline from "../../components/BorrowingTimeline";
+import DocumentArchive from "../../components/DocumentArchive";
 
 const formatDate = (value) => new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" });
 
@@ -60,6 +61,6 @@ export default function PendingRequests() {
         <div className="professor-request-actions"><button type="button" onClick={() => setSelected(request)}><FaEye /> View</button>{isInRoleQueue(request, "professor") && <Link to={`/authorize/${request.authorizationToken}`}><FaCheck /> Review & Sign</Link>}</div>
       </article>)}
     </div>
-    {selected && <div className="modal-overlay" onClick={() => setSelected(null)}><div className="modal-card" onClick={(event) => event.stopPropagation()}><div className="modal-header"><h2>BR-{String(selected.id).padStart(3, "0")}</h2><button onClick={() => setSelected(null)}>×</button></div><p><strong>{selected.studentName}</strong> · {selected.studentId}</p><p>{selected.departmentName || "Department not assigned"} · {selected.sectionName || "Section not assigned"}</p><ul>{selected.items.map((item) => <li key={item.inventoryId}>{item.name} × {item.quantity}</li>)}</ul><p>{selected.purpose}</p><BorrowingTimeline request={selected} /><div className="request-detail-actions"><Link className="approve-btn" to={`/authorize/${selected.authorizationToken}`}>Open authorization document</Link></div></div></div>}
+    {selected && <div className="modal-overlay" onClick={() => setSelected(null)}><div className="modal-card" onClick={(event) => event.stopPropagation()}><div className="modal-header"><h2>BR-{String(selected.id).padStart(3, "0")}</h2><button onClick={() => setSelected(null)}>×</button></div><p><strong>{selected.studentName}</strong> · {selected.studentId}</p><p>{selected.departmentName || "Department not assigned"} · {selected.sectionName || "Section not assigned"}</p><ul>{selected.items.map((item) => <li key={item.inventoryId}>{item.name} × {item.quantity}</li>)}</ul><p>{selected.purpose}</p><BorrowingTimeline request={selected} /><DocumentArchive requestId={selected.id} /><div className="request-detail-actions"><Link className="approve-btn" to={`/authorize/${selected.authorizationToken}`}>Open authorization document</Link></div></div></div>}
   </div>;
 }

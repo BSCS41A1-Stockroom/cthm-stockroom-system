@@ -17,6 +17,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/useAuth";
 import { isInRoleQueue, stageLabel } from "../../utils/requestWorkflow";
 import BorrowingTimeline from "../../components/BorrowingTimeline";
+import DocumentArchive from "../../components/DocumentArchive";
 
 function formatDate(date) {
   if (!date) return "-";
@@ -526,6 +527,7 @@ export default function Requests() {
             </div>
 
             <BorrowingTimeline request={selected} />
+            <DocumentArchive requestId={selected.id} />
 
             <div className="modal-actions">
 

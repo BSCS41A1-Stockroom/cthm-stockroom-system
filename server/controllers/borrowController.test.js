@@ -132,6 +132,9 @@ test("processes a complete return and updates inventory condition counters atomi
       if (sql.includes("INSERT INTO public.transaction_receipts")) return { rowCount: 1, rows: [{ id: 30, receipt_number: "RCT-2030-00000001", receipt_type: "return" }] };
       if (sql.includes("UPDATE inventory")) return { rowCount: 1, rows: [{ id: 7 }] };
       if (sql.includes("UPDATE borrow_requests SET status")) return { rows: [{ id: 10, status: "Returned" }] };
+      if (sql.includes("SELECT request.*,department.name")) return { rowCount:1,rows:[{ id:10,status:"Returned",student_name:"Student",student_id:"S-1",items:[{description:"Pan",quantity:2,released:"2",returned:"2",unreturned:"0",remarks:""}] }] };
+      if (sql.includes("coalesce(max(version)")) return { rows:[{version:1}] };
+      if (sql.includes("INSERT INTO public.borrowing_document_archives")) return { rowCount:1,rows:[{id:40,version:1,document_state:"finalized"}] };
       return { rowCount: 1, rows: [] };
     },
     release() {},
