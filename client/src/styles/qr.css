@@ -1508,6 +1508,7 @@
     width: min(720px, 100%);
 
     max-height: calc(100vh - 56px);
+    max-height: calc(100dvh - 56px);
 
     overflow-y: auto;
 

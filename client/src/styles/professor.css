@@ -2375,6 +2375,7 @@ button.professor-stat-card:hover {
     .professor-review-modal {
         width: calc(100vw - 28px);
         max-height: calc(100vh - 28px);
+        max-height: calc(100dvh - 28px);
     }
 
     .professor-review-modal-body {

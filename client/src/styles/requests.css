@@ -3,7 +3,7 @@
    BORROW REQUESTS — MODERN ACADEMIC LUXURY
 ========================================================= */
 
-:root {
+.admin-requests-page {
     --requests-navy: #17263C;
     --requests-navy-deep: #101B2D;
     --requests-navy-light: #213650;
@@ -41,7 +41,7 @@
    PAGE
 ========================================================= */
 
-.requests-page {
+.admin-requests-page.requests-page {
     width: 100%;
     min-width: 0;
 
@@ -63,7 +63,7 @@
    HEADER
 ========================================================= */
 
-.requests-header {
+.admin-requests-page .requests-header {
     width: 100%;
 
     display: flex;
@@ -78,7 +78,7 @@
 }
 
 
-.requests-title {
+.admin-requests-page .requests-title {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -87,7 +87,7 @@
 }
 
 
-.requests-title h2 {
+.admin-requests-page .requests-title h2 {
     margin: 0;
 
     color: var(--requests-navy);
@@ -105,7 +105,7 @@
 }
 
 
-.requests-title p {
+.admin-requests-page .requests-title p {
     margin: 7px 0 0;
 
     color: var(--requests-muted);
@@ -120,7 +120,7 @@
    No circle — restrained luxury style
 ========================================================= */
 
-.requests-count {
+.admin-requests-page .requests-count {
     min-width: 42px;
     height: 42px;
 
@@ -141,7 +141,7 @@
 }
 
 
-.requests-count span {
+.admin-requests-page .requests-count span {
     color: var(--requests-gold);
 
     font-size: 15px;
@@ -153,7 +153,7 @@
    TOOLBAR
 ========================================================= */
 
-.requests-toolbar {
+.admin-requests-page .requests-toolbar {
     width: 100%;
 
     display: flex;
@@ -178,7 +178,7 @@
    SEARCH
 ========================================================= */
 
-.search-box {
+.admin-requests-page .search-box {
     flex: 1;
     min-width: 260px;
 
@@ -205,7 +205,7 @@
 }
 
 
-.search-box:focus-within {
+.admin-requests-page .search-box:focus-within {
     background: var(--requests-white);
 
     border-color: var(--requests-gold);
@@ -215,7 +215,7 @@
 }
 
 
-.search-box svg {
+.admin-requests-page .search-box svg {
     flex-shrink: 0;
 
     color: var(--requests-taupe);
@@ -224,7 +224,7 @@
 }
 
 
-.search-box input {
+.admin-requests-page .search-box input {
     width: 100%;
     height: 100%;
 
@@ -243,7 +243,7 @@
 }
 
 
-.search-box input::placeholder {
+.admin-requests-page .search-box input::placeholder {
     color: #9AA2AD;
 }
 
@@ -252,7 +252,7 @@
    STATUS FILTER
 ========================================================= */
 
-.requests-toolbar select {
+.admin-requests-page .requests-toolbar select {
     height: 40px;
 
     min-width: 160px;
@@ -288,12 +288,12 @@
 }
 
 
-.requests-toolbar select:hover {
+.admin-requests-page .requests-toolbar select:hover {
     border-color: #C9C2B5;
 }
 
 
-.requests-toolbar select:focus {
+.admin-requests-page .requests-toolbar select:focus {
     border-color: var(--requests-gold);
 
     box-shadow:
@@ -305,7 +305,7 @@
    ERROR
 ========================================================= */
 
-.form-error {
+.admin-requests-page .form-error {
     margin: 0;
 
     padding: 12px 14px;
@@ -327,7 +327,7 @@
    TABLE CARD
 ========================================================= */
 
-.requests-table-wrapper {
+.admin-requests-page .requests-table-wrapper {
     width: 100%;
 
     background: var(--requests-white);
@@ -346,7 +346,7 @@
    TABLE
 ========================================================= */
 
-.requests-table {
+.admin-requests-page .requests-table {
     width: 100%;
     min-width: 920px;
 
@@ -360,44 +360,36 @@
    COLUMN WIDTHS
 ========================================================= */
 
-.requests-table th:nth-child(1),
-.requests-table td:nth-child(1) {
+.admin-requests-page .requests-table th:nth-child(1), .admin-requests-page .requests-table td:nth-child(1) {
     width: 8%;
 }
 
-.requests-table th:nth-child(2),
-.requests-table td:nth-child(2) {
+.admin-requests-page .requests-table th:nth-child(2), .admin-requests-page .requests-table td:nth-child(2) {
     width: 15%;
 }
 
-.requests-table th:nth-child(3),
-.requests-table td:nth-child(3) {
+.admin-requests-page .requests-table th:nth-child(3), .admin-requests-page .requests-table td:nth-child(3) {
     width: 19%;
 }
 
-.requests-table th:nth-child(4),
-.requests-table td:nth-child(4) {
+.admin-requests-page .requests-table th:nth-child(4), .admin-requests-page .requests-table td:nth-child(4) {
     width: 7%;
     text-align: center;
 }
 
-.requests-table th:nth-child(5),
-.requests-table td:nth-child(5) {
+.admin-requests-page .requests-table th:nth-child(5), .admin-requests-page .requests-table td:nth-child(5) {
     width: 11%;
 }
 
-.requests-table th:nth-child(6),
-.requests-table td:nth-child(6) {
+.admin-requests-page .requests-table th:nth-child(6), .admin-requests-page .requests-table td:nth-child(6) {
     width: 11%;
 }
 
-.requests-table th:nth-child(7),
-.requests-table td:nth-child(7) {
+.admin-requests-page .requests-table th:nth-child(7), .admin-requests-page .requests-table td:nth-child(7) {
     width: 13%;
 }
 
-.requests-table th:nth-child(8),
-.requests-table td:nth-child(8) {
+.admin-requests-page .requests-table th:nth-child(8), .admin-requests-page .requests-table td:nth-child(8) {
     width: 16%;
 }
 
@@ -406,7 +398,7 @@
    TABLE HEADER
 ========================================================= */
 
-.requests-table thead th {
+.admin-requests-page .requests-table thead th {
     padding: 14px 12px;
 
     background: #FAF9F6;
@@ -428,7 +420,7 @@
 }
 
 
-.requests-table thead th:nth-child(4) {
+.admin-requests-page .requests-table thead th:nth-child(4) {
     text-align: center;
 }
 
@@ -437,7 +429,7 @@
    TABLE BODY
 ========================================================= */
 
-.requests-table tbody td {
+.admin-requests-page .requests-table tbody td {
     padding: 15px 12px;
 
     background: var(--requests-white);
@@ -458,24 +450,24 @@
 }
 
 
-.requests-table tbody tr {
+.admin-requests-page .requests-table tbody tr {
     transition: background 0.12s ease;
 }
 
 
-.requests-table tbody tr:hover td {
+.admin-requests-page .requests-table tbody tr:hover td {
     background: #FCFBF8;
 }
 
 
-.requests-table tbody tr:last-child td {
+.admin-requests-page .requests-table tbody tr:last-child td {
     border-bottom: none;
 }
 
 
 /* Request ID */
 
-.requests-table tbody td:first-child {
+.admin-requests-page .requests-table tbody td:first-child {
     color: var(--requests-navy);
 
     font-weight: 700;
@@ -489,7 +481,7 @@
    Muted luxury palette — no bright colors
 ========================================================= */
 
-.status-badge {
+.admin-requests-page .status-badge {
     display: inline-flex;
 
     align-items: center;
@@ -519,7 +511,7 @@
 
 /* Pending */
 
-.status-badge.pending {
+.admin-requests-page .status-badge.pending {
     background: var(--requests-warning-bg);
     border-color: #E9DFC5;
     color: var(--requests-warning);
@@ -528,7 +520,7 @@
 
 /* Validated */
 
-.status-badge.validated {
+.admin-requests-page .status-badge.validated {
     background: var(--requests-info-bg);
     border-color: #D8E0E7;
     color: var(--requests-info);
@@ -537,7 +529,7 @@
 
 /* Approved / Ready for Claim */
 
-.status-badge.approved {
+.admin-requests-page .status-badge.approved {
     background: #F5F1E8;
     border-color: #E5DCC9;
     color: #796743;
@@ -546,7 +538,7 @@
 
 /* Borrowed */
 
-.status-badge.borrowed {
+.admin-requests-page .status-badge.borrowed {
     background: var(--requests-success-bg);
     border-color: #D5E2D7;
     color: var(--requests-success);
@@ -555,7 +547,7 @@
 
 /* Returned */
 
-.status-badge.returned {
+.admin-requests-page .status-badge.returned {
     background: var(--requests-info-bg);
     border-color: #D8E0E7;
     color: var(--requests-info);
@@ -564,7 +556,7 @@
 
 /* Rejected */
 
-.status-badge.rejected {
+.admin-requests-page .status-badge.rejected {
     background: var(--requests-danger-bg);
     border-color: #E8D1D1;
     color: var(--requests-danger);
@@ -573,7 +565,7 @@
 
 /* Expired */
 
-.status-badge.expired {
+.admin-requests-page .status-badge.expired {
     background: #F4F1ED;
     border-color: #E2DDD4;
     color: #776F65;
@@ -584,7 +576,7 @@
    ACTION BUTTONS
 ========================================================= */
 
-.action-buttons {
+.admin-requests-page .action-buttons {
     display: flex;
     align-items: center;
 
@@ -594,10 +586,7 @@
 }
 
 
-.view-btn,
-.approve-btn,
-.reject-btn,
-.return-btn {
+.admin-requests-page .view-btn, .admin-requests-page .approve-btn, .admin-requests-page .reject-btn, .admin-requests-page .return-btn {
     width: 32px;
     height: 32px;
 
@@ -627,17 +616,14 @@
 }
 
 
-.view-btn:hover,
-.approve-btn:hover,
-.reject-btn:hover,
-.return-btn:hover {
+.admin-requests-page .view-btn:hover, .admin-requests-page .approve-btn:hover, .admin-requests-page .reject-btn:hover, .admin-requests-page .return-btn:hover {
     transform: translateY(-1px);
 }
 
 
 /* View */
 
-.view-btn {
+.admin-requests-page .view-btn {
     background: #F7F6F2;
 
     border-color: var(--requests-border-warm);
@@ -646,7 +632,7 @@
 }
 
 
-.view-btn:hover {
+.admin-requests-page .view-btn:hover {
     background: #F1EEE7;
 
     border-color: var(--requests-gold);
@@ -657,7 +643,7 @@
 
 /* Approve */
 
-.approve-btn {
+.admin-requests-page .approve-btn {
     background: var(--requests-success-bg);
 
     border-color: #D5E2D7;
@@ -666,7 +652,7 @@
 }
 
 
-.approve-btn:hover {
+.admin-requests-page .approve-btn:hover {
     background: #E7F0E9;
 
     border-color: #BFD2C2;
@@ -677,7 +663,7 @@
 
 /* Reject */
 
-.reject-btn {
+.admin-requests-page .reject-btn {
     background: var(--requests-danger-bg);
 
     border-color: #E8D1D1;
@@ -686,7 +672,7 @@
 }
 
 
-.reject-btn:hover {
+.admin-requests-page .reject-btn:hover {
     background: #F5E6E6;
 
     border-color: #DDBBBB;
@@ -697,7 +683,7 @@
 
 /* Return */
 
-.return-btn {
+.admin-requests-page .return-btn {
     background: #F5F1E8;
 
     border-color: #E5DCC9;
@@ -706,7 +692,7 @@
 }
 
 
-.return-btn:hover {
+.admin-requests-page .return-btn:hover {
     background: #EEE7D8;
 
     border-color: var(--requests-gold);
@@ -719,7 +705,7 @@
    EMPTY / LOADING
 ========================================================= */
 
-.requests-empty {
+.admin-requests-page .requests-empty {
     height: 140px;
 
     padding: 30px 16px !important;
@@ -738,7 +724,7 @@
    PAGINATION
 ========================================================= */
 
-.pagination {
+.admin-requests-page .pagination {
     display: flex;
 
     align-items: center;
@@ -750,8 +736,7 @@
 }
 
 
-.page-btn,
-.page-number {
+.admin-requests-page .page-btn, .admin-requests-page .page-number {
     min-width: 35px;
     height: 35px;
 
@@ -782,8 +767,7 @@
 }
 
 
-.page-btn:hover:not(:disabled),
-.page-number:hover {
+.admin-requests-page .page-btn:hover:not(:disabled), .admin-requests-page .page-number:hover {
     background: #FAF8F3;
 
     border-color: var(--requests-gold);
@@ -792,7 +776,7 @@
 }
 
 
-.page-number.active {
+.admin-requests-page .page-number.active {
     background: var(--requests-navy);
 
     border-color: var(--requests-navy);
@@ -801,7 +785,7 @@
 }
 
 
-.page-number.active:hover {
+.admin-requests-page .page-number.active:hover {
     background: var(--requests-navy);
 
     border-color: var(--requests-navy);
@@ -810,7 +794,7 @@
 }
 
 
-.page-btn:disabled {
+.admin-requests-page .page-btn:disabled {
     opacity: 0.4;
 
     cursor: not-allowed;
@@ -821,7 +805,7 @@
    MODAL OVERLAY
 ========================================================= */
 
-.modal-overlay {
+.admin-requests-page .modal-overlay {
     position: fixed;
 
     inset: 0;
@@ -858,11 +842,12 @@
    REQUEST MODAL
 ========================================================= */
 
-.request-modal {
+.admin-requests-page .request-modal {
     width: 560px;
     max-width: 95vw;
 
     max-height: 90vh;
+    max-height: calc(100dvh - 40px);
 
     overflow-y: auto;
 
@@ -898,7 +883,7 @@
 }
 
 
-.request-modal h2 {
+.admin-requests-page .request-modal h2 {
     margin: 0 0 20px;
 
     color: var(--requests-navy);
@@ -919,7 +904,7 @@
    DETAIL GRID
 ========================================================= */
 
-.detail-grid {
+.admin-requests-page .detail-grid {
     display: grid;
 
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -928,7 +913,7 @@
 }
 
 
-.detail-grid p {
+.admin-requests-page .detail-grid p {
     margin: 0;
 
     padding: 12px;
@@ -944,10 +929,11 @@
     font-size: 12px;
 
     line-height: 1.5;
+    overflow-wrap: anywhere;
 }
 
 
-.detail-grid strong {
+.admin-requests-page .detail-grid strong {
     display: block;
 
     margin-bottom: 3px;
@@ -967,7 +953,7 @@
    MODAL ACTIONS
 ========================================================= */
 
-.modal-actions {
+.admin-requests-page .modal-actions {
     display: flex;
 
     align-items: center;
@@ -982,9 +968,7 @@
 }
 
 
-.modal-actions button,
-.modal-actions .approve-btn,
-.modal-actions .modal-receipt-btn {
+.admin-requests-page .modal-actions button, .admin-requests-page .modal-actions .approve-btn, .admin-requests-page .modal-actions .modal-receipt-btn {
     min-height: 38px;
 
     display: inline-flex;
@@ -1010,7 +994,7 @@
 
 /* Default modal button */
 
-.modal-actions button {
+.admin-requests-page .modal-actions button {
     background: var(--requests-navy);
 
     border: 1px solid var(--requests-navy);
@@ -1023,7 +1007,7 @@
 }
 
 
-.modal-actions button:hover {
+.admin-requests-page .modal-actions button:hover {
     background: var(--requests-navy-light);
 
     border-color: var(--requests-navy-light);
@@ -1032,7 +1016,7 @@
 
 /* Close */
 
-.modal-actions .modal-secondary-btn {
+.admin-requests-page .modal-actions .modal-secondary-btn {
     background: var(--requests-white);
 
     border: 1px solid var(--requests-border);
@@ -1041,7 +1025,7 @@
 }
 
 
-.modal-actions .modal-secondary-btn:hover {
+.admin-requests-page .modal-actions .modal-secondary-btn:hover {
     background: #FAF8F3;
 
     border-color: var(--requests-gold);
@@ -1052,7 +1036,7 @@
 
 /* Receipt */
 
-.modal-actions .modal-receipt-btn {
+.admin-requests-page .modal-actions .modal-receipt-btn {
     background: #F5F1E8;
 
     border: 1px solid var(--requests-gold-light);
@@ -1061,7 +1045,7 @@
 }
 
 
-.modal-actions .modal-receipt-btn:hover {
+.admin-requests-page .modal-actions .modal-receipt-btn:hover {
     background: #EEE7D8;
 
     border-color: var(--requests-gold);
@@ -1074,7 +1058,7 @@
    RETURN MODAL
 ========================================================= */
 
-.return-modal {
+.admin-requests-page .return-modal {
     width: 760px;
 
     max-width: 95vw;
@@ -1085,7 +1069,7 @@
 }
 
 
-.return-modal > p {
+.admin-requests-page .return-modal > p {
     margin: 6px 0 18px;
 
     color: var(--requests-muted);
@@ -1096,7 +1080,7 @@
 }
 
 
-.return-items {
+.admin-requests-page .return-items {
     display: flex;
     flex-direction: column;
 
@@ -1104,7 +1088,7 @@
 }
 
 
-.return-item {
+.admin-requests-page .return-item {
     padding: 15px;
 
     background: #FAF9F6;
@@ -1115,7 +1099,7 @@
 }
 
 
-.return-item-title {
+.admin-requests-page .return-item-title {
     display: flex;
 
     align-items: center;
@@ -1127,21 +1111,21 @@
 }
 
 
-.return-item-title strong {
+.admin-requests-page .return-item-title strong {
     color: var(--requests-navy);
 
     font-size: 13px;
 }
 
 
-.return-item-title span {
+.admin-requests-page .return-item-title span {
     color: var(--requests-muted);
 
     font-size: 11px;
 }
 
 
-.return-quantity-grid {
+.admin-requests-page .return-quantity-grid {
     display: grid;
 
     grid-template-columns: repeat(3, 1fr);
@@ -1150,7 +1134,7 @@
 }
 
 
-.return-modal label {
+.admin-requests-page .return-modal label {
     display: flex;
     flex-direction: column;
 
@@ -1165,8 +1149,7 @@
 }
 
 
-.return-modal input,
-.return-modal textarea {
+.admin-requests-page .return-modal input, .admin-requests-page .return-modal textarea {
     width: 100%;
 
     padding: 9px 10px;
@@ -1190,8 +1173,7 @@
 }
 
 
-.return-modal input:focus,
-.return-modal textarea:focus {
+.admin-requests-page .return-modal input:focus, .admin-requests-page .return-modal textarea:focus {
     border-color: var(--requests-gold);
 
     box-shadow:
@@ -1199,7 +1181,7 @@
 }
 
 
-.return-modal textarea {
+.admin-requests-page .return-modal textarea {
     resize: vertical;
 }
 
@@ -1208,29 +1190,25 @@
    SCROLLBAR
 ========================================================= */
 
-.requests-table-wrapper::-webkit-scrollbar,
-.request-modal::-webkit-scrollbar {
+.admin-requests-page .requests-table-wrapper::-webkit-scrollbar, .admin-requests-page .request-modal::-webkit-scrollbar {
     width: 7px;
     height: 7px;
 }
 
 
-.requests-table-wrapper::-webkit-scrollbar-track,
-.request-modal::-webkit-scrollbar-track {
+.admin-requests-page .requests-table-wrapper::-webkit-scrollbar-track, .admin-requests-page .request-modal::-webkit-scrollbar-track {
     background: transparent;
 }
 
 
-.requests-table-wrapper::-webkit-scrollbar-thumb,
-.request-modal::-webkit-scrollbar-thumb {
+.admin-requests-page .requests-table-wrapper::-webkit-scrollbar-thumb, .admin-requests-page .request-modal::-webkit-scrollbar-thumb {
     background: #CFC8BC;
 
     border-radius: 10px;
 }
 
 
-.requests-table-wrapper::-webkit-scrollbar-thumb:hover,
-.request-modal::-webkit-scrollbar-thumb:hover {
+.admin-requests-page .requests-table-wrapper::-webkit-scrollbar-thumb:hover, .admin-requests-page .request-modal::-webkit-scrollbar-thumb:hover {
     background: var(--requests-gold);
 }
 
@@ -1241,7 +1219,7 @@
 
 @media (max-width: 1000px) {
 
-    .requests-table {
+    .admin-requests-page .requests-table {
         min-width: 920px;
     }
 
@@ -1250,19 +1228,19 @@
 
 @media (max-width: 900px) {
 
-    .requests-header {
+    .admin-requests-page .requests-header {
         align-items: center;
     }
 
-    .requests-toolbar {
+    .admin-requests-page .requests-toolbar {
         align-items: stretch;
     }
 
-    .search-box {
+    .admin-requests-page .search-box {
         min-width: 0;
     }
 
-    .requests-toolbar select {
+    .admin-requests-page .requests-toolbar select {
         width: 100%;
     }
 
@@ -1271,32 +1249,32 @@
 
 @media (max-width: 700px) {
 
-    .requests-title h2 {
+    .admin-requests-page .requests-title h2 {
         font-size: 26px;
     }
 
-    .requests-title p {
+    .admin-requests-page .requests-title p {
         font-size: 13px;
     }
 
-    .requests-count {
+    .admin-requests-page .requests-count {
         min-width: 40px;
         height: 40px;
     }
 
-    .detail-grid {
+    .admin-requests-page .detail-grid {
         grid-template-columns: 1fr;
     }
 
-    .request-modal {
+    .admin-requests-page .request-modal {
         padding: 21px;
     }
 
-    .return-quantity-grid {
+    .admin-requests-page .return-quantity-grid {
         grid-template-columns: 1fr;
     }
 
-    .return-item-title {
+    .admin-requests-page .return-item-title {
         align-items: flex-start;
         flex-direction: column;
     }
@@ -1306,44 +1284,44 @@
 
 @media (max-width: 480px) {
 
-    .requests-page {
+    .admin-requests-page.requests-page {
         gap: 18px;
     }
 
-    .requests-header {
+    .admin-requests-page .requests-header {
         align-items: flex-start;
     }
 
-    .requests-title h2 {
+    .admin-requests-page .requests-title h2 {
         font-size: 24px;
     }
 
-    .requests-count {
+    .admin-requests-page .requests-count {
         min-width: 38px;
         height: 38px;
 
         padding: 0 9px;
     }
 
-    .requests-count span {
+    .admin-requests-page .requests-count span {
         font-size: 13px;
     }
 
-    .requests-toolbar {
+    .admin-requests-page .requests-toolbar {
         padding: 12px;
     }
 
-    .modal-overlay {
+    .admin-requests-page .modal-overlay {
         padding: 12px;
     }
 
-    .request-modal {
+    .admin-requests-page .request-modal {
         width: 100%;
         max-width: 100%;
         padding: 19px;
     }
 
-    .modal-actions {
+    .admin-requests-page .modal-actions {
         flex-wrap: wrap;
     }
 
@@ -1356,38 +1334,35 @@
 
 @media print {
 
-    .requests-toolbar,
-    .requests-count,
-    .pagination,
-    .action-buttons {
+    .admin-requests-page .requests-toolbar, .admin-requests-page .requests-count, .admin-requests-page .pagination, .admin-requests-page .action-buttons {
         display: none !important;
     }
 
-    .requests-page {
+    .admin-requests-page.requests-page {
         gap: 15px;
     }
 
-    .requests-header {
+    .admin-requests-page .requests-header {
         border-bottom: 1px solid #CCCCCC;
     }
 
-    .requests-table-wrapper {
+    .admin-requests-page .requests-table-wrapper {
         overflow: visible;
         box-shadow: none;
         border: 1px solid #CCCCCC;
     }
 
-    .requests-table {
+    .admin-requests-page .requests-table {
         min-width: 0;
     }
 
-    .requests-table thead th {
+    .admin-requests-page .requests-table thead th {
         background: #F5F5F5;
     }
 
 }
 
-.request-view-tabs {
+.admin-requests-page .request-view-tabs {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
@@ -1399,10 +1374,11 @@
     background: var(--requests-white);
 }
 
-.request-view-tabs button {
+.admin-requests-page .request-view-tabs button {
     display: inline-flex;
     align-items: center;
     gap: 9px;
+    flex-wrap: wrap;
     padding: 10px 14px;
     border: 0;
     border-radius: 8px;
@@ -1413,12 +1389,12 @@
     cursor: pointer;
 }
 
-.request-view-tabs button.active {
+.admin-requests-page .request-view-tabs button.active {
     background: var(--requests-navy);
     color: white;
 }
 
-.request-view-tabs button span {
+.admin-requests-page .request-view-tabs button span {
     min-width: 24px;
     padding: 2px 7px;
     border-radius: 999px;
@@ -1427,7 +1403,7 @@
     text-align: center;
 }
 
-.custodian-step-success {
+.admin-requests-page .custodian-step-success {
     margin: 12px 0;
     padding: 12px 14px;
     border: 1px solid #D5E2D7;
@@ -1439,7 +1415,7 @@
     line-height: 1.55;
 }
 
-.modal-danger-btn {
+.admin-requests-page .modal-danger-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1453,8 +1429,8 @@
     font-weight: 700;
 }
 
-.modal-danger-btn:disabled { cursor: not-allowed; opacity: .6; }
-.cancellation-modal { max-width: 540px; }
-.cancellation-modal > label { display: grid; gap: 7px; margin-top: 18px; font-weight: 700; }
-.cancellation-modal textarea { resize: vertical; min-height: 100px; border: 1px solid var(--requests-border); border-radius: 8px; padding: 11px; font: inherit; }
-.required-note { color: var(--requests-muted); font-size: 12px; font-weight: 500; }
+.admin-requests-page .modal-danger-btn:disabled { cursor: not-allowed; opacity: .6; }
+.admin-requests-page .cancellation-modal { max-width: 540px; }
+.admin-requests-page .cancellation-modal > label { display: grid; gap: 7px; margin-top: 18px; font-weight: 700; }
+.admin-requests-page .cancellation-modal textarea { resize: vertical; min-height: 100px; border: 1px solid var(--requests-border); border-radius: 8px; padding: 11px; font: inherit; }
+.admin-requests-page .required-note { color: var(--requests-muted); font-size: 12px; font-weight: 500; }
