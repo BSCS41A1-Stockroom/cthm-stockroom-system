@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { authenticatedFetch } from "../../lib/api";
+import { useFeedback } from "../../components/common/feedbackContext";
 import { supabase } from "../../lib/supabase";
 import QRCode from "qrcode";
 import { FaCamera, FaCheckCircle, FaMobileAlt, FaQrcode, FaTimes, FaUsb } from "react-icons/fa";
@@ -7,6 +8,7 @@ import { pairedTransactionReady } from "../../utils/qrPairing";
 import "../../styles/qr.css";
 
 export default function ScanQr() {
+  const { confirm, prompt } = useFeedback();
   const scanner = useRef(null);
   const scanLock = useRef(false);
   const [cameraActive, setCameraActive] = useState(false);
@@ -154,13 +156,13 @@ export default function ScanQr() {
     } catch (error) { setMessage(error.message); } finally { scanLock.current = false; setBusy(false); }
   }
 
-  function reportMissing(asset, inventoryId) {
+  async function reportMissing(asset, inventoryId) {
     if (returnAssets.some((entry) => entry.asset.id === asset.id)) { setMessage(`${asset.assetNumber} is already scanned as returned.`); return; }
     if (missingAssets.some((entry) => entry.assetId === asset.id)) return;
-    const reason = window.prompt(`Explain why ${asset.assetNumber} is being reported missing:`)?.trim();
+    const reason = await prompt(`Explain why ${asset.assetNumber} is being reported missing:`);
     if (!reason) return;
     if (reason.length < 5 || reason.length > 500) { setMessage("The missing-asset reason must contain 5 to 500 characters."); return; }
-    if (!window.confirm(`Report ${asset.assetNumber} as missing? This will create an audited incident.`)) return;
+    if (!await confirm(`Report ${asset.assetNumber} as missing? This will create an audited incident.`, { danger: true })) return;
     setMissingAssets((current) => [...current, { assetId: asset.id, assetNumber: asset.assetNumber, inventoryId, reason }]);
     setMessage(`${asset.assetNumber} marked for missing-asset incident reporting.`);
   }

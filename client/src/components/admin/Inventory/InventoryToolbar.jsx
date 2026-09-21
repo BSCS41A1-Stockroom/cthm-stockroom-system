@@ -58,14 +58,14 @@ export default function InventoryToolbar({
                 </button>}
 
 
-                <button
+                {canReconcile && <button
                     className="inventory-toolbar-btn"
                     onClick={onReconcile}
                     title="Perform physical inventory count"
                 >
                     <FaClipboardCheck />
                     <span>Physical Count</span>
-                </button>
+                </button>}
 
             </div>
 

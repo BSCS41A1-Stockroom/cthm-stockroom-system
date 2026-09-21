@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { authenticatedFetch } from "../../../lib/api";
+import { useFeedback } from "../../common/feedbackContext";
 
 const EMPTY_FORM = { startDate: "", endDate: "", reason: "" };
 
 export default function UnavailabilityModal({ item, onClose }) {
+  const { confirm } = useFeedback();
   const [periods, setPeriods] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState(null);
@@ -69,7 +71,7 @@ export default function UnavailabilityModal({ item, onClose }) {
   }
 
   async function removePeriod(periodId) {
-    if (!window.confirm("Remove this unavailable period?")) return;
+    if (!await confirm("Remove this unavailable period?", { danger: true })) return;
     setError("");
     try {
       const response = await authenticatedFetch(`/api/inventory/${item.id}/unavailability/${periodId}`, {

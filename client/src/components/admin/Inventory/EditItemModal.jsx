@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { authenticatedFetch } from "../../../lib/api";
 import { supabase } from "../../../lib/supabase";
+import { useFeedback } from "../../common/feedbackContext";
 import {
     DEFAULT_LOW_STOCK_THRESHOLD,
     inventoryTotals
@@ -13,6 +14,7 @@ export default function EditItemModal({
     rooms = [],
     onUpdated
 }) {
+    const { toast } = useFeedback();
     const [form, setForm] = useState(() => ({
         item_name: item?.item_name ?? "",
         purchase_date: item?.purchase_date ?? "",
@@ -60,13 +62,13 @@ export default function EditItemModal({
         ];
 
         if (!allowedTypes.includes(file.type)) {
-            alert("Please select a JPG, PNG, or WEBP image.");
+            toast("Please select a JPG, PNG, or WEBP image.", "error");
             e.target.value = "";
             return;
         }
 
         if (file.size > 5 * 1024 * 1024) {
-            alert("Image must be 5MB or smaller.");
+            toast("Image must be 5MB or smaller.", "error");
             e.target.value = "";
             return;
         }
@@ -136,10 +138,10 @@ export default function EditItemModal({
 
     async function handleUpdate() {
         if (!form.item_name.trim()) {
-            alert("Please enter an item name.");
+            toast("Please enter an item name.", "error");
             return;
         }
-        if (!form.room_id) { alert("Please select a laboratory room."); return; }
+        if (!form.room_id) { toast("Please select a laboratory room.", "error"); return; }
 
         try {
             setSaving(true);
@@ -165,10 +167,10 @@ export default function EditItemModal({
             const result = await response.json();
 
             if (!response.ok) {
-                alert(
+                toast(
                     result.reasons?.[0] ||
                     result.message ||
-                    "Unable to update inventory item."
+                    "Unable to update inventory item.", "error"
                 );
                 return;
             }
@@ -176,6 +178,8 @@ export default function EditItemModal({
             if (onUpdated) {
                 onUpdated();
             }
+
+            toast("Inventory item updated successfully.", "success");
 
             onClose();
 
@@ -185,9 +189,9 @@ export default function EditItemModal({
                 error
             );
 
-            alert(
+            toast(
                 error.message ||
-                "Unable to update inventory item."
+                "Unable to update inventory item.", "error"
             );
 
         } finally {

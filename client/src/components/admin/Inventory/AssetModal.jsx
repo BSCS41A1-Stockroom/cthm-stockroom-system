@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { authenticatedFetch } from "../../../lib/api";
+import { useFeedback } from "../../common/feedbackContext";
 import MaintenancePanel from "./MaintenancePanel";
 import InspectionPanel from "./InspectionPanel";
 
@@ -21,6 +22,7 @@ function inspectionIsDue(asset) {
 }
 
 export default function AssetModal({ item, onClose, onChanged }) {
+  const { confirm, prompt } = useFeedback();
   const [assets, setAssets] = useState([]);
   const [serialNumber, setSerialNumber] = useState("");
   const [busy, setBusy] = useState(false);
@@ -65,9 +67,9 @@ export default function AssetModal({ item, onClose, onChanged }) {
   }
 
   async function change(asset, status, condition) {
-    const note = status === "maintenance" ? window.prompt("Maintenance or inspection note:", asset.maintenanceNote || "") : asset.maintenanceNote || "";
+    const note = status === "maintenance" ? await prompt("Maintenance or inspection note:", { initialValue: asset.maintenanceNote || "" }) : asset.maintenanceNote || "";
     if (status === "maintenance" && !note) return;
-    if (status === "retired" && !window.confirm(`Retire ${asset.assetNumber}? This cannot be undone.`)) return;
+    if (status === "retired" && !await confirm(`Retire ${asset.assetNumber}? This cannot be undone.`, { danger: true })) return;
     setBusy(true); setError("");
     try {
       const response = await authenticatedFetch(`/api/inventory/${item.id}/assets/${asset.id}`, {
@@ -81,10 +83,10 @@ export default function AssetModal({ item, onClose, onChanged }) {
   }
 
   async function resolveIncident(asset, resolution) {
-    const note = window.prompt(`Resolution details for ${asset.assetNumber}:`)?.trim();
+    const note = await prompt(`Resolution details for ${asset.assetNumber}:`);
     if (!note) return;
     if (note.length < 5 || note.length > 500) { setError("Resolution details must contain 5 to 500 characters."); return; }
-    if (!window.confirm(`${resolution === "recovered" ? "Return" : "Write off"} ${asset.assetNumber}? This incident resolution is audited.`)) return;
+    if (!await confirm(`${resolution === "recovered" ? "Return" : "Write off"} ${asset.assetNumber}? This incident resolution is audited.`, { danger: resolution === "written_off" })) return;
     setBusy(true); setError("");
     try {
       const response = await authenticatedFetch(`/api/inventory/${item.id}/assets/${asset.id}/incidents/${asset.incident.id}/resolve`, {

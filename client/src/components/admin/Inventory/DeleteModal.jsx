@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { authenticatedFetch } from "../../../lib/api";
+import { useFeedback } from "../../common/feedbackContext";
 
 export default function DeleteModal({
     open,
@@ -6,24 +8,29 @@ export default function DeleteModal({
     item,
     onDeleted
 }) {
+    const { toast } = useFeedback();
+    const [deleting, setDeleting] = useState(false);
 
     if (!open || !item) return null;
 
     async function handleDelete() {
 
-        const response = await authenticatedFetch(`/api/inventory/${item.id}`, { method: "DELETE" });
-
-        if (!response.ok) {
-            const result = await response.json();
-            alert(result.message || "Unable to delete inventory item.");
-            return;
+        if (deleting) return;
+        setDeleting(true);
+        try {
+            const response = await authenticatedFetch(`/api/inventory/${item.id}`, { method: "DELETE" });
+            if (!response.ok) {
+                const result = await response.json().catch(() => ({}));
+                throw new Error(result.message || "Unable to delete inventory item.");
+            }
+            onDeleted?.();
+            toast("Inventory item deleted.", "success");
+            onClose();
+        } catch (error) {
+            toast(error.message || "Unable to delete inventory item.", "error");
+        } finally {
+            setDeleting(false);
         }
-
-        if (onDeleted) {
-            onDeleted();
-        }
-
-        onClose();
 
     }
 
@@ -50,6 +57,7 @@ export default function DeleteModal({
                     <button
                         className="cancel-btn"
                         onClick={onClose}
+                        disabled={deleting}
                     >
                         Cancel
                     </button>
@@ -57,8 +65,9 @@ export default function DeleteModal({
                     <button
                         className="delete-confirm"
                         onClick={handleDelete}
+                        disabled={deleting}
                     >
-                        Delete
+                        {deleting ? "Deleting..." : "Delete"}
                     </button>
 
                 </div>

@@ -6,6 +6,7 @@ import {
 } from "react";
 
 import { authenticatedFetch } from "../../lib/api";
+import { useFeedback } from "../../components/common/feedbackContext";
 import QRCode from "qrcode";
 import QrManagementModal from "../../components/admin/Users/QrManagementModal";
 import "../../styles/users.css";
@@ -28,6 +29,7 @@ const EMPTY_SECTION_FORM = {
 };
 
 export default function Users() {
+    const { confirm } = useFeedback();
     const [users, setUsers] = useState([]);
     const [search, setSearch] = useState("");
 
@@ -764,7 +766,7 @@ export default function Users() {
                 : "deactivate";
 
         const confirmed =
-            window.confirm(
+            await confirm(
                 `Are you sure you want to ${action} "${section.name}"?`
             );
 
@@ -843,7 +845,7 @@ export default function Users() {
         section
     ) {
         const confirmed =
-            window.confirm(
+            await confirm(
                 `Delete "${section.name}" permanently?\n\nThis action cannot be undone.`
             );
 

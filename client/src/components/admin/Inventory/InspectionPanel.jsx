@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { FaArrowLeft, FaCalendarCheck, FaExclamationTriangle } from "react-icons/fa";
 import { authenticatedFetch } from "../../../lib/api";
+import { useFeedback } from "../../common/feedbackContext";
 
 const formatDate = (value) => value ? new Intl.DateTimeFormat("en-PH", { dateStyle: "medium" }).format(new Date(value)) : "Not scheduled";
 
 export default function InspectionPanel({ item, asset, onBack, onChanged, onMaintenance }) {
+  const { confirm } = useFeedback();
   const [data, setData] = useState({ settings: {}, inspections: [] });
   const [intervalDays, setIntervalDays] = useState("");
   const [form, setForm] = useState({ result: "good", notes: "" });
@@ -39,7 +41,7 @@ export default function InspectionPanel({ item, asset, onBack, onChanged, onMain
 
   async function inspect(event) {
     event.preventDefault();
-    if (form.result === "damaged" && !window.confirm("This result will remove the asset from availability and create a maintenance case. Continue?")) return;
+    if (form.result === "damaged" && !await confirm("This result will remove the asset from availability and create a maintenance case. Continue?", { danger: true })) return;
     setBusy(true); setError("");
     try {
       const response = await authenticatedFetch(`/api/inventory/${item.id}/assets/${asset.id}/inspections`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
