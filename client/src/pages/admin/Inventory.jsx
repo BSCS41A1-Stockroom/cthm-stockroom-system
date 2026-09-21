@@ -158,9 +158,10 @@ export default function Inventory() {
         setSelectedIds([]);
     };
 
-    const selectedItems = inventory.filter((item) =>
-        selectedIds.includes(item.id)
-    );
+    const selectedItems = useMemo(() => {
+        const selectedSet = new Set(selectedIds);
+        return inventory.filter((item) => selectedSet.has(item.id));
+    }, [inventory, selectedIds]);
 
     const handleBulkDelete = () => {
         if (selectedItems.length === 0) return;

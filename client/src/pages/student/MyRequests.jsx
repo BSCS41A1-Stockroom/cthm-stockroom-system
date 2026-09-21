@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useDeferredValue } from "react";
 import "./MyRequests.css";
 import { authenticatedFetch } from "../../lib/api";
 import { supabase } from "../../lib/supabase";
@@ -38,6 +38,7 @@ export default function MyRequests() {
   const [loadError, setLoadError] = useState("");
 
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeRequest, setActiveRequest] = useState(null);
   const [receiptRequestId, setReceiptRequestId] = useState(null);
@@ -109,17 +110,17 @@ export default function MyRequests() {
   }
 
   const filteredRequests = useMemo(() => {
+    const query = deferredSearch.trim().toLowerCase();
     return requests.filter((req) => {
       const matchesStatus = statusFilter === "all" || req.status === statusFilter;
       if (!matchesStatus) return false;
 
-      if (!search.trim()) return true;
-      const q = search.trim().toLowerCase();
+      if (!query) return true;
       const itemNames = (req.items || []).map((i) => i.name?.toLowerCase() || "").join(" ");
       const purpose = req.purpose?.toLowerCase() || "";
-      return itemNames.includes(q) || purpose.includes(q);
+      return itemNames.includes(query) || purpose.includes(query);
     });
-  }, [requests, search, statusFilter]);
+  }, [requests, deferredSearch, statusFilter]);
 
   return (
     <div className="requests-page student-requests-page">
