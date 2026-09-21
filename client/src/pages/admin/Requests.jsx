@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   FaSearch,
   FaEye,
@@ -34,6 +34,7 @@ export default function Requests() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [statusFilter, setStatusFilter] = useState("All");
   const [view, setView] = useState("queue");
   const [selected, setSelected] = useState(null);
@@ -175,21 +176,22 @@ export default function Requests() {
   );
 
   const filtered = useMemo(() => {
+    const query = deferredSearch.trim().toLowerCase();
     const viewRequests = profile?.role === "admin" || view === "all"
       ? requests
       : requests.filter((request) => isInRoleQueue(request, profile?.role));
     return viewRequests.filter((r) => {
-      const matchesSearch =
-        r.student.toLowerCase().includes(search.toLowerCase()) ||
-        r.item.toLowerCase().includes(search.toLowerCase()) ||
-        r.id.toLowerCase().includes(search.toLowerCase());
+      const matchesSearch = !query ||
+        r.student.toLowerCase().includes(query) ||
+        r.item.toLowerCase().includes(query) ||
+        r.id.toLowerCase().includes(query);
 
       const matchesStatus =
         statusFilter === "All" || r.status === statusFilter;
 
       return matchesSearch && matchesStatus;
     });
-  }, [requests, search, statusFilter, view, profile?.role]);
+  }, [requests, deferredSearch, statusFilter, view, profile?.role]);
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
 

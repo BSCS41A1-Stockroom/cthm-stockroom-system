@@ -1,5 +1,5 @@
 
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import "./Borrowing.css";
 import "./BorrowerFormPreview.css";
@@ -35,6 +35,7 @@ export default function BorrowingInterface() {
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
   const [selected, setSelected] = useState({});
 
   const [borrowDate, setBorrowDate] = useState("");
@@ -199,7 +200,7 @@ export default function BorrowingInterface() {
    */
 
   const filteredItems = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
+    const keyword = deferredSearch.trim().toLowerCase();
 
     if (!keyword) {
       return items;
@@ -210,7 +211,7 @@ export default function BorrowingInterface() {
         .toLowerCase()
         .includes(keyword)
     );
-  }, [items, search]);
+  }, [items, deferredSearch]);
 
   /*
    * ============================================================
