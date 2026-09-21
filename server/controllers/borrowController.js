@@ -1064,11 +1064,32 @@ async function processBorrowingReturn(req, res, next) {
         `UPDATE public.borrowing_asset_assignments SET returned_by=$2, returned_at=now(), return_condition=$3, condition_note=$4, return_id=$5 WHERE id=$1`,
         [asset.assignment_id, req.user.id, asset.submitted.condition, asset.submitted.conditionNote || null, returnResult.rows[0].id]
       );
-      await client.query(
-        `UPDATE public.inventory_assets SET status=$2, condition=$3, maintenance_note=$4,
-           current_borrow_request_id=NULL, current_borrower_user_id=NULL, updated_at=now() WHERE id=$1`,
-        [asset.id, damaged ? "maintenance" : "available", asset.submitted.condition, damaged ? asset.submitted.conditionNote : null]
-      );
+      // Audit each QR-scanned serialized asset individually.
+      await writeAuditLog(client, req.user, {
+        action: "serialized_asset_returned",
+        entityType: "serialized_asset",
+        entityId: asset.id,
+        oldValues: {
+          status: "borrowed",
+          condition: asset.condition,
+          currentBorrowRequestId: requestId,
+          currentBorrowerUserId: request.user_id,
+        },
+        newValues: {
+          status: damaged ? "maintenance" : "available",
+          condition: asset.submitted.condition,
+          conditionNote: asset.submitted.conditionNote || null,
+          requestId,
+          returnId: returnResult.rows[0].id,
+          assetNumber: asset.asset_number,
+          inventoryId: asset.inventory_id,
+        },
+        metadata: {
+          source: "qr_return",
+          assignmentId: asset.assignment_id,
+          condition: asset.submitted.condition,
+        },
+      });
       if (damaged) {
         await client.query(
           `INSERT INTO public.asset_maintenance_records
