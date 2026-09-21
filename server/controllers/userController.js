@@ -255,7 +255,7 @@ function userErrors(
     }
 
     if (
-        ["professor", "staff", "department_head"].includes(
+        ["student", "professor", "staff", "department_head"].includes(
             user.role
         ) &&
         !/^[1-9]\d*$/.test(
@@ -263,18 +263,18 @@ function userErrors(
         )
     ) {
         errors.push(
-            "An active department is required for Professor, Staff, and Department Head accounts."
+            "An active department is required for Student, Professor, Staff, and Department Head accounts."
         );
     }
 
     if (
-        user.role === "professor" &&
+        ["student", "professor"].includes(user.role) &&
         !/^[1-9]\d*$/.test(
             String(user.sectionId ?? "")
         )
     ) {
         errors.push(
-            "An active section is required for Professor accounts."
+            "An active section is required for Student and Professor accounts."
         );
     }
 
@@ -290,17 +290,18 @@ function userErrors(
 }
 
 async function professorDepartmentExists(
-    user
+    user,
+    database = pool
 ) {
     if (
-        !["professor", "staff", "department_head"].includes(
+        !["student", "professor", "staff", "department_head"].includes(
             user.role
         )
     ) {
         return true;
     }
 
-    const result = await pool.query(
+    const result = await database.query(
         `
         SELECT 1
         FROM public.academic_departments
@@ -314,13 +315,14 @@ async function professorDepartmentExists(
 }
 
 async function professorSectionExists(
-    user
+    user,
+    database = pool
 ) {
-    if (user.role !== "professor") {
+    if (!["student", "professor"].includes(user.role)) {
         return true;
     }
 
-    const result = await pool.query(
+    const result = await database.query(
         `
         SELECT 1
         FROM public.academic_sections
@@ -437,7 +439,7 @@ async function inviteUser(req, res, next) {
             return res.status(422).json({
                 error: "INVALID_DEPARTMENT",
                 message:
-                    "Select an active department for this professor.",
+                    "Select an active department for this account.",
             });
         }
 
@@ -513,13 +515,13 @@ async function inviteUser(req, res, next) {
 
                 user.isActive,
 
-                ["professor", "staff", "department_head"].includes(
+                ["student", "professor", "staff", "department_head"].includes(
                     user.role
                 )
                     ? user.departmentId
                     : null,
 
-                user.role === "professor"
+                ["student", "professor"].includes(user.role)
                     ? user.sectionId
                     : null,
             ]
@@ -652,20 +654,22 @@ async function updateUser(
     try {
         if (
             !(await professorDepartmentExists(
-                user
+                user,
+                client
             ))
         ) {
             return res.status(422).json({
                 error:
                     "INVALID_DEPARTMENT",
                 message:
-                    "Select an active department for this professor.",
+                    "Select an active department for this account.",
             });
         }
 
         if (
             !(await professorSectionExists(
-                user
+                user,
+                client
             ))
         ) {
             return res.status(422).json({
@@ -780,14 +784,13 @@ async function updateUser(
 
                     user.isActive,
 
-                    ["professor", "staff", "department_head"].includes(
+                    ["student", "professor", "staff", "department_head"].includes(
                         user.role
                     )
                         ? user.departmentId
                         : null,
 
-                    user.role ===
-                    "professor"
+                    ["student", "professor"].includes(user.role)
                         ? user.sectionId
                         : null,
                 ]
