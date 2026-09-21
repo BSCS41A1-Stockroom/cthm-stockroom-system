@@ -285,7 +285,7 @@ export default function Requests() {
   };
 
   return (
-    <div className="requests-page">
+    <div className="requests-page admin-requests-page">
 
       <div className="requests-header">
 

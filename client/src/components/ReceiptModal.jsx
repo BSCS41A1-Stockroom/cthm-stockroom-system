@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { FaExternalLinkAlt, FaPrint, FaReceipt, FaTimes } from "react-icons/fa";
 import { authenticatedFetch } from "../lib/api";
 import "../styles/receipts.css";
+import "../styles/receipt-overlay.css";
 import "../styles/receipt-verification.css";
 
 const dateTime = (value) => value ? new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "—";
