@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { authenticatedFetch } from "../../lib/api";
 import { useAuth } from "../../auth/useAuth";
+import { useFeedback } from "../../components/common/feedbackContext";
 
 import "../../styles/inventory.css";
 import "../../styles/inspection.css";
@@ -19,9 +20,11 @@ import InventoryFullViewModal from "../../components/admin/Inventory/InventoryFu
 
 export default function Inventory() {
     const { profile } = useAuth();
+    const { toast } = useFeedback();
     const [inventory, setInventory] = useState([]);
     const [rooms, setRooms] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState("");
 
     const [openModal, setOpenModal] = useState(false);
 
@@ -73,6 +76,7 @@ export default function Inventory() {
 
         if (error) {
             console.error("Failed to load inventory:", error);
+            setLoadError("Unable to load inventory. Please try again.");
             setLoading(false);
             return;
         }
@@ -80,6 +84,7 @@ export default function Inventory() {
         const items = data || [];
 
         setInventory(items);
+        setLoadError("");
 
         /*
          * Use updated_at when available.
@@ -159,13 +164,12 @@ export default function Inventory() {
 
     const handleBulkDelete = () => {
         if (selectedItems.length === 0) return;
-
-        /*
-         * Reuse the existing delete modal for one item.
-         * Bulk deletion should be connected to a dedicated
-         * bulk-delete confirmation/modal when you implement it.
-         */
-        console.log("Selected items for deletion:", selectedItems);
+        if (selectedItems.length > 1) {
+            toast("Select one item at a time to delete it safely.", "info");
+            return;
+        }
+        setSelectedItem(selectedItems[0]);
+        setDeleteOpen(true);
     };
 
     const formatLastUpdated = () => {
@@ -182,14 +186,15 @@ export default function Inventory() {
 
     if (loading) {
         return (
-            <div className="inventory-loading">
-                Loading inventory...
+            <div className="inventory-loading" role="status">
+                <span className="inventory-loading-spinner" aria-hidden="true" /> Loading inventory...
             </div>
         );
     }
 
     return (
         <div className="inventory-page">
+            {loadError && <div className="inventory-load-error" role="alert">{loadError} <button type="button" onClick={() => { setLoading(true); loadInventory(); }}>Retry</button></div>}
 
             {/* =====================================================
                 HEADER
@@ -293,7 +298,7 @@ export default function Inventory() {
                             className="bulk-delete-btn"
                             onClick={handleBulkDelete}
                         >
-                            Delete Selected
+                            {selectedIds.length === 1 ? "Delete Selected Item" : "Delete Selected"}
                         </button>
 
                         <button
@@ -392,7 +397,7 @@ export default function Inventory() {
                 open={deleteOpen}
                 item={selectedItem}
                 onClose={() => setDeleteOpen(false)}
-                onDeleted={loadInventory}
+                onDeleted={() => { clearSelection(); loadInventory(); }}
             />
 
 

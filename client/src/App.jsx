@@ -1,7 +1,8 @@
 import AppRoutes from "./routes/AppRoutes";
+import FeedbackProvider from "./components/common/FeedbackProvider";
 
 function App() {
-  return <AppRoutes />;
+  return <FeedbackProvider><AppRoutes /></FeedbackProvider>;
 }
 
 export default App;

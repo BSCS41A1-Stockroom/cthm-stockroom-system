@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { authenticatedFetch } from "../../../lib/api";
+import { useFeedback } from "../../common/feedbackContext";
 
 export default function ReconciliationModal({ onClose, onChanged }) {
+  const { confirm, prompt } = useFeedback();
   const [data, setData] = useState({ session: null, items: [], assets: [] });
   const [notes, setNotes] = useState("");
   const [token, setToken] = useState("");
@@ -23,8 +25,8 @@ export default function ReconciliationModal({ onClose, onChanged }) {
   async function start() { const body = await request("/api/reconciliations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notes }) }); if (body) setData(body); }
   async function saveCount(item, count) { const body = await request(`/api/reconciliations/${data.session.id}/counts/${item.inventory_id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ count: Number(count) }) }); if (body) setData((current) => ({ ...current, items: current.items.map((entry) => entry.id === item.id ? { ...entry, ...body.item } : entry) })); }
   async function scan(event) { event.preventDefault(); const body = await request(`/api/reconciliations/${data.session.id}/assets/scan`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: token.trim(), condition }) }); if (body) { setToken(""); setMessage(`${body.asset.asset_number} counted.`); await load(); } }
-  async function finish(applyAdjustments) { const discrepancies = data.items.some((item) => item.discrepancy && Number(item.discrepancy) !== 0) || data.assets.some((asset) => asset.discrepancy_type || (!asset.scanned_at && ["available", "maintenance"].includes(asset.expected_status))); const reason = discrepancies ? window.prompt("Explain the discrepancies and adjustment decision:")?.trim() : ""; if (discrepancies && !reason) return; if (!window.confirm(`${applyAdjustments ? "Apply adjustments and complete" : "Complete without adjusting"} this physical count?`)) return; const body = await request(`/api/reconciliations/${data.session.id}/complete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ applyAdjustments, reason }) }); if (body) { onChanged?.(); onClose(); } }
-  async function cancel() { if (!window.confirm("Cancel this physical count? Recorded counts will remain in history but no inventory will change.")) return; const body = await request(`/api/reconciliations/${data.session.id}`, { method: "DELETE" }); if (body) onClose(); }
+  async function finish(applyAdjustments) { const discrepancies = data.items.some((item) => item.discrepancy && Number(item.discrepancy) !== 0) || data.assets.some((asset) => asset.discrepancy_type || (!asset.scanned_at && ["available", "maintenance"].includes(asset.expected_status))); const reason = discrepancies ? await prompt("Explain the discrepancies and adjustment decision:") : ""; if (discrepancies && !reason) return; if (!await confirm(`${applyAdjustments ? "Apply adjustments and complete" : "Complete without adjusting"} this physical count?`)) return; const body = await request(`/api/reconciliations/${data.session.id}/complete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ applyAdjustments, reason }) }); if (body) { onChanged?.(); onClose(); } }
+  async function cancel() { if (!await confirm("Cancel this physical count? Recorded counts will remain in history but no inventory will change.", { danger: true })) return; const body = await request(`/api/reconciliations/${data.session.id}`, { method: "DELETE" }); if (body) onClose(); }
 
   const bulk = data.items.filter((item) => item.tracking_type === "bulk");
   const serialized = data.items.filter((item) => item.tracking_type === "serialized");

@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { FaArrowLeft, FaCheckCircle, FaClock, FaExclamationTriangle, FaTools } from "react-icons/fa";
 import { authenticatedFetch } from "../../../lib/api";
+import { useFeedback } from "../../common/feedbackContext";
 
 const labels = { under_inspection: "Under Inspection", under_repair: "Under Repair", completed: "Returned to Service", retired: "Retired" };
 const isOpen = (status) => ["under_inspection", "under_repair"].includes(status);
 const formatDate = (value) => value ? new Intl.DateTimeFormat("en-PH", { dateStyle: "medium" }).format(new Date(value)) : "Not set";
 
 export default function MaintenancePanel({ item, asset, onBack, onChanged }) {
+  const { confirm } = useFeedback();
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -46,7 +48,7 @@ export default function MaintenancePanel({ item, asset, onBack, onChanged }) {
   async function save(event) {
     event.preventDefault();
     if (!active) return;
-    if (closing && !window.confirm(form.status === "retired" ? `Retire ${asset.assetNumber} permanently?` : `Confirm that ${asset.assetNumber} is safe to return to service?`)) return;
+    if (closing && !await confirm(form.status === "retired" ? `Retire ${asset.assetNumber} permanently?` : `Confirm that ${asset.assetNumber} is safe to return to service?`, { danger: form.status === "retired" })) return;
     setBusy(true); setError("");
     try {
       const response = await authenticatedFetch(`/api/inventory/${item.id}/assets/${asset.id}/maintenance/${active.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });

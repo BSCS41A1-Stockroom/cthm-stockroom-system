@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { authenticatedFetch } from "../../../lib/api";
 import { supabase } from "../../../lib/supabase";
+import { useFeedback } from "../../common/feedbackContext";
 import {
     DEFAULT_LOW_STOCK_THRESHOLD,
     inventoryTotals
 } from "../../../utils/inventoryAvailability";
 
 export default function AddItemModal({ open, onClose, rooms = [] }) {
+    const { toast } = useFeedback();
 
     const [form, setForm] = useState({
         item_name: "",
@@ -67,13 +69,13 @@ export default function AddItemModal({ open, onClose, rooms = [] }) {
         ];
 
         if (!allowedTypes.includes(file.type)) {
-            alert("Please select a JPG, PNG, or WEBP image.");
+            toast("Please select a JPG, PNG, or WEBP image.", "error");
             e.target.value = "";
             return;
         }
 
         if (file.size > 5 * 1024 * 1024) {
-            alert("Image must be 5MB or smaller.");
+            toast("Image must be 5MB or smaller.", "error");
             e.target.value = "";
             return;
         }
@@ -125,10 +127,10 @@ export default function AddItemModal({ open, onClose, rooms = [] }) {
     async function handleSave() {
 
         if (!form.item_name.trim()) {
-            alert("Please enter an item name.");
+            toast("Please enter an item name.", "error");
             return;
         }
-        if (!form.room_id) { alert("Please select a laboratory room."); return; }
+        if (!form.room_id) { toast("Please select a laboratory room.", "error"); return; }
 
         try {
 
@@ -152,24 +154,25 @@ export default function AddItemModal({ open, onClose, rooms = [] }) {
             const result = await response.json();
 
             if (!response.ok) {
-                alert(
+                toast(
                     result.reasons?.[0] ||
                     result.message ||
-                    "Unable to create inventory item."
+                    "Unable to create inventory item.", "error"
                 );
                 return;
             }
 
             resetForm();
+            toast("Inventory item added successfully.", "success");
             onClose();
 
         } catch (error) {
 
             console.error("Inventory image upload error:", error);
 
-            alert(
+            toast(
                 error.message ||
-                "Unable to upload inventory image."
+                "Unable to upload inventory image.", "error"
             );
 
         } finally {
