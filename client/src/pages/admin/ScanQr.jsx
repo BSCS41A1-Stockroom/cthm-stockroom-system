@@ -1,7 +1,7 @@
 "use strict";
 
-import React, { useEffect, useRef, useState } from "react";
-import { authenticatedFetch } from "../../utils/authenticatedFetch";
+import { useRef, useState } from "react";
+import { authenticatedFetch } from "../../lib/api";
 
 export default function ScanQr() {
   const [scanValue, setScanValue] = useState("");
@@ -12,7 +12,6 @@ export default function ScanQr() {
   const [returnRequest, setReturnRequest] = useState(null);
   const [returnForm, setReturnForm] = useState(null);
 
-  const [assetTokens, setAssetTokens] = useState([]);
   const [assetScanValue, setAssetScanValue] = useState("");
   const [returnAssets, setReturnAssets] = useState([]);
   const [missingAssets, setMissingAssets] = useState([]);
@@ -174,11 +173,6 @@ export default function ScanQr() {
           body.message || "Unable to read this asset QR."
         );
       }
-
-      setAssetTokens((current) => [
-        ...current,
-        body.asset,
-      ]);
 
       setMessage(
         `${body.asset.assetNumber || "Asset"} added.`
