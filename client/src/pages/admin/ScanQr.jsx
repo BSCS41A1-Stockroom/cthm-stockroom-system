@@ -649,7 +649,14 @@ export default function ScanQr() {
           </label>
         </section>)}
         <label>Return remarks<textarea rows="3" maxLength="1000" value={returnForm.remarks} onChange={(event) => setReturnForm({ ...returnForm, remarks: event.target.value })} /></label>
-        <button className="release-button" type="submit" disabled={busy}>{busy ? "Recording return..." : "Record Return"}</button>
+        <button
+  className="release-button"
+  type="submit"
+  disabled={busy}
+  onClick={() => console.log("[QR RETURN] Record Return CLICKED")}
+>
+  {busy ? "Recording return..." : "Record Return"}
+</button>
       </form>}
     </section></div>}
   </div>;
