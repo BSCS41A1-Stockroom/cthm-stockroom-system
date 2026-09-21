@@ -18,7 +18,7 @@ export default function ProfileSecurity() {
   const { user, profile } = useAuth();
   const [resetState, setResetState] = useState({ busy: false, message: "", error: false });
   const role = profile?.role || "user";
-  const hasSignature = ["student", "professor", "staff", "department_head"].includes(role);
+  const hasSignature = ["student", "professor", "staff", "admin"].includes(role);
 
   const sendPasswordReset = async () => {
     if (!user?.email || resetState.busy) return;
@@ -61,6 +61,6 @@ export default function ProfileSecurity() {
 
     {role === "student" && <section className="profile-tool-section"><AccountQr embedded /></section>}
     {hasSignature && <section className="profile-tool-section"><SignatureSettings embedded /></section>}
-    {role === "admin" && <section className="profile-security-card profile-security-note"><div className="profile-security-card-icon"><FaShieldAlt /></div><div><h2>Administrator Security</h2><p>General administrators manage the system but are not transaction signatories. No personal signature is required for this role.</p></div></section>}
+    {role === "admin" && <section className="profile-security-card profile-security-note"><div className="profile-security-card-icon"><FaShieldAlt /></div><div><h2>Custodian Head Authority</h2><p>Your Admin account provides system-wide access and final Custodian Head approval. Every approval records your identity, signature snapshot, and timestamp.</p></div></section>}
   </main>;
 }

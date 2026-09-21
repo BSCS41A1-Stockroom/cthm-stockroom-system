@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const pool = require("../config/db");
-const { decodeSignature, ownershipError, saveMyCustodianSignature, saveMyDepartmentHeadSignature } = require("./authorizationController");
+const { decodeSignature, ownershipError, saveMyAdminSignature, saveMyCustodianSignature } = require("./authorizationController");
 
 test("accepts real image signatures and rejects disguised or oversized data", () => {
   const png = Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0]);
@@ -54,7 +54,7 @@ test("rejects an invalid custodian signature before accessing the database", asy
   assert.equal(response.body.error, "INVALID_SIGNATURE");
 });
 
-test("saves a department-head signature under only the authenticated department-head account", async () => {
+test("saves a Custodian Head signature under only the authenticated Admin account", async () => {
   const png = Buffer.from([137,80,78,71,13,10,26,10,0]);
   const calls = [];
   const client = { async query(sql, params) {
@@ -66,10 +66,10 @@ test("saves a department-head signature under only the authenticated department-
   pool.connect = async () => client;
   const response = { statusCode: 200, status(code) { this.statusCode=code; return this; }, json(body) { this.body=body; return this; } };
   try {
-    await saveMyDepartmentHeadSignature({ user: { id: "head-user", role: "department_head", department_id: 4 }, body: { image: `data:image/png;base64,${png.toString("base64")}` } }, response, (error) => { throw error; });
+    await saveMyAdminSignature({ user: { id: "admin-user", role: "admin" }, body: { image: `data:image/png;base64,${png.toString("base64")}` } }, response, (error) => { throw error; });
   } finally { pool.connect = originalConnect; }
-  const upsert = calls.find((call) => call.sql.includes("INSERT INTO public.department_head_signatures"));
-  assert.equal(upsert.params[0], "head-user");
+  const upsert = calls.find((call) => call.sql.includes("INSERT INTO public.admin_signatures"));
+  assert.equal(upsert.params[0], "admin-user");
   assert.match(upsert.params[3], /^[0-9a-f]{64}$/);
   assert.equal(calls.some((call) => call.sql.includes("INSERT INTO public.audit_logs")), true);
   assert.equal(calls.at(-1).sql, "COMMIT");

@@ -1,7 +1,7 @@
 "use strict";
 const express = require("express");
 const { authenticate, requireRoles } = require("../middleware/auth");
-const { approveCustodianRequest, authorizeRequest, downloadAuthorizedDocument, getAuthorizationReview, getCustodianReview, getMyCustodianSignature, getMyDepartmentHeadSignature, getMySignature, getMyStudentSignature, saveMyCustodianSignature, saveMyDepartmentHeadSignature, saveMySignature, saveMyStudentSignature, verifyCustodianRequest } = require("../controllers/authorizationController");
+const { approveCustodianRequest, authorizeRequest, downloadAuthorizedDocument, getAuthorizationReview, getCustodianReview, getMyAdminSignature, getMyCustodianSignature, getMySignature, getMyStudentSignature, saveMyAdminSignature, saveMyCustodianSignature, saveMySignature, saveMyStudentSignature, verifyCustodianRequest } = require("../controllers/authorizationController");
 const router = express.Router();
 router.use(authenticate);
 router.get("/signature", requireRoles("professor"), getMySignature);
@@ -10,11 +10,11 @@ router.get("/student-signature", requireRoles("student"), getMyStudentSignature)
 router.put("/student-signature", requireRoles("student"), saveMyStudentSignature);
 router.get("/custodian-signature", requireRoles("staff"), getMyCustodianSignature);
 router.put("/custodian-signature", requireRoles("staff"), saveMyCustodianSignature);
-router.get("/department-head-signature", requireRoles("department_head"), getMyDepartmentHeadSignature);
-router.put("/department-head-signature", requireRoles("department_head"), saveMyDepartmentHeadSignature);
+router.get("/admin-signature", requireRoles("admin"), getMyAdminSignature);
+router.put("/admin-signature", requireRoles("admin"), saveMyAdminSignature);
 router.get("/requests/:id/custodian-review", requireRoles("staff"), getCustodianReview);
 router.post("/requests/:id/verify", requireRoles("staff"), verifyCustodianRequest);
-router.post("/requests/:id/approve", requireRoles("department_head"), approveCustodianRequest);
+router.post("/requests/:id/approve", requireRoles("admin"), approveCustodianRequest);
 router.get("/:token/document", requireRoles("student", "professor", "staff", "department_head", "admin"), downloadAuthorizedDocument);
 router.get("/:token", requireRoles("professor"), getAuthorizationReview);
 router.post("/:token/authorize", requireRoles("professor"), authorizeRequest);

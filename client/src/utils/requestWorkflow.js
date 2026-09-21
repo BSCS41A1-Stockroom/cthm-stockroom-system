@@ -29,7 +29,7 @@ export function stageLabel(request) {
   return ({
     [REQUEST_STAGES.PROFESSOR]: "Waiting for Professor",
     [REQUEST_STAGES.STAFF]: "Waiting for Staff",
-    [REQUEST_STAGES.DEPARTMENT_HEAD]: "Waiting for Department Head",
+    [REQUEST_STAGES.DEPARTMENT_HEAD]: "Waiting for Custodian Head",
     [REQUEST_STAGES.READY]: "Ready for Claim",
     [REQUEST_STAGES.BORROWED]: "Borrowed",
     [REQUEST_STAGES.RETURNED]: "Returned",
@@ -41,7 +41,7 @@ export function stageLabel(request) {
 export function isInRoleQueue(request, role) {
   const stage = requestStage(request);
   if (role === "professor") return stage === REQUEST_STAGES.PROFESSOR;
-  if (role === "department_head") return stage === REQUEST_STAGES.DEPARTMENT_HEAD;
+  if (role === "admin") return stage === REQUEST_STAGES.DEPARTMENT_HEAD;
   if (role === "staff") return [REQUEST_STAGES.STAFF, REQUEST_STAGES.READY, REQUEST_STAGES.BORROWED].includes(stage);
   return false;
 }
