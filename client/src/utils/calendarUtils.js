@@ -5,6 +5,15 @@ export function formatDate(date) {
   return `${year}-${month}-${day}`;
 }
 
+export function getUpcomingEvents(events = [], today = new Date(), limit = 5) {
+  const currentDate = formatDate(today);
+  return events
+    .filter((event) => typeof event.date === "string" && event.date >= currentDate)
+    .sort((left, right) => left.date.localeCompare(right.date)
+      || (left.start || "").localeCompare(right.start || ""))
+    .slice(0, limit);
+}
+
 export function getEvents(date, events = []) {
   return events.filter((event) => event.date === formatDate(date));
 }

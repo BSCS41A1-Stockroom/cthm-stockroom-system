@@ -1,8 +1,7 @@
+import { getUpcomingEvents } from "../../../utils/calendarUtils";
+
 export default function UpcomingEvents({ events = [] }) {
-  const upcoming = [...events]
-    .filter((event) => event.date >= new Date().toISOString().slice(0, 10))
-    .sort((left, right) => left.date.localeCompare(right.date))
-    .slice(0, 5);
+  const upcoming = getUpcomingEvents(events);
 
   return (
     <div className="sidebar-card">

@@ -1,8 +1,8 @@
+import { getUpcomingEvents } from "../../../utils/calendarUtils";
+
 export default function UpcomingEvents({ events }) {
 
-    const upcoming = [...events]
-        .sort((a, b) => new Date(a.date) - new Date(b.date))
-        .slice(0, 5);
+    const upcoming = getUpcomingEvents(events);
 
     return (
 
