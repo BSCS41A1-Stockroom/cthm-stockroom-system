@@ -37,7 +37,15 @@ async function listAnnouncementReviews(_req, res, next) {
          LEFT JOIN public.calendar_closures closure ON closure.id=review.closure_id
         ORDER BY (review.status='pending') DESC, review.created_at DESC, review.id DESC LIMIT 100`
     );
-    return res.json({ reviews: result.rows });
+    return res.json({ reviews: result.rows.map((review) => {
+      if (review.status !== "pending") return review;
+      const analysis = suggestClosure(review.caption);
+      return { ...review, possible_suspension: analysis.possibleSuspension,
+        suspension_scope: analysis.scope,
+        suggested_start_date: analysis.scope === "full_day" ? analysis.dates[0] || null : null,
+        suggested_end_date: analysis.scope === "full_day" ? analysis.dates.at(-1) || null : null,
+        evidence: { ...analysis.evidence, dates: analysis.dates }, warnings: analysis.warnings };
+    }) });
   } catch (error) { return next(error); }
 }
 
@@ -55,13 +63,15 @@ async function submitAnnouncementReview(req, res, next) {
     await client.query("BEGIN");
     const result = await client.query(
       `INSERT INTO public.announcement_reviews
-        (caption,source_url,source_fingerprint,possible_suspension,suggested_start_date,suggested_end_date,warnings,submitted_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8)
+        (caption,source_url,source_fingerprint,possible_suspension,suggested_start_date,suggested_end_date,warnings,submitted_by,suspension_scope,evidence)
+       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10::jsonb)
        ON CONFLICT (source_fingerprint) WHERE status IN ('pending','confirmed') DO NOTHING
        RETURNING *`,
       [caption, sourceUrl || null, fingerprint, suggestion.possibleSuspension,
-        suggestion.dates[0] || null, suggestion.dates.at(-1) || null,
-        JSON.stringify(suggestion.warnings), req.user.id]
+        suggestion.scope === "full_day" ? suggestion.dates[0] || null : null,
+        suggestion.scope === "full_day" ? suggestion.dates.at(-1) || null : null,
+        JSON.stringify(suggestion.warnings), req.user.id, suggestion.scope,
+        JSON.stringify({ ...suggestion.evidence, dates: suggestion.dates })]
     );
     if (!result.rowCount) {
       await client.query("ROLLBACK");
@@ -107,6 +117,11 @@ async function createClosure(req, res, next) {
       if (!review || review.status !== "pending" || sourceKind !== "school_announcement") {
         await client.query("ROLLBACK");
         return res.status(409).json({ message: "This announcement is no longer awaiting review." });
+      }
+      const currentAnalysis = suggestClosure(review.caption);
+      if (!currentAnalysis.possibleSuspension || currentAnalysis.scope !== "full_day") {
+        await client.query("ROLLBACK");
+        return res.status(422).json({ message: "This post is not a full-day class suspension. It cannot block an entire calendar date." });
       }
       if (sourceUrl !== (review.source_url || "")) {
         await client.query("ROLLBACK");
