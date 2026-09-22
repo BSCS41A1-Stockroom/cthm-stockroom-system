@@ -47,6 +47,12 @@ export default function MyRequests() {
   const [withdrawReason, setWithdrawReason] = useState("");
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawError, setWithdrawError] = useState("");
+  const [rescheduleRequest, setRescheduleRequest] = useState(null);
+  const [replacementBorrowDate, setReplacementBorrowDate] = useState("");
+  const [replacementReturnDate, setReplacementReturnDate] = useState("");
+  const [replacementConsent, setReplacementConsent] = useState(false);
+  const [rescheduleBusy, setRescheduleBusy] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState("");
 
   useEffect(() => {
     fetchRequests();
@@ -107,6 +113,23 @@ export default function MyRequests() {
       await fetchRequests();
     } catch (error) { setWithdrawError(error.message); }
     finally { setWithdrawing(false); }
+  }
+
+  async function submitReschedule(event) {
+    event.preventDefault();
+    if (!rescheduleRequest || rescheduleBusy) return;
+    setRescheduleBusy(true); setRescheduleError("");
+    try {
+      const response = await authenticatedFetch(`/api/borrowings/${rescheduleRequest.id}/reschedule`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ borrowDate: replacementBorrowDate, returnDate: replacementReturnDate, borrowerConsent: replacementConsent }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.validation?.reasons?.[0]?.message || result.message || "Could not reschedule request.");
+      setRescheduleRequest(null); setActiveRequest(null); setReplacementConsent(false);
+      await fetchRequests();
+    } catch (error) { setRescheduleError(error.message); }
+    finally { setRescheduleBusy(false); }
   }
 
   const filteredRequests = useMemo(() => {
@@ -284,6 +307,7 @@ export default function MyRequests() {
               <p>{activeRequest.purpose || "—"}</p>
             </div>
             {activeRequest.cancelledAt && <div className="modal-section"><h3>{activeRequest.status === "withdrawn" ? "Withdrawal" : "Cancellation"}</h3><p>{activeRequest.cancellationReason} · {new Date(activeRequest.cancelledAt).toLocaleString()}</p></div>}
+            {activeRequest.replacesRequestId && <div className="modal-section"><h3>Replacement request</h3><p>This replaces BR-{String(activeRequest.replacesRequestId).padStart(3, "0")}. New approval is required for these dates.</p></div>}
             {activeRequest.status === "pending" && <AuthorizationQr token={activeRequest.authorizationToken} />}
             {activeRequest.actualReturnedAt && <div className="modal-section"><h3>Completed return</h3><p>{new Date(activeRequest.actualReturnedAt).toLocaleString()}</p></div>}
             <BorrowingTimeline request={activeRequest} />
@@ -291,6 +315,7 @@ export default function MyRequests() {
             <div className="request-detail-actions">
               <button type="button" className="detail-secondary-btn" onClick={() => setActiveRequest(null)}>Close</button>
               {["pending", "validated"].includes(activeRequest.status) && <button type="button" className="detail-danger-btn" onClick={() => { setWithdrawRequest(activeRequest); setWithdrawReason(""); setWithdrawError(""); }}>Withdraw Request</button>}
+              {activeRequest.calendarDisruption && ["pending", "validated", "approved"].includes(activeRequest.status) && <button type="button" className="receipt-action-btn" onClick={() => { setRescheduleRequest(activeRequest); setReplacementBorrowDate(""); setReplacementReturnDate(""); setReplacementConsent(false); setRescheduleError(""); }}>Request New Dates</button>}
               {activeRequest.authorizationStatus === "authorized" && <button type="button" className="receipt-action-btn" disabled={documentBusyId === activeRequest.id} onClick={() => downloadBorrowerForm(activeRequest)}><FaDownload /> {documentBusyId === activeRequest.id ? "Preparing..." : "Download Form"}</button>}
               {["borrowed", "returned"].includes(activeRequest.status) && <button type="button" className="receipt-action-btn" onClick={() => setReceiptRequestId(activeRequest.id)}><FaReceipt /> View Receipts</button>}
             </div>
@@ -298,6 +323,19 @@ export default function MyRequests() {
         </div>
       )}
       {receiptRequestId && <ReceiptModal requestId={receiptRequestId} onClose={() => setReceiptRequestId(null)} />}
+      {rescheduleRequest && <div className="modal-overlay" onClick={() => !rescheduleBusy && setRescheduleRequest(null)}>
+        <form className="modal-card withdrawal-dialog" role="dialog" aria-modal="true" aria-labelledby="reschedule-title" onSubmit={submitReschedule} onClick={(event) => event.stopPropagation()}>
+          <div className="modal-header"><div><h2 id="reschedule-title">Request new dates</h2><p>BR-{String(rescheduleRequest.id).padStart(3, "0")}</p></div></div>
+          <div className="withdrawal-content">
+            <p>The original request and its signatures stay in the history. A replacement request will be checked again and sent to your professor for fresh approval.</p>
+            {rescheduleError && <p className="state-msg error">{rescheduleError}</p>}
+            <label>New borrowing date<input type="date" required value={replacementBorrowDate} onChange={(event) => setReplacementBorrowDate(event.target.value)} /></label>
+            <label>New return date<input type="date" required min={replacementBorrowDate || undefined} value={replacementReturnDate} onChange={(event) => setReplacementReturnDate(event.target.value)} /></label>
+            <label className="reschedule-consent"><input type="checkbox" required checked={replacementConsent} onChange={(event) => setReplacementConsent(event.target.checked)} /> I confirm the new dates and consent to applying my saved borrower signature to the replacement request.</label>
+          </div>
+          <div className="request-detail-actions"><button type="button" className="detail-secondary-btn" disabled={rescheduleBusy} onClick={() => setRescheduleRequest(null)}>Cancel</button><button type="submit" className="receipt-action-btn" disabled={rescheduleBusy}>{rescheduleBusy ? "Checking..." : "Submit replacement"}</button></div>
+        </form>
+      </div>}
       {withdrawRequest && <div className="modal-overlay" onClick={() => !withdrawing && setWithdrawRequest(null)}>
         <form className="modal-card withdrawal-dialog" role="dialog" aria-modal="true" aria-labelledby="withdraw-title" onSubmit={submitWithdrawal} onClick={(event) => event.stopPropagation()}>
           <div className="modal-header"><div><h2 id="withdraw-title">Withdraw request?</h2><p>BR-{String(withdrawRequest.id).padStart(3, "0")}</p></div></div>

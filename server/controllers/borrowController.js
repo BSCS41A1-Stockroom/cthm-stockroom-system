@@ -3,6 +3,7 @@
 const pool = require("../config/db");
 const {
   availableQuantity,
+  isValidDate,
   validateBorrowingRequest,
   validateBorrowingRequestShape,
 } = require("../algorithms/borrowingValidation");
@@ -166,6 +167,7 @@ function serializeBorrowRequest(request) {
     actualReturnedAt: request.actual_returned_at ?? null,
     overdue: Boolean(request.overdue),
     calendarDisruption: request.calendar_disruption ?? null,
+    replacesRequestId: request.replaces_request_id ?? null,
     authorizationStatus: request.authorization_status ?? null,
     authorizationToken: ["withdrawn", "cancelled"].includes(status) ? null : request.authorization_token ?? null,
     authorizedBy: request.professor_name ?? null,
@@ -694,6 +696,7 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
         return { request, validation: { valid: false, status: "Rejected", reasons: [assignmentError], assignment: null, checkedConstraints: [], conflicts: [] } };
       }
     }
+    if (validationOptions.beforeValidation) await validationOptions.beforeValidation(client, request);
     const closedDate = await findClosure(client, [request.borrowDate, request.returnDate], request.departmentId);
     if (closedDate) {
       await client.query("ROLLBACK");
@@ -762,6 +765,7 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
           department_id,
           section_id,
           assigned_professor_user_id
+          ,replaces_request_id
         )
       VALUES
         (
@@ -774,7 +778,8 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
           $7,
           $8,
           $9,
-          $10::uuid
+          $10::uuid,
+          $11::bigint
         )
       RETURNING *`,
       [
@@ -788,6 +793,7 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
         request.departmentId,
         request.sectionId,
         request.assignedProfessorId,
+        validationOptions.replacesRequestId ?? null,
       ]
     );
     const savedRequest = requestResult.rows[0];
@@ -869,7 +875,7 @@ async function listBorrowRequests(req, res, next) {
     await processExpiredRequests();
     const studentOnly = req.user.role === "student";
     const result = await pool.query(
-      `SELECT br.id, br.student_name, br.student_id, br.borrow_date,
+      `SELECT br.id, br.replaces_request_id, br.student_name, br.student_id, br.borrow_date,
               br.return_date, br.actual_returned_at, br.purpose, br.status, br.created_at,
               br.cancelled_by,br.cancelled_at,br.cancellation_reason,br.cancellation_type,
               canceller.full_name AS cancelled_by_name,
@@ -2468,12 +2474,95 @@ async function createBorrowRequest(req, res, next) {
   }
 }
 
+async function rescheduleBorrowRequest(req, res, next) {
+  const originalId = req.params.id;
+  const borrowDate = req.body?.borrowDate;
+  const returnDate = req.body?.returnDate;
+  if (!/^[1-9]\d*$/.test(String(originalId)) || !isValidDate(borrowDate) || !isValidDate(returnDate)) {
+    return res.status(422).json({ message: "Enter a valid request ID and replacement dates." });
+  }
+  if (req.body?.borrowerConsent !== true) {
+    return res.status(422).json({ message: "Confirm that your saved signature may be applied to the replacement request." });
+  }
+  try {
+    await processExpiredRequests();
+    const source = await pool.query(
+      `SELECT br.*, COALESCE(json_agg(json_build_object('inventoryId', item.inventory_id, 'quantity', item.quantity)
+        ORDER BY item.inventory_id) FILTER (WHERE item.inventory_id IS NOT NULL), '[]'::json) AS items
+         FROM public.borrow_requests br LEFT JOIN public.borrow_request_items item ON item.request_id=br.id
+        WHERE br.id=$1 AND br.user_id=$2 GROUP BY br.id`, [originalId, req.user.id]
+    );
+    const original = source.rows[0];
+    if (!original) return res.status(404).json({ message: "Request not found." });
+    if (!["Pending", "Validated", "Approved"].includes(original.status)) {
+      return res.status(409).json({ message: "Only unclaimed requests can be rescheduled." });
+    }
+    const replacement = authenticatedStudentRequest({
+      borrowDate, returnDate, purpose: original.purpose,
+      departmentId: original.department_id, sectionId: original.section_id,
+      assignedProfessorId: original.assigned_professor_user_id, items: original.items,
+    }, req.user);
+    const result = await withValidation(replacement, true, pool, {
+      userId: req.user.id, actor: req.user, requireAcademicAssignment: true,
+      requireStudentSignature: true, studentConsent: true, replacesRequestId: originalId,
+      beforeValidation: async (client) => {
+        await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [`user:${req.user.id}`]);
+        const locked = await client.query("SELECT * FROM public.borrow_requests WHERE id=$1 FOR UPDATE", [originalId]);
+        const current = locked.rows[0];
+        if (!current || String(current.user_id) !== String(req.user.id)
+            || !["Pending", "Validated", "Approved"].includes(current.status)) {
+          throw Object.assign(new Error("This request can no longer be rescheduled."), { status: 409 });
+        }
+        const closure = await findClosure(client, [current.borrow_date, current.return_date], current.department_id);
+        if (!closure) throw Object.assign(new Error("This request is no longer affected by a closure."), { status: 409 });
+        const items = await client.query(
+          "SELECT inventory_id,quantity FROM public.borrow_request_items WHERE request_id=$1 ORDER BY inventory_id FOR UPDATE", [originalId]
+        );
+        if (JSON.stringify(items.rows.map((item) => [String(item.inventory_id), Number(item.quantity)]))
+            !== JSON.stringify(original.items.map((item) => [String(item.inventoryId), Number(item.quantity)]))) {
+          throw Object.assign(new Error("Request items changed. Refresh and try again."), { status: 409 });
+        }
+        for (const item of items.rows) {
+          const released = await client.query(
+            `UPDATE public.inventory SET reserved_quantity=reserved_quantity-$1,updated_at=now()
+              WHERE id=$2 AND reserved_quantity >= $1 RETURNING id`, [item.quantity, item.inventory_id]
+          );
+          if (!released.rowCount) throw new Error("Inventory reservation is inconsistent.");
+        }
+        await client.query(
+          `UPDATE public.borrow_requests SET status='Withdrawn',cancelled_by=$2,cancelled_at=now(),
+             cancellation_reason=$3,cancellation_type='withdrawn',updated_at=now() WHERE id=$1`,
+          [originalId, req.user.id, `Replaced due to calendar closure: ${closure.title}`]
+        );
+        if (current.status === "Pending") {
+          await client.query(
+            `UPDATE public.borrow_request_authorizations SET status='rejected',rejected_at=now(),
+               rejection_reason='Replaced due to calendar closure',updated_at=now()
+              WHERE request_id=$1 AND status='awaiting'`, [originalId]
+          );
+        }
+        await client.query("DELETE FROM public.calendar_events WHERE borrow_request_id=$1", [originalId]);
+        await writeAuditLog(client, req.user, {
+          action: "borrowing_rescheduled", entityType: "borrowing_request", entityId: originalId,
+          oldValues: { status: current.status, borrowDate: current.borrow_date, returnDate: current.return_date },
+          newValues: { status: "Withdrawn", borrowDate, returnDate },
+        });
+      },
+    });
+    return res.status(result.validation.valid ? 201 : 422).json(result);
+  } catch (error) {
+    if (error.status === 409) return res.status(409).json({ message: error.message });
+    return next(error);
+  }
+}
+
 // ... cancellation and other functions remain the same ...
 
 module.exports = {
   authenticatedStudentRequest,
   cancelBorrowRequest,
   createBorrowRequest,
+  rescheduleBorrowRequest,
   getAssignmentOptions,
   getBorrowingPolicy,
   inventoryDeltas,

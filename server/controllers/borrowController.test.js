@@ -12,6 +12,7 @@ const {
   normalizeRequest,
   normalizeReturn,
   processBorrowingReturn,
+  rescheduleBorrowRequest,
   returnErrors,
   serializeBorrowRequest,
   updateBorrowRequestStatus,
@@ -20,6 +21,18 @@ const {
   validatePolicyConstraints,
   withValidation,
 } = require("./borrowController");
+
+test("rescheduling rejects invalid dates and missing signature consent before touching the database", async () => {
+  const response = {
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; return this; },
+  };
+  await rescheduleBorrowRequest({ params: { id: "1" }, body: { borrowDate: "bad", returnDate: "2026-10-03" } }, response, (error) => { throw error; });
+  assert.equal(response.statusCode, 422);
+  await rescheduleBorrowRequest({ params: { id: "1" }, body: { borrowDate: "2026-10-02", returnDate: "2026-10-03" } }, response, (error) => { throw error; });
+  assert.equal(response.statusCode, 422);
+  assert.match(response.body.message, /signature/i);
+});
 
 test("allows approved requests to be claimed early but not after their deadline", () => {
   assert.equal(validateClaimWindow("2026-10-17", "2026-09-18"), null);
@@ -393,6 +406,7 @@ test("serializes database borrowing rows for the student request page", () => {
     actualReturnedAt: null,
     overdue: false,
     calendarDisruption: null,
+    replacesRequestId: null,
     authorizationStatus: null,
     authorizationToken: null,
     authorizedBy: null,
