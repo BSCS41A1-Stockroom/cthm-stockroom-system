@@ -5,6 +5,7 @@ const { authenticate, requireRoles } = require("../middleware/auth");
 
 const {
   createBorrowRequest,
+  rescheduleBorrowRequest,
   getBorrowingPolicy,
   getAssignmentOptions,
   listBorrowRequests,
@@ -56,6 +57,8 @@ router.post(
   requireRoles("student"),
   createBorrowRequest
 );
+
+router.post("/:id/reschedule", requireRoles("student"), rescheduleBorrowRequest);
 
 
 // ============================================================

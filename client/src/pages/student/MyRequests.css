@@ -1238,6 +1238,8 @@
 .student-requests-page .withdrawal-content { padding: 4px 24px 22px; color: var(--requests-muted); line-height: 1.6; }
 .student-requests-page .withdrawal-content label { display: grid; gap: 7px; margin-top: 18px; color: var(--requests-navy); font-weight: 700; }
 .student-requests-page .withdrawal-content label span { color: var(--requests-muted); font-size: 12px; font-weight: 500; }
+.student-requests-page .withdrawal-content .reschedule-consent { display: flex; align-items: flex-start; gap: 10px; line-height: 1.5; }
+.student-requests-page .reschedule-consent input { flex: none; margin-top: 4px; }
 .student-requests-page .withdrawal-content textarea { resize: vertical; min-height: 90px; border: 1px solid var(--requests-border); border-radius: 8px; padding: 11px; font: inherit; }
 .student-requests-page .modal-section,
 .student-requests-page .modal-grid,
