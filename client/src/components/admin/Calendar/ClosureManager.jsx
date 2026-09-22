@@ -36,6 +36,12 @@ export default function ClosureManager({ onChange }) {
   }, []);
 
   useEffect(() => { if (open) { const timer = window.setTimeout(load, 0); return () => window.clearTimeout(timer); } return undefined; }, [open, load]);
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKeyDown = (event) => { if (event.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
 
   const suggest = async () => {
     setBusy(true); setError("");
@@ -125,9 +131,11 @@ export default function ClosureManager({ onChange }) {
 
   return <section className="closure-manager">
     <button type="button" className="closure-manager-toggle" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
-      {open ? "Hide closure controls" : "Manage holidays & class suspensions"}
+      Announcements & closures
     </button>
-    {open && <div className="closure-manager-panel">
+    {open && <div className="closure-manager-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
+    <div className="closure-manager-panel" role="dialog" aria-modal="true" aria-labelledby="closure-manager-title">
+      <div className="closure-manager-heading"><h2 id="closure-manager-title">Announcements & closures</h2><button type="button" onClick={() => setOpen(false)} aria-label="Close announcements and closures">Close</button></div>
       <h3>Announcement review queue</h3>
       <p>Paste an official announcement and save it for review. Suggestions never block dates until you confirm them.</p>
       {selectedReviewId && <button type="button" onClick={() => { setSelectedReviewId(null); setCaption(""); setSuggestion(null); setForm(EMPTY); }}>New announcement</button>}
@@ -167,6 +175,6 @@ export default function ClosureManager({ onChange }) {
         <span><strong>{closure.title}</strong> · {closure.start_date}{closure.end_date !== closure.start_date ? `–${closure.end_date}` : ""}{closure.department_name ? ` · ${closure.department_name}` : ""}</span>
         <button type="button" disabled={busy} onClick={() => deactivate(closure)}>Reopen</button>
       </li>)}</ul>
-    </div>}
+    </div></div>}
   </section>;
 }

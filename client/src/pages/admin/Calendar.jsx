@@ -299,9 +299,9 @@ export default function Calendar() {
 
                 </div>
 
-            </div>
+                {profile?.role === "admin" && <ClosureManager onChange={loadCalendar} />}
 
-            {profile?.role === "admin" && <ClosureManager onChange={loadCalendar} />}
+            </div>
 
 
             {/* ERROR */}
