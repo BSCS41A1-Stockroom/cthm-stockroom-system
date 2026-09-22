@@ -12,3 +12,5 @@
 .closure-suggestion small { display: block; margin-top: 5px; color: #695d46; }
 .closure-manager-list { display: grid; gap: 8px; padding: 0; list-style: none; }
 .closure-manager-list li { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 10px; border: 1px solid #e1e4e8; border-radius: 8px; }
+.closure-manager-list li span { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
+.closure-manager-list li a { color: #245cc5; }
