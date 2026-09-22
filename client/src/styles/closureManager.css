@@ -1,19 +1,51 @@
 .closure-manager { margin: 0; flex: none; }
-.closure-manager-toggle, .closure-manager-panel button { min-height: 40px; padding: 9px 14px; border: 1px solid #d7dde5; border-radius: 9px; background: #fff; color: #17263c; font-weight: 700; cursor: pointer; }
+.closure-manager-toggle, .closure-manager-panel button { min-height: 40px; padding: 9px 14px; border: 1px solid #d7dde5; border-radius: 9px; background: #fff; color: #17263c; font: inherit; font-weight: 700; cursor: pointer; }
+.closure-manager-panel button:disabled { cursor: not-allowed; opacity: .55; }
+.closure-manager-panel button:focus-visible, .closure-manager-toggle:focus-visible { outline: 3px solid #3267c5; outline-offset: 2px; }
 .closure-manager-overlay { position: fixed; inset: 0; z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(17, 28, 45, .58); }
-.closure-manager-panel { width: min(900px, 100%); max-height: calc(100dvh - 36px); overflow-y: auto; padding: 20px; border: 1px solid #e1e4e8; border-radius: 12px; background: #fff; box-shadow: 0 24px 80px rgba(17, 28, 45, .22); }
-.closure-manager-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
-.closure-manager-heading h2 { margin: 0; color: #17263c; font-size: 20px; }
-.closure-manager-panel h3 { margin: 0 0 8px; color: #17263c; }
-.closure-manager-panel p { color: #697381; }
-.closure-manager-panel label { display: flex; flex-direction: column; gap: 6px; color: #344154; font-size: 13px; font-weight: 700; }
-.closure-manager-panel input, .closure-manager-panel select, .closure-manager-panel textarea { width: 100%; min-width: 0; padding: 10px; border: 1px solid #d7dde5; border-radius: 8px; background: #fff; color: #17263c; font: inherit; }
-.closure-manager-panel > label { margin-bottom: 10px; }
-.closure-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end; gap: 12px; margin: 18px 0; }
-.closure-form button { background: #17263c; color: #fff; }
-.closure-suggestion { padding: 12px; border: 1px solid #e5d5b5; border-radius: 8px; background: #fffaf0; }
+.closure-manager-panel { width: min(880px, 100%); max-height: calc(100dvh - 36px); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #e1e4e8; border-radius: 16px; background: #fff; box-shadow: 0 24px 80px rgba(17, 28, 45, .22); }
+.closure-manager-heading { flex: none; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 22px 26px 18px; border-bottom: 1px solid #e8e4dc; }
+.closure-manager-heading h2 { margin: 4px 0 5px; color: #17263c; font-size: 22px; line-height: 1.25; }
+.closure-manager-heading p { margin: 0; color: #697381; font-size: 13px; }
+.closure-eyebrow { color: #9b793e; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.closure-manager-body { min-height: 0; overflow-y: auto; padding: 22px 26px 28px; }
+.closure-manager-section { padding: 20px; margin-bottom: 18px; border: 1px solid #e3e6eb; border-radius: 12px; background: #fff; }
+.closure-manager-section:last-child { margin-bottom: 0; }
+.closure-manager-section h3, .closure-manager-section h4 { margin: 0 0 7px; color: #17263c; font-size: 17px; }
+.closure-manager-section > p { margin: 0 0 16px; color: #697381; font-size: 13px; line-height: 1.5; }
+.closure-manager-panel label { display: flex; flex-direction: column; gap: 7px; margin-top: 12px; color: #344154; font-size: 13px; font-weight: 700; }
+.closure-manager-panel input, .closure-manager-panel select, .closure-manager-panel textarea { width: 100%; min-width: 0; padding: 10px 11px; border: 1px solid #d7dde5; border-radius: 8px; background: #fff; color: #17263c; font: inherit; font-weight: 400; }
+.closure-manager-panel textarea { min-height: 100px; resize: vertical; }
+.closure-manager-panel input[readonly], .closure-manager-panel textarea[readonly] { background: #f6f7f9; }
+.closure-action-row { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.closure-manager-panel .closure-primary { border-color: #17263c; background: #17263c; color: #fff; }
+.closure-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 16px; margin-top: 14px; }
+.closure-form-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; padding-top: 14px; }
+.closure-suggestion { margin-top: 14px; padding: 13px 15px; border: 1px solid #e5d5b5; border-radius: 9px; background: #fffaf0; }
+.closure-suggestion p { margin: 6px 0; color: #695d46; }
 .closure-suggestion small { display: block; margin-top: 5px; color: #695d46; }
-.closure-manager-list { display: grid; gap: 8px; padding: 0; list-style: none; }
-.closure-manager-list li { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 10px; border: 1px solid #e1e4e8; border-radius: 8px; }
-.closure-manager-list li span { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
-.closure-manager-list li a { color: #245cc5; }
+.closure-manager-list { display: grid; gap: 9px; max-height: 280px; overflow-y: auto; margin: 12px 0 0; padding: 0; list-style: none; }
+.closure-manager-list li { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 13px 14px; border: 1px solid #e1e4e8; border-radius: 9px; background: #fff; }
+.closure-manager-list li span { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
+.closure-manager-list li strong, .closure-manager-list li small { display: block; }
+.closure-manager-list li strong { color: #17263c; font-size: 13px; }
+.closure-manager-list li small { margin-top: 4px; color: #697381; font-size: 12px; line-height: 1.45; }
+.closure-manager-list li a { display: inline-block; margin-top: 6px; color: #245cc5; font-size: 12px; }
+.closure-list-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.closure-manager-panel .closure-list-actions button { min-height: 34px; padding: 6px 10px; font-size: 12px; }
+.closure-empty { margin: 12px 0 0 !important; padding: 14px; border-radius: 8px; background: #f7f8fa; text-align: center; }
+.closure-feedback { margin: 0 0 16px; padding: 11px 13px; border-radius: 8px; font-size: 13px; }
+.closure-feedback.error { border: 1px solid #e5c7c7; background: #fff5f5; color: #9b3030; }
+.closure-feedback.success { border: 1px solid #c9dfcf; background: #f2faf3; color: #26623c; }
+@media (max-width: 640px) {
+  .closure-manager-overlay { padding: 8px; align-items: stretch; }
+  .closure-manager-panel { max-height: calc(100dvh - 16px); width: 100%; }
+  .closure-manager-heading { padding: 17px; }
+  .closure-manager-heading h2 { font-size: 19px; }
+  .closure-manager-body { padding: 14px; }
+  .closure-manager-section { padding: 15px; }
+  .closure-form { grid-template-columns: 1fr; }
+  .closure-list-actions { width: 100%; }
+  .closure-list-actions button { flex: 1; }
+  .closure-action-row button, .closure-form-actions button { width: 100%; }
+}

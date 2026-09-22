@@ -135,21 +135,29 @@ export default function ClosureManager({ onChange }) {
     </button>
     {open && <div className="closure-manager-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
     <div className="closure-manager-panel" role="dialog" aria-modal="true" aria-labelledby="closure-manager-title">
-      <div className="closure-manager-heading"><h2 id="closure-manager-title">Announcements & closures</h2><button type="button" onClick={() => setOpen(false)} aria-label="Close announcements and closures">Close</button></div>
+      <div className="closure-manager-heading"><div><span className="closure-eyebrow">Calendar management</span><h2 id="closure-manager-title">Announcements & closures</h2><p>Review announcements before they affect borrowing schedules.</p></div><button type="button" onClick={() => setOpen(false)} aria-label="Close announcements and closures">Close</button></div>
+      <div className="closure-manager-body">
+      {error && <p className="closure-feedback error" role="alert">{error}</p>}
+      {notice && <p className="closure-feedback success" role="status">{notice}</p>}
+      <section className="closure-manager-section">
       <h3>Announcement review queue</h3>
       <p>Paste an official announcement and save it for review. Suggestions never block dates until you confirm them.</p>
       {selectedReviewId && <button type="button" onClick={() => { setSelectedReviewId(null); setCaption(""); setSuggestion(null); setForm(EMPTY); }}>New announcement</button>}
       <label>Announcement caption<textarea readOnly={Boolean(selectedReviewId)} value={caption} maxLength={10000} onChange={(event) => setCaption(event.target.value)} rows={3} /></label>
       {!selectedReviewId && <label>Official post link (optional)<input type="url" value={draftSourceUrl} onChange={(event) => setDraftSourceUrl(event.target.value)} placeholder="https://facebook.com/..." /></label>}
-      <button type="button" onClick={suggest} disabled={busy || !caption.trim()}>Suggest dates from caption</button>
-      {!selectedReviewId && <button type="button" onClick={saveDraft} disabled={busy || caption.trim().length < 10}>Save for review</button>}
+      <div className="closure-action-row"><button type="button" onClick={suggest} disabled={busy || !caption.trim()}>Suggest dates from caption</button>
+      {!selectedReviewId && <button type="button" className="closure-primary" onClick={saveDraft} disabled={busy || caption.trim().length < 10}>Save for review</button>}</div>
+      </section>
+      <section className="closure-manager-section">
       <h4>Pending announcements</h4>
       <ul className="closure-manager-list">{reviews.filter((review) => review.status === "pending").map((review) => <li key={review.id}>
-        <span><strong>{review.possible_suspension ? "Possible suspension" : "Needs manual review"}</strong> · {review.caption.slice(0, 110)}{review.caption.length > 110 ? "…" : ""}<br />{review.source_url && <a href={review.source_url} target="_blank" rel="noopener noreferrer">Open source post</a>}</span>
-        <button type="button" disabled={busy} onClick={() => selectReview(review)}>Review</button>
-        <button type="button" disabled={busy} onClick={() => dismissReview(review)}>Dismiss</button>
+        <span><strong>{review.possible_suspension ? "Possible suspension" : "Needs manual review"}</strong><small>{review.caption.slice(0, 160)}{review.caption.length > 160 ? "…" : ""}</small>{review.source_url && <a href={review.source_url} target="_blank" rel="noopener noreferrer">Open source post</a>}</span>
+        <div className="closure-list-actions"><button type="button" disabled={busy} onClick={() => selectReview(review)}>Review</button>
+        <button type="button" disabled={busy} onClick={() => dismissReview(review)}>Dismiss</button></div>
       </li>)}</ul>
-      {!reviews.some((review) => review.status === "pending") && <p>No announcements awaiting review.</p>}
+      {!reviews.some((review) => review.status === "pending") && <p className="closure-empty">No announcements awaiting review.</p>}
+      </section>
+      <section className="closure-manager-section">
       <h3>{selectedReviewId ? "Confirm selected announcement" : "Confirm a holiday"}</h3>
       {selectedReviewId && <p>Check the original source, school, dates, and affected department before confirming.</p>}
       {suggestion && <div className="closure-suggestion" role="status">
@@ -166,15 +174,18 @@ export default function ClosureManager({ onChange }) {
           <option value="">All departments</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
         </select></label>
         <label>Official post link (optional)<input type="url" value={form.sourceUrl} readOnly={Boolean(selectedReviewId)} onChange={(event) => setForm({ ...form, sourceUrl: event.target.value })} placeholder="https://facebook.com/..." /></label>
-        <button type="submit" disabled={busy || (form.sourceKind === "school_announcement" && !selectedReviewId)}>Confirm and block dates</button>
+        <div className="closure-form-actions"><button type="submit" className="closure-primary" disabled={busy || (form.sourceKind === "school_announcement" && !selectedReviewId)}>Confirm and block dates</button></div>
       </form>
-      {error && <p className="form-error" role="alert">{error}</p>}
-      {notice && <p role="status">{notice}</p>}
+      </section>
+      <section className="closure-manager-section">
       <h3>Confirmed closures</h3>
       <ul className="closure-manager-list">{closures.filter((closure) => !closure.source_key).map((closure) => <li key={closure.id}>
-        <span><strong>{closure.title}</strong> · {closure.start_date}{closure.end_date !== closure.start_date ? `–${closure.end_date}` : ""}{closure.department_name ? ` · ${closure.department_name}` : ""}</span>
-        <button type="button" disabled={busy} onClick={() => deactivate(closure)}>Reopen</button>
+        <span><strong>{closure.title}</strong><small>{closure.start_date}{closure.end_date !== closure.start_date ? ` – ${closure.end_date}` : ""}{closure.department_name ? ` · ${closure.department_name}` : " · All departments"}</small></span>
+        <div className="closure-list-actions"><button type="button" disabled={busy} onClick={() => deactivate(closure)}>Reopen dates</button></div>
       </li>)}</ul>
+      {!closures.some((closure) => !closure.source_key) && <p className="closure-empty">No manually confirmed closures.</p>}
+      </section>
+      </div>
     </div></div>}
   </section>;
 }
