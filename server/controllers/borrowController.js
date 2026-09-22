@@ -21,6 +21,7 @@ const { parseAssetQr, verifyClaimTicket } = require("../utils/qrCredential");
 const { processExpiredRequests } = require("./overdueController");
 const { createTransactionReceipt } = require("../utils/transactionReceipt");
 const { archiveBorrowingDocument } = require("../utils/borrowingDocumentArchive");
+const { findClosure } = require("../utils/calendarClosures");
 
 // ============================================================
 // FIX #1: Enhanced audit logging helper
@@ -164,6 +165,7 @@ function serializeBorrowRequest(request) {
     requestedAt: request.created_at,
     actualReturnedAt: request.actual_returned_at ?? null,
     overdue: Boolean(request.overdue),
+    calendarDisruption: request.calendar_disruption ?? null,
     authorizationStatus: request.authorization_status ?? null,
     authorizationToken: ["withdrawn", "cancelled"].includes(status) ? null : request.authorization_token ?? null,
     authorizedBy: request.professor_name ?? null,
@@ -692,6 +694,15 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
         return { request, validation: { valid: false, status: "Rejected", reasons: [assignmentError], assignment: null, checkedConstraints: [], conflicts: [] } };
       }
     }
+    const closedDate = await findClosure(client, [request.borrowDate, request.returnDate], request.departmentId);
+    if (closedDate) {
+      await client.query("ROLLBACK");
+      return { request, validation: {
+        valid: false, status: "Rejected", assignment: null, conflicts: [],
+        checkedConstraints: ["calendar_closure"],
+        reasons: [{ code: "CALENDAR_DATE_CLOSED", message: `The borrowing or return date falls on ${closedDate.title}. Choose an open date.` }],
+      } };
+    }
     const context = await loadValidationContext(client, request, validationOptions.userId ?? null);
     const cspValidation = validateBorrowingRequest({ request, ...context });
     const policyValidation = validatePolicyConstraints({
@@ -878,6 +889,12 @@ async function listBorrowRequests(req, res, next) {
               (SELECT staff_name FROM public.borrowing_transaction_signatures WHERE request_id=br.id AND transaction_type='return' ORDER BY signed_at DESC,id DESC LIMIT 1) AS returned_name,
               (SELECT signed_at FROM public.borrowing_transaction_signatures WHERE request_id=br.id AND transaction_type='return' ORDER BY signed_at DESC,id DESC LIMIT 1) AS returned_at,
               (br.status = 'Borrowed' AND br.return_date < (now() AT TIME ZONE 'Asia/Manila')::date) AS overdue,
+              (SELECT closure.title FROM public.calendar_closures closure
+                WHERE closure.is_active=true
+                  AND (closure.department_id IS NULL OR closure.department_id=br.department_id)
+                  AND (br.borrow_date BETWEEN closure.start_date AND closure.end_date
+                    OR br.return_date BETWEEN closure.start_date AND closure.end_date)
+                ORDER BY closure.start_date, closure.id LIMIT 1) AS calendar_disruption,
               COALESCE(
                 json_agg(json_build_object(
                   'name', inventory.item_name,
@@ -1135,6 +1152,14 @@ async function updateBorrowRequestStatus(req, res, next) {
         message:
           "Complete custodian verification and approval instead of changing this status directly.",
       });
+    }
+
+    if (nextStatus === "Borrowed") {
+      const closure = await findClosure(client, [request.borrow_date, request.return_date], request.department_id);
+      if (closure) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: "CALENDAR_DATE_CLOSED", message: `This request is affected by ${closure.title}. Arrange a new date before release.` });
+      }
     }
 
     if (

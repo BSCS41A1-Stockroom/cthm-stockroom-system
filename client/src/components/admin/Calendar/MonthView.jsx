@@ -109,7 +109,7 @@ export default function MonthView({
                             {event.title}
                         </span>
 
-                        {!event.borrowRequestId && <div className="calendar-actions">
+                        {!event.borrowRequestId && !event.closureId && <div className="calendar-actions">
 
                             <button
                                 type="button"
