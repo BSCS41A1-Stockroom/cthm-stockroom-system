@@ -77,7 +77,6 @@ export default function ActivityModal({ open, onClose, onSave, editEvent, rooms 
               <label>Type</label>
               <select name="type" value={form.type} onChange={handleChange}>
                 <option value="activity">School Activity</option>
-                <option value="holiday">Holiday</option>
                 <option value="reminder">Borrowing Schedule</option>
               </select>
             </div>

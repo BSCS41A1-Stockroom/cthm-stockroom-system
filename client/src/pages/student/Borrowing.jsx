@@ -6,6 +6,7 @@ import "./BorrowerFormPreview.css";
 import { authenticatedFetch } from "../../lib/api";
 import { useAuth } from "../../auth/useAuth";
 import { inventoryTotals } from "../../utils/inventoryAvailability";
+import { closureForDate } from "../../utils/closureEvents";
 
 const DEFAULT_BORROWING_POLICY = Object.freeze({
   maxItemsPerRequest: 10,
@@ -40,6 +41,7 @@ export default function BorrowingInterface() {
 
   const [borrowDate, setBorrowDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
+  const [closures, setClosures] = useState([]);
   const [purpose, setPurpose] = useState("");
 
   const [assignmentOptions, setAssignmentOptions] = useState({
@@ -146,6 +148,20 @@ export default function BorrowingInterface() {
       // Safe defaults mirror the server policy.
     }
   }
+
+  useEffect(() => {
+    let active = true;
+    const loadClosures = async () => {
+      try {
+        const response = await authenticatedFetch("/api/calendar-closures");
+        const body = await response.json();
+        if (response.ok && active) setClosures(body.closures || []);
+      } catch { /* The server remains authoritative if this preview cannot load. */ }
+    };
+    const timer = window.setTimeout(loadClosures, 0);
+    window.addEventListener("focus", loadClosures);
+    return () => { active = false; window.clearTimeout(timer); window.removeEventListener("focus", loadClosures); };
+  }, []);
 
   async function loadAssignmentOptions() {
     setAssignmentLoading(true);
@@ -388,6 +404,10 @@ export default function BorrowingInterface() {
     if (new Date(returnDate) < new Date(borrowDate)) {
       return "Return date must be after borrow date.";
     }
+
+    const closure = closureForDate(closures, borrowDate, departmentId)
+      || closureForDate(closures, returnDate, departmentId);
+    if (closure) return `The selected date is closed for ${closure.title}. Choose an open date.`;
 
     if (!purpose.trim()) {
       return "Purpose is required.";

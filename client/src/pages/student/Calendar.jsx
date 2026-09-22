@@ -10,6 +10,8 @@ import WeekView from "../../components/student/calendar/WeekView";
 import DayView from "../../components/student/calendar/DayView";
 import ScheduleView from "../../components/student/calendar/ScheduleView";
 import { supabase } from "../../lib/supabase";
+import { authenticatedFetch } from "../../lib/api";
+import { closureEvents } from "../../utils/closureEvents";
 
 export default function Calendar() {
 
@@ -26,12 +28,15 @@ export default function Calendar() {
   const [events, setEvents] = useState([]);
 
   const loadEvents = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("calendar_events")
-      .select("*")
-      .order("event_date");
-    if (!error) {
-      setEvents((data || []).map((event) => ({
+    try {
+      const [eventsResult, closureResponse] = await Promise.all([
+        supabase.from("calendar_events").select("*").order("event_date"),
+        authenticatedFetch("/api/calendar-closures"),
+      ]);
+      if (eventsResult.error) throw eventsResult.error;
+      const closureBody = await closureResponse.json();
+      if (!closureResponse.ok) throw new Error(closureBody.message || "Unable to load closures.");
+      setEvents([...(eventsResult.data || []).map((event) => ({
         id: event.id,
         title: event.title,
         date: event.event_date,
@@ -39,8 +44,8 @@ export default function Calendar() {
         end: event.end_time?.slice(0, 5) || "",
         type: event.event_type,
         description: event.description || "",
-      })));
-    }
+      })), ...closureEvents(closureBody.closures)]);
+    } catch (error) { console.error("Unable to load calendar:", error); }
   }, []);
 
   useEffect(() => {

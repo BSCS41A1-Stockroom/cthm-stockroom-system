@@ -12,6 +12,9 @@ import DayView from "../../components/admin/Calendar/DayView";
 import ScheduleView from "../../components/admin/Calendar/ScheduleView";
 import ActivityModal from "../../components/admin/Calendar/ActivityModal";
 import DeleteModal from "../../components/admin/Calendar/DeleteModal";
+import ClosureManager from "../../components/admin/Calendar/ClosureManager";
+import { closureEvents } from "../../utils/closureEvents";
+import { useAuth } from "../../auth/useAuth";
 
 function mapEvent(event, roomNames) {
     return {
@@ -29,6 +32,7 @@ function mapEvent(event, roomNames) {
 }
 
 export default function Calendar() {
+    const { profile } = useAuth();
 
     const today = new Date();
 
@@ -64,8 +68,9 @@ export default function Calendar() {
 
 
     const loadCalendar = useCallback(async () => {
+        try {
 
-        const [eventsResult, roomsResult] =
+        const [eventsResult, roomsResult, closuresResponse] =
             await Promise.all([
                 supabase
                     .from("calendar_events")
@@ -77,12 +82,15 @@ export default function Calendar() {
                     .select("*")
                     .eq("is_active", true)
                     .order("name"),
+                authenticatedFetch("/api/calendar-closures"),
             ]);
+
+        const closuresBody = await closuresResponse.json();
 
 
         const queryError =
             eventsResult.error ||
-            roomsResult.error;
+            roomsResult.error || (!closuresResponse.ok ? new Error(closuresBody.message || "Unable to load calendar closures.") : null);
 
 
         if (queryError) {
@@ -108,11 +116,15 @@ export default function Calendar() {
 
 
         setEvents(
-            (eventsResult.data || []).map(
+            [...(eventsResult.data || []).map(
                 (event) =>
                     mapEvent(event, roomNames)
-            )
+            ), ...closureEvents(closuresBody.closures)]
         );
+
+        } catch (loadError) {
+            setError(loadError.message || "Unable to load calendar.");
+        }
 
     }, []);
 
@@ -288,6 +300,8 @@ export default function Calendar() {
                 </div>
 
             </div>
+
+            {profile?.role === "admin" && <ClosureManager onChange={loadCalendar} />}
 
 
             {/* ERROR */}

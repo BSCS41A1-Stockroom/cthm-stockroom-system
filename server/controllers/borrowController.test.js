@@ -92,7 +92,7 @@ test("department staff cannot bypass signed custodian approval", async () => {
   const calls = [];
   const client = { async query(sql) {
     calls.push(sql);
-    if (sql.includes("SELECT * FROM borrow_requests")) return { rowCount: 1, rows: [{ id: 6, status: "Validated", department_id: 4, user_id: "student", student_name: "Student", borrow_date: "2030-01-01", return_date: "2030-01-02" }] };
+    if (/FROM borrow_requests\s+WHERE id/i.test(sql)) return { rowCount: 1, rows: [{ id: 6, status: "Validated", department_id: 4, user_id: "student", student_name: "Student", borrow_date: "2030-01-01", return_date: "2030-01-02" }] };
     if (sql.includes("SELECT inventory_id, quantity")) return { rowCount: 0, rows: [] };
     if (sql.includes("UPDATE borrow_requests")) return { rowCount: 1, rows: [{ id: 6, status: "Approved" }] };
     return { rowCount: 1, rows: [] };
@@ -108,13 +108,15 @@ test("department staff cannot bypass signed custodian approval", async () => {
 
 test("department staff cannot update another department's request", async () => {
   const client = { async query(sql) {
-    if (sql.includes("SELECT * FROM borrow_requests")) return { rowCount: 1, rows: [{ id: 7, status: "Validated", department_id: 9 }] };
+    if (/FROM borrow_requests\s+WHERE id/i.test(sql)) return { rowCount: 1, rows: [{ id: 7, status: "Validated", department_id: 9 }] };
     return { rowCount: 1, rows: [] };
   }, release() {} };
-  const originalConnect = pool.connect; pool.connect = async () => client;
+  const originalConnect = pool.connect; const originalQuery = pool.query;
+  pool.connect = async () => client;
+  pool.query = async () => ({ rowCount: 1, rows: [] });
   const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; } };
   try { await updateBorrowRequestStatus({ params: { id: "7" }, body: { status: "Approved" }, user: { id: "staff", role: "staff", department_id: 4 } }, response, (error) => { throw error; }); }
-  finally { pool.connect = originalConnect; }
+  finally { pool.connect = originalConnect; pool.query = originalQuery; }
   assert.equal(response.statusCode, 404);
   assert.equal(response.body.error, "REQUEST_NOT_FOUND");
 });
@@ -390,6 +392,7 @@ test("serializes database borrowing rows for the student request page", () => {
     requestedAt: "2026-08-19T00:00:00Z",
     actualReturnedAt: null,
     overdue: false,
+    calendarDisruption: null,
     authorizationStatus: null,
     authorizationToken: null,
     authorizedBy: null,

@@ -207,6 +207,7 @@ export default function MyRequests() {
                       <td className="muted">{formatDate(req.returnDate)}</td>
                       <td>
                         <StatusBadge status={req.status} />{req.overdue && <span className="requested-at"> Overdue</span>}
+                        {req.calendarDisruption && <span className="requested-at" title={`Affected by ${req.calendarDisruption}. Contact your professor or stockroom; the date has not changed automatically.`}> · Schedule affected</span>}
                       </td>
                       <td>
                         <button

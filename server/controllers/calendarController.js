@@ -4,6 +4,7 @@ const pool = require("../config/db");
 const { dateInTimeZone, intervalsOverlap, parseTime } = require("../algorithms/csp");
 const { isValidDate } = require("../algorithms/borrowingValidation");
 const { writeAuditLog } = require("../utils/auditLog");
+const { findClosure } = require("../utils/calendarClosures");
 
 const EVENT_TYPES = new Set(["activity", "holiday", "reminder", "borrowing"]);
 
@@ -146,6 +147,19 @@ async function saveEvent(req, res, next) {
     if (req.user.role === "staff" && event.roomId) {
       const room = await client.query(`SELECT 1 FROM public.laboratory_rooms WHERE id=$1 AND department_id=$2 AND is_active=true`, [event.roomId, req.user.department_id]);
       if (!room.rowCount) { await client.query("ROLLBACK"); return res.status(422).json({ error: "INVALID_ROOM", reasons: ["Select an active laboratory room in your department."] }); }
+    }
+
+    if (isValidDate(event.date)) {
+      let departmentId = req.user.department_id || null;
+      if (event.roomId) {
+        const assignedRoom = await client.query("SELECT department_id FROM public.laboratory_rooms WHERE id=$1", [event.roomId]);
+        departmentId = assignedRoom.rows[0]?.department_id || departmentId;
+      }
+      const closure = await findClosure(client, [event.date], departmentId);
+      if (closure) {
+        await client.query("ROLLBACK");
+        return res.status(422).json({ error: "CALENDAR_DATE_CLOSED", reasons: [`${event.date} is closed for ${closure.title}. Choose another date.`] });
+      }
     }
 
     const errors = await validateRoomSchedule(client, event, eventId);

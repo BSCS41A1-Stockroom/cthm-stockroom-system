@@ -18,6 +18,7 @@ const accountabilityRoutes = require("./routes/accountabilityRoutes");
 const authorizationRoutes = require("./routes/authorizationRoutes");
 const sectionRoutes = require("./routes/sectionRoutes");
 const documentArchiveRoutes = require("./routes/documentArchiveRoutes");
+const closureRoutes = require("./routes/closureRoutes");
 
 const app = express();
 
@@ -63,6 +64,7 @@ app.use("/api/accountability", accountabilityRoutes);
 app.use("/api/authorizations", authorizationRoutes);
 app.use("/api/sections", sectionRoutes);
 app.use("/api/document-archives", documentArchiveRoutes);
+app.use("/api/calendar-closures", closureRoutes);
 
 app.use((error, req, res, next) => {
   console.error(error);

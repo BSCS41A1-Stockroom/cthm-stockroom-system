@@ -6,6 +6,7 @@ const { writeAuditLog } = require("../utils/auditLog");
 const { notifyDepartmentRole, notifyRoles, notifyUser } = require("../utils/notifications");
 const generateBorrowerForm = require("../generateBorrowerForm");
 const { archiveBorrowingDocument } = require("../utils/borrowingDocumentArchive");
+const { findClosure } = require("../utils/calendarClosures");
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IMAGE = /^data:(image\/(?:png|jpeg));base64,([A-Za-z0-9+/=]+)$/;
@@ -264,6 +265,8 @@ async function approveCustodianRequest(req, res, next) {
     const row = result.rows[0];
     if (!row) { await client.query("ROLLBACK"); return res.status(404).json({ error:"REQUEST_NOT_FOUND",message:"An authorized request awaiting final review was not found." }); }
     if (row.status !== "Validated" || !row.verified_at) { await client.query("ROLLBACK"); return res.status(409).json({ error:"VERIFICATION_REQUIRED",message:"Custodian verification must be completed before approval." }); }
+    const approvalClosure = await findClosure(client, [row.borrow_date, row.return_date], row.department_id);
+    if (approvalClosure) { await client.query("ROLLBACK"); return res.status(409).json({ error: "CALENDAR_DATE_CLOSED", message: `This request is affected by ${approvalClosure.title}. Arrange a new date before approval.` }); }
     if (row.approved_at) { await client.query("ROLLBACK"); return res.status(409).json({ error:"ALREADY_APPROVED",message:"This request already has final Custodian Head approval." }); }
     if (!row.current_signature) { await client.query("ROLLBACK"); return res.status(409).json({ error:"SIGNATURE_REQUIRED",message:"Save your Custodian Head Signature in Profile & Security before approving requests." }); }
     const items = await client.query(`SELECT item.inventory_id,inventory.item_name,item.quantity FROM public.borrow_request_items item JOIN public.inventory inventory ON inventory.id=item.inventory_id WHERE item.request_id=$1 ORDER BY item.inventory_id`,[row.id]);
@@ -339,6 +342,8 @@ async function authorizeRequest(req, res, next) {
       return res.status(denial.status).json({ error: denial.error, message: denial.message });
     }
     if (row.status !== "awaiting" || row.request_status !== "Pending") { await client.query("ROLLBACK"); return res.status(409).json({ error: "ALREADY_REVIEWED", message: "This request is no longer awaiting professor authorization." }); }
+    const reviewClosure = await findClosure(client, [row.borrow_date, row.return_date], row.department_id);
+    if (reviewClosure) { await client.query("ROLLBACK"); return res.status(409).json({ error: "CALENDAR_DATE_CLOSED", message: `This request is affected by ${reviewClosure.title}. Arrange a new date before authorization.` }); }
     if (!row.image_data) { await client.query("ROLLBACK"); return res.status(409).json({ error: "SIGNATURE_REQUIRED", message: "Save your signature in Signature Settings before authorizing this request." }); }
     const items = await client.query(`SELECT item.inventory_id,inventory.item_name,item.quantity FROM public.borrow_request_items item JOIN public.inventory inventory ON inventory.id=item.inventory_id WHERE item.request_id=$1 ORDER BY item.inventory_id`, [row.request_id]);
     const authorizedAt = new Date().toISOString();
