@@ -86,6 +86,7 @@ async function findBorrowedRequests(userId, database = pool, departmentId = null
 function claimResponse(profile, request, staffId) {
   const expiresAt = Date.now() + 5 * 60 * 1000;
   return {
+    mode: "claim",
     borrower: { fullName: profile.full_name, studentId: profile.student_id, role: profile.role },
     request: { id: request.id, borrowDate: request.borrow_date, returnDate: request.return_date, purpose: request.purpose, items: request.items },
     claimToken: createClaimTicket({ requestId: request.id, userId: profile.user_id, staffId, qrVersion: profile.qr_version, expiresAt }),

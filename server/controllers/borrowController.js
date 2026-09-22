@@ -22,6 +22,31 @@ const { processExpiredRequests } = require("./overdueController");
 const { createTransactionReceipt } = require("../utils/transactionReceipt");
 const { archiveBorrowingDocument } = require("../utils/borrowingDocumentArchive");
 
+// ============================================================
+// FIX #1: Enhanced audit logging helper
+// ============================================================
+async function auditTransactionAttempt(client, actor, action, requestId, details, error = null) {
+  try {
+    // Rejection paths roll the transaction back before reaching here.  Use the
+    // shared pool in that case so the attempt itself is still auditable.
+    await writeAuditLog(client || pool, actor, {
+      action,
+      entityType: "borrowing_request",
+      entityId: requestId,
+      metadata: {
+        ...details,
+        success: !error,
+        errorCode: error?.code,
+        errorMessage: error?.message,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  } catch (auditError) {
+    console.error(`Audit logging failed for ${action}:`, auditError);
+    // Don't throw - audit failure shouldn't block the transaction
+  }
+}
+
 const RESERVED_STATUSES = new Set(["Pending", "Validated", "Approved"]);
 const BORROWED_STATUSES = new Set(["Borrowed"]);
 const STATUS_TRANSITIONS = Object.freeze({
@@ -33,11 +58,17 @@ const STATUS_TRANSITIONS = Object.freeze({
   Returned: new Set(),
 });
 
-async function loadStaffTransactionSignature(client, userId) {
-  const result = await client.query(`SELECT profile.full_name,signature.image_data,signature.mime_type,signature.image_hash
+async function loadTransactionSignature(client, userId) {
+  const result = await client.query(`SELECT profile.full_name,
+      COALESCE(custodian.image_data, admin.image_data) AS image_data,
+      COALESCE(custodian.mime_type, admin.mime_type) AS mime_type,
+      COALESCE(custodian.image_hash, admin.image_hash) AS image_hash
     FROM public.profiles profile
-    LEFT JOIN public.custodian_signatures signature ON signature.custodian_user_id=profile.user_id
-    WHERE profile.user_id=$1 AND profile.role='staff' AND profile.is_active=true`, [userId]);
+    LEFT JOIN public.custodian_signatures custodian ON custodian.custodian_user_id=profile.user_id
+    LEFT JOIN public.admin_signatures admin ON admin.admin_user_id=profile.user_id
+    WHERE profile.user_id=$1
+      AND profile.role IN ('staff','admin')
+      AND profile.is_active=true`, [userId]);
   return result.rows[0] ?? null;
 }
 
@@ -155,31 +186,128 @@ function serializeBorrowRequest(request) {
 }
 
 function normalizeReturn(body) {
-  const source = body && typeof body === "object" ? body : {};
-  const integer = (value) => typeof value === "number" && Number.isInteger(value) ? value
-    : typeof value === "string" && /^\d+$/.test(value.trim()) ? Number(value) : Number.NaN;
+  const source =
+    body && typeof body === "object"
+      ? body
+      : {};
+
+  const integer = (value) =>
+    typeof value === "number" &&
+    Number.isInteger(value)
+      ? value
+      : typeof value === "string" &&
+          /^\d+$/.test(value.trim())
+        ? Number(value)
+        : Number.NaN;
+
   return {
-    remarks: typeof source.remarks === "string" ? source.remarks.trim() : "",
-    idempotencyKey: typeof (source.idempotencyKey ?? source.idempotency_key) === "string"
-      ? (source.idempotencyKey ?? source.idempotency_key).trim() : "",
-    items: Array.isArray(source.items) ? source.items.map((item) => ({
-      inventoryId: item?.inventoryId ?? item?.inventory_id,
-      goodQuantity: integer(item?.goodQuantity ?? item?.good_quantity ?? 0),
-      damagedQuantity: integer(item?.damagedQuantity ?? item?.damaged_quantity ?? 0),
-      missingQuantity: integer(item?.missingQuantity ?? item?.missing_quantity ?? 0),
-      conditionNote: typeof (item?.conditionNote ?? item?.condition_note) === "string"
-        ? (item.conditionNote ?? item.condition_note).trim() : "",
-    })) : [],
-    assets: Array.isArray(source.assets) ? source.assets.map((asset) => ({
-      token: typeof asset?.token === "string" ? asset.token.trim() : "",
-      condition: typeof asset?.condition === "string" ? asset.condition.trim().toLowerCase() : "",
-      conditionNote: typeof (asset?.conditionNote ?? asset?.condition_note) === "string"
-        ? (asset.conditionNote ?? asset.condition_note).trim() : "",
-    })) : [],
-    missingAssets: Array.isArray(source.missingAssets ?? source.missing_assets) ? (source.missingAssets ?? source.missing_assets).map((asset) => ({
-      assetId: asset?.assetId ?? asset?.asset_id,
-      reason: typeof asset?.reason === "string" ? asset.reason.trim() : "",
-    })) : [],
+    transactionSource:
+      source.transactionSource === "manual_return"
+        ? "manual_return"
+        : "qr_return",
+
+    remarks:
+      typeof source.remarks === "string"
+        ? source.remarks.trim()
+        : "",
+
+    idempotencyKey:
+      typeof (
+        source.idempotencyKey ??
+        source.idempotency_key
+      ) === "string"
+        ? (
+            source.idempotencyKey ??
+            source.idempotency_key
+          ).trim()
+        : "",
+
+    items:
+      Array.isArray(source.items)
+        ? source.items.map((item) => ({
+            inventoryId:
+              item?.inventoryId ??
+              item?.inventory_id,
+
+            goodQuantity:
+              integer(
+                item?.goodQuantity ??
+                item?.good_quantity ??
+                0
+              ),
+
+            damagedQuantity:
+              integer(
+                item?.damagedQuantity ??
+                item?.damaged_quantity ??
+                0
+              ),
+
+            missingQuantity:
+              integer(
+                item?.missingQuantity ??
+                item?.missing_quantity ??
+                0
+              ),
+
+            conditionNote:
+              typeof (
+                item?.conditionNote ??
+                item?.condition_note
+              ) === "string"
+                ? (
+                    item.conditionNote ??
+                    item.condition_note
+                  ).trim()
+                : "",
+          }))
+        : [],
+
+    assets:
+      Array.isArray(source.assets)
+        ? source.assets.map((asset) => ({
+            token:
+              typeof asset?.token === "string"
+                ? asset.token.trim()
+                : "",
+
+            condition:
+              typeof asset?.condition === "string"
+                ? asset.condition.trim().toLowerCase()
+                : "",
+
+            conditionNote:
+              typeof (
+                asset?.conditionNote ??
+                asset?.condition_note
+              ) === "string"
+                ? (
+                    asset.conditionNote ??
+                    asset.condition_note
+                  ).trim()
+                : "",
+          }))
+        : [],
+
+    missingAssets:
+      Array.isArray(
+        source.missingAssets ??
+        source.missing_assets
+      )
+        ? (
+            source.missingAssets ??
+            source.missing_assets
+          ).map((asset) => ({
+            assetId:
+              asset?.assetId ??
+              asset?.asset_id,
+
+            reason:
+              typeof asset?.reason === "string"
+                ? asset.reason.trim()
+                : "",
+          }))
+        : [],
   };
 }
 
@@ -389,9 +517,6 @@ async function loadValidationContext(client, request, userId = null) {
     inventory: [], existingBorrowings: [], existingRequests: [], inventoryAvailability: {},
   };
 
-  // Inventory locks serialize capacity checks. The student-scoped advisory
-  // lock additionally serializes disjoint-item requests by the same borrower,
-  // preventing simultaneous duplicate or schedule-conflicting inserts.
   await client.query(
     `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
     [userId ? `user:${userId}` : `student:${request.studentId.trim().toLowerCase()}`]
@@ -808,6 +933,7 @@ async function cancelBorrowRequest(req, res, next) {
   const requestId = req.params.id;
   const withdrawal = req.user.role === "student";
   const reasonInput = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+
   if (!/^[1-9]\d*$/.test(String(requestId ?? ""))) {
     return res.status(400).json({ error: "INVALID_REQUEST_ID", message: "Borrowing request ID is invalid." });
   }
@@ -817,6 +943,7 @@ async function cancelBorrowRequest(req, res, next) {
   if (withdrawal && reasonInput.length > 500) {
     return res.status(422).json({ error: "INVALID_WITHDRAWAL_REASON", message: "The withdrawal reason cannot exceed 500 characters." });
   }
+
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -825,6 +952,7 @@ async function cancelBorrowRequest(req, res, next) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "REQUEST_NOT_FOUND", message: "Borrowing request was not found." });
     }
+
     const request = found.rows[0];
     if (withdrawal && String(request.user_id) !== String(req.user.id)) {
       await client.query("ROLLBACK");
@@ -838,6 +966,7 @@ async function cancelBorrowRequest(req, res, next) {
       await client.query("ROLLBACK");
       return res.status(409).json({ error: "REQUEST_NOT_CANCELLABLE", message: "Only pending or validated requests can be withdrawn or cancelled." });
     }
+
     const items = await client.query(
       "SELECT inventory_id,quantity FROM public.borrow_request_items WHERE request_id=$1 ORDER BY inventory_id FOR UPDATE",
       [requestId]
@@ -850,6 +979,7 @@ async function cancelBorrowRequest(req, res, next) {
       );
       if (!released.rowCount) throw new Error(`Inventory counters are inconsistent for item '${item.inventory_id}'.`);
     }
+
     const nextStatus = withdrawal ? "Withdrawn" : "Cancelled";
     const reason = reasonInput || "Withdrawn by student.";
     const updated = await client.query(
@@ -869,15 +999,21 @@ async function cancelBorrowRequest(req, res, next) {
       oldValues: { status: request.status }, newValues: { status: nextStatus, reason },
       metadata: { previousStage: request.status, cancellationType: withdrawal ? "withdrawn" : "cancelled" },
     });
-    const notice = { type: `borrowing_${nextStatus.toLowerCase()}`, title: `Borrowing request ${nextStatus.toLowerCase()}`,
+
+    const notice = {
+      type: `borrowing_${nextStatus.toLowerCase()}`,
+      title: `Borrowing request ${nextStatus.toLowerCase()}`,
       message: `BR-${String(requestId).padStart(3, "0")} was ${nextStatus.toLowerCase()}. Reason: ${reason}`,
-      relatedPath: withdrawal ? "/my-requests" : "/requests", entityType: "borrowing_request", entityId: requestId };
+      relatedPath: withdrawal ? "/my-requests" : "/requests",
+      entityType: "borrowing_request", entityId: requestId,
+    };
     if (!withdrawal) await notifyUser(client, request.user_id, { ...notice, relatedPath: "/my-requests" });
     if (request.status === "Pending") await notifyUser(client, request.assigned_professor_user_id, notice);
     if (request.status === "Validated") {
       await notifyDepartmentRole(client, request.department_id, "staff", notice);
       await notifyRoles(client, ["admin"], notice);
     }
+
     await client.query("COMMIT");
     return res.json({ request: updated.rows[0] });
   } catch (error) {
@@ -888,6 +1024,1039 @@ async function cancelBorrowRequest(req, res, next) {
   }
 }
 
+// ============================================================
+// FIX #2: Enhanced updateBorrowRequestStatus with proper audit
+// ============================================================
+async function updateBorrowRequestStatus(req, res, next) {
+  const requestId = req.params.id;
+  const nextStatus = req.body?.status;
+
+  if (!/^[1-9]\d*$/.test(String(requestId ?? ""))) {
+    return res.status(400).json({
+      error: "INVALID_REQUEST_ID",
+      message: "Borrowing request ID is invalid.",
+    });
+  }
+
+  try {
+    await processExpiredRequests();
+  } catch (error) {
+    return next(error);
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const requestResult = await client.query(
+      `SELECT *
+         FROM borrow_requests
+        WHERE id = $1
+        FOR UPDATE`,
+      [requestId]
+    );
+
+    if (requestResult.rowCount === 0) {
+      await client.query("ROLLBACK");
+
+      // FIX: Audit access denial
+      await auditTransactionAttempt(null, req.user, "claim_attempt", requestId, {
+        transactionMethod: req.body?.transactionSource,
+        statusAttempt: nextStatus,
+      }, { code: "REQUEST_NOT_FOUND", message: "Request not found" });
+
+      return res.status(404).json({
+        error: "REQUEST_NOT_FOUND",
+        message: "Borrowing request was not found.",
+      });
+    }
+
+    const request = requestResult.rows[0];
+
+    if (
+      req.user.role === "staff" &&
+      String(request.department_id) !== String(req.user.department_id)
+    ) {
+      await client.query("ROLLBACK");
+
+      // FIX: Audit unauthorized access
+      await auditTransactionAttempt(null, req.user, "claim_attempt", requestId, {
+        attemptedAction: "cross_department_access",
+        userDepartment: req.user.department_id,
+        requestDepartment: request.department_id,
+      }, { code: "UNAUTHORIZED_DEPARTMENT" });
+
+      return res.status(404).json({
+        error: "REQUEST_NOT_FOUND",
+        message: "Borrowing request was not found in your department.",
+      });
+    }
+
+    if (
+      req.user.role === "professor" &&
+      String(request.assigned_professor_user_id ?? "") !==
+        String(req.user.id)
+    ) {
+      await writeAuditLog(client, req.user, {
+        action: "borrowing_assignment_access_denied",
+        entityType: "borrowing_request",
+        entityId: requestId,
+        metadata: {
+          attemptedStatus: nextStatus,
+          reason: request.assigned_professor_user_id
+            ? "NOT_ASSIGNED_PROFESSOR"
+            : "PROFESSOR_NOT_ASSIGNED",
+        },
+      });
+
+      await client.query("COMMIT");
+
+      return res
+        .status(
+          request.assigned_professor_user_id ? 403 : 409
+        )
+        .json({
+          error: request.assigned_professor_user_id
+            ? "NOT_ASSIGNED_PROFESSOR"
+            : "PROFESSOR_NOT_ASSIGNED",
+
+          message: request.assigned_professor_user_id
+            ? "This request is assigned to another professor."
+            : "This request has no assigned professor.",
+        });
+    }
+
+    if (nextStatus === "Approved") {
+      await client.query("ROLLBACK");
+
+      return res.status(409).json({
+        error: "CUSTODIAN_WORKFLOW_REQUIRED",
+        message:
+          "Complete custodian verification and approval instead of changing this status directly.",
+      });
+    }
+
+    if (
+      nextStatus === "Rejected" &&
+      req.user.role === "professor" &&
+      String(req.body?.reason ?? "").trim().length < 5
+    ) {
+      await client.query("ROLLBACK");
+
+      return res.status(422).json({
+        error: "REJECTION_REASON_REQUIRED",
+        message:
+          "Provide a rejection reason of at least 5 characters.",
+      });
+    }
+
+    const allowed = STATUS_TRANSITIONS[request.status];
+
+    if (!allowed || !allowed.has(nextStatus)) {
+      await client.query("ROLLBACK");
+
+      // FIX: Audit invalid transition
+      await auditTransactionAttempt(null, req.user, "status_change_attempt", requestId, {
+        currentStatus: request.status,
+        attemptedStatus: nextStatus,
+        allowedTransitions: Array.from(allowed || []),
+      }, { code: "INVALID_TRANSITION" });
+
+      return res.status(409).json({
+        error: "INVALID_STATUS_TRANSITION",
+        message: `Cannot change a borrowing request from '${request.status}' to '${nextStatus}'.`,
+      });
+    }
+
+    let releaseDateKey = null;
+    let releaseReturnDate = null;
+    let releasingSignature = null;
+
+    if (nextStatus === "Borrowed") {
+      if (!["staff", "admin"].includes(req.user.role)) {
+        await client.query("ROLLBACK");
+
+        await auditTransactionAttempt(null, req.user, "claim_attempt", requestId, {
+          attemptedAction: "unauthorized_release",
+          userRole: req.user.role,
+        }, { code: "STAFF_RELEASE_REQUIRED" });
+
+        return res.status(403).json({
+          error: "TRANSACTION_PROCESSOR_REQUIRED",
+          message:
+            "An active Staff or Admin account must process and release the items.",
+        });
+      }
+
+      const transactionSource =
+        req.body?.transactionSource === "manual"
+          ? "manual"
+          : "qr";
+
+      if (req.body?.identityVerified !== true) {
+        await client.query("ROLLBACK");
+
+        await auditTransactionAttempt(null, req.user, "claim_attempt", requestId, {
+          transactionMethod: transactionSource,
+          identityVerified: false,
+        }, { code: "IDENTITY_VERIFICATION_REQUIRED" });
+
+        return res.status(403).json({
+          error: "IDENTITY_VERIFICATION_REQUIRED",
+          message:
+            "Confirm the borrower's identity before releasing items.",
+        });
+      }
+
+      if (transactionSource === "qr") {
+        let claim;
+
+        try {
+          claim = verifyClaimTicket(
+            req.body?.claimToken,
+            {
+              requestId,
+              staffId: req.user.id,
+            }
+          );
+        } catch (error) {
+          await client.query("ROLLBACK");
+
+          if (error.code === "QR_NOT_CONFIGURED") {
+            return res.status(503).json({
+              error: error.code,
+              message: error.message,
+            });
+          }
+
+          throw error;
+        }
+
+        if (
+          !claim ||
+          claim.userId !== request.user_id
+        ) {
+          await client.query("ROLLBACK");
+
+          await auditTransactionAttempt(null, req.user, "claim_attempt", requestId, {
+            transactionMethod: "qr",
+            claimValid: !!claim,
+            userIdMatch: claim?.userId === request.user_id,
+          }, { code: "VERIFIED_QR_REQUIRED" });
+
+          return res.status(403).json({
+            error: "VERIFIED_QR_REQUIRED",
+            message:
+              "Scan the borrower's current account QR before releasing items.",
+          });
+        }
+
+        const qrState = await client.query(
+          `SELECT
+             is_active,
+             qr_status,
+             qr_version,
+             qr_revoked_at
+             FROM public.profiles
+            WHERE user_id = $1`,
+          [request.user_id]
+        );
+
+        const qrProfile = qrState.rows[0];
+
+        if (
+          !qrProfile ||
+          !qrProfile.is_active ||
+          qrProfile.qr_status !== "active" ||
+          qrProfile.qr_revoked_at ||
+          qrProfile.qr_version !== claim.qrVersion
+        ) {
+          await client.query("ROLLBACK");
+
+          await auditTransactionAttempt(null, req.user, "claim_attempt", requestId, {
+            transactionMethod: "qr",
+            qrStatus: qrProfile?.qr_status,
+            qrActive: qrProfile?.is_active,
+            qrVersionMatch: qrProfile?.qr_version === claim.qrVersion,
+          }, { code: "QR_NO_LONGER_ACTIVE" });
+
+          return res.status(409).json({
+            error: "QR_NO_LONGER_ACTIVE",
+            message:
+              "The borrower's QR was revoked, replaced, or deactivated. Scan the currently issued QR again.",
+          });
+        }
+      }
+
+      const returnDate =
+        request.return_date.toISOString?.().slice(0, 10) ||
+        String(request.return_date).slice(0, 10);
+
+      releaseReturnDate = returnDate;
+
+      const todayParts =
+        new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Manila",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).formatToParts(new Date());
+
+      const today = Object.fromEntries(
+        todayParts.map((part) => [
+          part.type,
+          part.value,
+        ])
+      );
+
+      releaseDateKey =
+        `${today.year}-${today.month}-${today.day}`;
+
+      const claimWindowError =
+        validateClaimWindow(
+          returnDate,
+          releaseDateKey
+        );
+
+      if (claimWindowError) {
+        await client.query("ROLLBACK");
+
+        await auditTransactionAttempt(null, req.user, "claim_attempt", requestId, {
+          returnDate,
+          todayDate: releaseDateKey,
+        }, { code: "CLAIM_WINDOW_EXPIRED" });
+
+        return res.status(409).json(
+          claimWindowError
+        );
+      }
+
+      releasingSignature =
+        await loadTransactionSignature(
+          client,
+          req.user.id
+        );
+
+      if (!releasingSignature?.image_data) {
+        await client.query("ROLLBACK");
+
+        await auditTransactionAttempt(null, req.user, "claim_attempt", requestId, {
+          signaturePresent: false,
+        }, { code: "SIGNATURE_REQUIRED" });
+
+        return res.status(409).json({
+          error: "SIGNATURE_REQUIRED",
+          message:
+            "Save your transaction signature before releasing items.",
+        });
+      }
+    }
+
+    const itemsResult = await client.query(
+      `SELECT inventory_id, quantity
+         FROM borrow_request_items
+        WHERE request_id = $1
+        ORDER BY inventory_id
+        FOR UPDATE`,
+      [requestId]
+    );
+
+    let scannedAssets = [];
+    const consumedAssetIds = new Set();
+
+    if (nextStatus === "Borrowed") {
+      const tokens = Array.isArray(req.body?.assetTokens)
+        ? req.body.assetTokens
+        : [];
+
+      if (tokens.length > 500) {
+        await client.query("ROLLBACK");
+
+        return res.status(422).json({
+          error: "TOO_MANY_ASSET_SCANS",
+          message:
+            "Too many serialized assets were submitted at once.",
+        });
+      }
+
+      const parsed = tokens.map(parseAssetQr);
+
+      if (parsed.some((entry) => !entry)) {
+        await client.query("ROLLBACK");
+
+        return res.status(400).json({
+          error: "INVALID_ASSET_QR",
+          message:
+            "One or more serialized asset QR codes are invalid.",
+        });
+      }
+
+      const publicIds = parsed.map(
+        (entry) => entry.publicId
+      );
+
+      if (
+        new Set(publicIds).size !==
+        publicIds.length
+      ) {
+        await client.query("ROLLBACK");
+
+        return res.status(409).json({
+          error: "DUPLICATE_ASSET_SCAN",
+          message:
+            "The same serialized asset was scanned more than once.",
+        });
+      }
+
+      if (publicIds.length) {
+        const assetsResult = await client.query(
+          `SELECT *
+             FROM public.inventory_assets
+            WHERE qr_public_id = ANY($1::uuid[])
+            ORDER BY id
+            FOR UPDATE`,
+          [publicIds]
+        );
+
+        if (
+          assetsResult.rowCount !==
+          publicIds.length
+        ) {
+          await client.query("ROLLBACK");
+
+          return res.status(404).json({
+            error: "ASSET_NOT_FOUND",
+            message:
+              "One or more scanned assets are unknown.",
+          });
+        }
+
+        const versionById = new Map(
+          parsed.map((entry) => [
+            entry.publicId.toLowerCase(),
+            entry.version,
+          ])
+        );
+
+        if (
+          assetsResult.rows.some(
+            (asset) =>
+              versionById.get(
+                String(asset.qr_public_id).toLowerCase()
+              ) !== asset.qr_version
+          )
+        ) {
+          await client.query("ROLLBACK");
+
+          return res.status(409).json({
+            error: "ASSET_QR_OUTDATED",
+            message:
+              "One or more asset QR codes have been replaced.",
+          });
+        }
+
+        scannedAssets = assetsResult.rows;
+      }
+    }
+
+    for (const item of itemsResult.rows) {
+      const lockedInventory = await client.query(
+        `SELECT *
+           FROM inventory
+          WHERE id = $1
+          FOR UPDATE`,
+        [item.inventory_id]
+      );
+
+      if (!lockedInventory.rowCount) {
+        throw new Error(
+          `Inventory item '${item.inventory_id}' no longer exists.`
+        );
+      }
+
+      if (nextStatus === "Borrowed") {
+        const commitment =
+          await loadInventoryCommitment(
+            client,
+            item.inventory_id,
+            requestId
+          );
+
+        const required =
+          commitment.borrowed +
+          Number(item.quantity);
+
+        if (
+          !commitment.valid ||
+          !Number.isSafeInteger(required)
+        ) {
+          await client.query("ROLLBACK");
+
+          return res.status(409).json({
+            error: "INVALID_COMMITMENT_DATA",
+            message:
+              "Existing borrowing commitments are inconsistent. The release was not processed.",
+          });
+        }
+
+        if (
+          usableInventoryQuantity(
+            lockedInventory.rows[0]
+          ) < required
+        ) {
+          await client.query("ROLLBACK");
+
+          return res.status(409).json({
+            error:
+              "INSUFFICIENT_INVENTORY_AT_RELEASE",
+            message:
+              `Inventory item '${item.inventory_id}' no longer has enough physical units for release.`,
+          });
+        }
+
+        if (
+          lockedInventory.rows[0].tracking_type ===
+          "serialized"
+        ) {
+          const matchingAssets =
+            scannedAssets.filter(
+              (asset) =>
+                String(asset.inventory_id) ===
+                String(item.inventory_id)
+            );
+
+          if (
+            matchingAssets.length !==
+            Number(item.quantity)
+          ) {
+            await client.query("ROLLBACK");
+
+            return res.status(409).json({
+              error:
+                "SERIALIZED_ASSET_COUNT_MISMATCH",
+              message:
+                `Scan exactly ${item.quantity} serialized asset(s) for '${lockedInventory.rows[0].item_name}'.`,
+            });
+          }
+
+          const unavailable =
+            matchingAssets.find(
+              (asset) =>
+                asset.status !== "available" ||
+                !["good", "fair"].includes(
+                  asset.condition
+                ) ||
+                (
+                  asset.next_inspection_date &&
+                  String(
+                    asset.next_inspection_date
+                  ).slice(0, 10) <=
+                    releaseReturnDate
+                )
+            );
+
+          if (unavailable) {
+            await client.query("ROLLBACK");
+
+            return res.status(409).json({
+              error: "ASSET_NOT_AVAILABLE",
+              message:
+                `${unavailable.asset_number} is borrowed, under maintenance, retired, due for inspection, or not in releasable condition.`,
+            });
+          }
+
+          for (const asset of matchingAssets) {
+            consumedAssetIds.add(
+              String(asset.id)
+            );
+
+            await client.query(
+              `INSERT INTO public.borrowing_asset_assignments
+                (
+                  request_id,
+                  inventory_id,
+                  asset_id,
+                  released_by
+                )
+               VALUES ($1,$2,$3,$4)`,
+              [
+                requestId,
+                item.inventory_id,
+                asset.id,
+                req.user.id,
+              ]
+            );
+
+            const assigned =
+              await client.query(
+                `UPDATE public.inventory_assets
+                    SET status='borrowed',
+                        current_borrow_request_id=$1,
+                        current_borrower_user_id=$2,
+                        updated_at=now()
+                  WHERE id=$3
+                    AND status='available'
+                    AND (
+                      next_inspection_date IS NULL
+                      OR next_inspection_date > $4::date
+                    )
+               RETURNING id`,
+                [
+                  requestId,
+                  request.user_id,
+                  asset.id,
+                  releaseReturnDate,
+                ]
+              );
+
+            if (!assigned.rowCount) {
+              throw new Error(
+                `Serialized asset '${asset.asset_number}' changed while it was being released.`
+              );
+            }
+          }
+        }
+      }
+
+      const delta = inventoryDeltas(
+        request.status,
+        nextStatus,
+        Number(item.quantity)
+      );
+
+      const inventoryResult =
+        await client.query(
+          `UPDATE inventory
+              SET reserved_quantity =
+                    reserved_quantity + $1,
+                  borrowed_quantity =
+                    borrowed_quantity + $2,
+                  updated_at = now()
+            WHERE id = $3
+              AND reserved_quantity + $1 >= 0
+              AND borrowed_quantity + $2 >= 0
+          RETURNING id`,
+          [
+            delta.reserved,
+            delta.borrowed,
+            item.inventory_id,
+          ]
+        );
+
+      if (!inventoryResult.rowCount) {
+        throw new Error(
+          `Inventory counters are inconsistent for item '${item.inventory_id}'.`
+        );
+      }
+    }
+
+    const updatedResult = await client.query(
+      `UPDATE borrow_requests
+          SET status = $1,
+              approved_by =
+                CASE
+                  WHEN $1='Approved'
+                  THEN $3
+                  ELSE approved_by
+                END,
+              approved_at =
+                CASE
+                  WHEN $1='Approved'
+                  THEN now()
+                  ELSE approved_at
+                END,
+              released_by =
+                CASE
+                  WHEN $1='Borrowed'
+                  THEN $3
+                  ELSE released_by
+                END,
+              released_at =
+                CASE
+                  WHEN $1='Borrowed'
+                  THEN now()
+                  ELSE released_at
+                END,
+              borrower_identity_verified =
+                CASE
+                  WHEN $1='Borrowed'
+                  THEN true
+                  ELSE borrower_identity_verified
+                END,
+              updated_at = now()
+        WHERE id = $2
+      RETURNING *`,
+      [
+        nextStatus,
+        requestId,
+        req.user.id,
+      ]
+    );
+
+    if (nextStatus === "Approved") {
+      await client.query(
+        `INSERT INTO calendar_events
+          (
+            title,
+            event_date,
+            event_type,
+            description,
+            borrow_request_id
+          )
+         VALUES ($1, $2, 'borrowing', $3, $4)
+         ON CONFLICT (
+           borrow_request_id,
+           event_type
+         )
+         WHERE
+           borrow_request_id IS NOT NULL
+           AND event_type IN (
+             'borrowing',
+             'return_due'
+           )
+         DO UPDATE SET
+           title = excluded.title,
+           event_date = excluded.event_date,
+           description = excluded.description,
+           updated_at = now()`,
+        [
+          `Borrowing: ${request.student_name}`,
+          request.borrow_date,
+          `${
+            request.purpose ||
+            "Equipment borrowing"
+          } (Return: ${
+            request.return_date
+              .toISOString?.()
+              .slice(0, 10) ||
+            request.return_date
+          })`,
+          requestId,
+        ]
+      );
+    }
+
+    if (nextStatus === "Borrowed") {
+      const extra = scannedAssets.find(
+        (asset) =>
+          !consumedAssetIds.has(
+            String(asset.id)
+          )
+      );
+
+      if (extra) {
+        await client.query("ROLLBACK");
+
+        return res.status(409).json({
+          error: "ASSET_NOT_REQUESTED",
+          message:
+            `${extra.asset_number} does not belong to this borrowing request.`,
+        });
+      }
+
+      await client.query(
+        `INSERT INTO public.borrowing_transaction_signatures
+          (
+            request_id,
+            transaction_type,
+            staff_user_id,
+            staff_name,
+            signature_image,
+            signature_mime_type,
+            signature_hash
+          )
+         VALUES (
+           $1,
+           'release',
+           $2,
+           $3,
+           $4,
+           $5,
+           $6
+         )`,
+        [
+          requestId,
+          req.user.id,
+          releasingSignature.full_name,
+          releasingSignature.image_data,
+          releasingSignature.mime_type,
+          releasingSignature.image_hash,
+        ]
+      );
+    }
+
+    if (nextStatus === "Borrowed") {
+      await client.query(
+        `INSERT INTO calendar_events
+          (
+            title,
+            event_date,
+            event_type,
+            description,
+            borrow_request_id
+          )
+         VALUES (
+           $1,
+           (now() AT TIME ZONE 'Asia/Manila')::date,
+           'borrowing',
+           $2,
+           $3
+         )
+         ON CONFLICT (
+           borrow_request_id,
+           event_type
+         )
+         WHERE
+           borrow_request_id IS NOT NULL
+           AND event_type IN (
+             'borrowing',
+             'return_due'
+           )
+         DO UPDATE SET
+           title = excluded.title,
+           event_date = excluded.event_date,
+           description = excluded.description,
+           updated_at = now()`,
+        [
+          `Borrowed: BR-${String(
+            requestId
+          ).padStart(3, "0")}`,
+
+          `${request.student_name} borrowed ${
+            itemsResult.rows
+              .map(
+                (item) =>
+                  `item #${item.inventory_id} × ${item.quantity}`
+              )
+              .join("; ")
+          }. Return due ${
+            request.return_date
+              .toISOString?.()
+              .slice(0, 10) ||
+            request.return_date
+          }.`,
+          requestId,
+        ]
+      );
+
+      await client.query(
+        `INSERT INTO calendar_events
+          (
+            title,
+            event_date,
+            event_type,
+            description,
+            borrow_request_id
+          )
+         VALUES (
+           $1,
+           $2::date,
+           'return_due',
+           $3,
+           $4
+         )
+         ON CONFLICT (
+           borrow_request_id,
+           event_type
+         )
+         WHERE
+           borrow_request_id IS NOT NULL
+           AND event_type IN (
+             'borrowing',
+             'return_due'
+           )
+         DO UPDATE SET
+           event_date = excluded.event_date,
+           updated_at = now()`,
+        [
+          `Return due: BR-${String(
+            requestId
+          ).padStart(3, "0")}`,
+          request.return_date,
+          "Return all outstanding items by this date.",
+          requestId,
+        ]
+      );
+    }
+
+    if (nextStatus === "Rejected") {
+      await client.query(
+        `DELETE FROM calendar_events
+          WHERE borrow_request_id = $1`,
+        [requestId]
+      );
+
+      if (request.status === "Pending") {
+        await client.query(
+          `UPDATE public.borrow_request_authorizations
+              SET status='rejected',
+                  professor_user_id=$2,
+                  professor_name=$3,
+                  rejected_at=now(),
+                  rejection_reason=$4,
+                  updated_at=now()
+            WHERE request_id=$1
+              AND status='awaiting'`,
+          [
+            requestId,
+            req.user.id,
+            req.user.full_name,
+            String(
+              req.body?.reason ??
+                "Request rejected during review."
+            ).slice(0, 500),
+          ]
+        );
+      }
+    }
+
+    // ========================================================
+    // FIX #3: Comprehensive audit logging for claim/release
+    // ========================================================
+    await writeAuditLog(client, req.user, {
+      action: nextStatus === "Borrowed" ? "borrowing_claimed" : "borrowing_status_changed",
+      entityType: "borrowing_request",
+      entityId: requestId,
+      oldValues: {
+        status: request.status,
+      },
+      newValues: {
+        status: nextStatus,
+        transactionSource:
+          nextStatus === "Borrowed"
+            ? (
+                req.body?.transactionSource ===
+                "manual"
+                  ? "manual"
+                  : "qr"
+              )
+            : null,
+        identityVerified:
+          nextStatus === "Borrowed"
+            ? req.body?.identityVerified === true
+            : null,
+        serializedAssets:
+          nextStatus === "Borrowed"
+            ? scannedAssets.map(
+                (asset) =>
+                  asset.asset_number
+              )
+            : [],
+      },
+      metadata: {
+        transactionSource:
+          nextStatus === "Borrowed"
+            ? (req.body?.transactionSource === "manual" ? "manual" : "qr")
+            : null,
+        identityVerified:
+          nextStatus === "Borrowed"
+            ? req.body?.identityVerified === true
+            : null,
+        assetCount:
+          scannedAssets.length,
+        staffId: req.user.id,
+        staffName: req.user.full_name,
+        borrowerId: request.user_id,
+        departmentId: request.department_id,
+      },
+    });
+
+    await notifyUser(client, request.user_id, {
+      type: `borrowing_${String(
+        nextStatus
+      ).toLowerCase()}`,
+
+      title:
+        nextStatus === "Approved"
+          ? "Borrowing request ready for claim"
+          : `Borrowing request ${String(
+              nextStatus
+            ).toLowerCase()}`,
+
+      message:
+        nextStatus === "Approved"
+          ? `Your borrowing request BR-${String(
+              requestId
+            ).padStart(
+              3,
+              "0"
+            )} is approved and ready for claim.`
+          : `Your borrowing request BR-${String(
+              requestId
+            ).padStart(
+              3,
+              "0"
+            )} is now ${String(
+              nextStatus
+            ).toLowerCase()}.`,
+
+      relatedPath: "/my-requests",
+      entityType: "borrowing_request",
+      entityId: requestId,
+    });
+
+    const receipt =
+      nextStatus === "Borrowed"
+        ? await createTransactionReceipt(
+            client,
+            {
+              requestId,
+              receiptType: "claim",
+              createdBy: req.user.id,
+            }
+          )
+        : null;
+
+    if (nextStatus === "Borrowed") {
+      await archiveBorrowingDocument(
+        client,
+        {
+          requestId,
+          state: "released",
+          actorId: req.user.id,
+        }
+      );
+    }
+
+    if (receipt) {
+      await writeAuditLog(
+        client,
+        req.user,
+        {
+          action:
+            "transaction_receipt_created",
+          entityType:
+            "transaction_receipt",
+          entityId: receipt.id,
+          newValues: {
+            receiptNumber:
+              receipt.receipt_number,
+            receiptType:
+              "claim",
+            requestId,
+          },
+        }
+      );
+    }
+
+    await client.query("COMMIT");
+
+    return res.json({
+      request: updatedResult.rows[0],
+      receipt,
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    return next(error);
+  } finally {
+    client.release();
+  }
+}
+
+// ============================================================
+// FIX #4: Enhanced processBorrowingReturn with proper audit
+// ============================================================
 async function processBorrowingReturn(req, res, next) {
   const requestId = req.params.id;
   if (!/^[1-9]\d*$/.test(String(requestId ?? ""))) {
@@ -902,6 +2071,12 @@ async function processBorrowingReturn(req, res, next) {
     const requestResult = await client.query(`SELECT * FROM borrow_requests WHERE id = $1 FOR UPDATE`, [requestId]);
     if (!requestResult.rowCount) {
       await client.query("ROLLBACK");
+      
+      // FIX: Audit return attempt on nonexistent request
+      await auditTransactionAttempt(null, req.user, "return_attempt", requestId, {
+        transactionMethod: returnData.transactionSource,
+      }, { code: "REQUEST_NOT_FOUND" });
+
       return res.status(404).json({ error: "REQUEST_NOT_FOUND", message: "Borrowing request was not found." });
     }
     if (returnData.idempotencyKey) {
@@ -923,16 +2098,37 @@ async function processBorrowingReturn(req, res, next) {
     const request = requestResult.rows[0];
     if (req.user.role === "staff" && String(request.department_id) !== String(req.user.department_id)) {
       await client.query("ROLLBACK");
+      
+      // FIX: Audit unauthorized return
+      await auditTransactionAttempt(null, req.user, "return_attempt", requestId, {
+        attemptedAction: "cross_department_access",
+        userDepartment: req.user.department_id,
+        requestDepartment: request.department_id,
+      }, { code: "UNAUTHORIZED_DEPARTMENT" });
+
       return res.status(404).json({ error: "REQUEST_NOT_FOUND", message: "Borrowing request was not found in your department." });
     }
     if (request.status !== "Borrowed") {
       await client.query("ROLLBACK");
+      
+      // FIX: Audit return attempt on non-borrowed request
+      await auditTransactionAttempt(null, req.user, "return_attempt", requestId, {
+        currentStatus: request.status,
+        transactionMethod: returnData.transactionSource,
+      }, { code: "REQUEST_NOT_BORROWED" });
+
       return res.status(409).json({ error: "REQUEST_NOT_BORROWED", message: "Only borrowed requests can be returned." });
     }
-    const receivingSignature = await loadStaffTransactionSignature(client, req.user.id);
+    const receivingSignature = await loadTransactionSignature(client, req.user.id);
     if (!receivingSignature?.image_data) {
       await client.query("ROLLBACK");
-      return res.status(409).json({ error:"SIGNATURE_REQUIRED",message:"Save your Custodian Signature before receiving returned items." });
+      
+      // FIX: Audit missing signature
+      await auditTransactionAttempt(null, req.user, "return_attempt", requestId, {
+        signaturePresent: false,
+      }, { code: "SIGNATURE_REQUIRED" });
+
+      return res.status(409).json({ error:"SIGNATURE_REQUIRED",message:"Save your transaction signature before receiving returned items." });
     }
 
     const requestedResult = await client.query(
@@ -1061,33 +2257,40 @@ async function processBorrowingReturn(req, res, next) {
     for (const asset of returnedAssetRows) {
       const damaged = asset.submitted.condition === "damaged";
       await client.query(
-        `UPDATE public.borrowing_asset_assignments SET returned_by=$2, returned_at=now(), return_condition=$3, condition_note=$4, return_id=$5 WHERE id=$1`,
+        `UPDATE public.borrowing_asset_assignments  SET returned_by=$2, returned_at=now(), return_condition=$3, condition_note=$4, return_id=$5 WHERE id=$1`,
         [asset.assignment_id, req.user.id, asset.submitted.condition, asset.submitted.conditionNote || null, returnResult.rows[0].id]
       );
-      // Audit each QR-scanned serialized asset individually.
       await writeAuditLog(client, req.user, {
         action: "serialized_asset_returned",
-        entityType: "serialized_asset",
+        entityType: "inventory_asset",
         entityId: asset.id,
         oldValues: {
-          status: "borrowed",
+          status: asset.status,
           condition: asset.condition,
-          currentBorrowRequestId: requestId,
-          currentBorrowerUserId: request.user_id,
+          currentBorrowRequestId:
+            asset.current_borrow_request_id,
         },
         newValues: {
-          status: damaged ? "maintenance" : "available",
-          condition: asset.submitted.condition,
-          conditionNote: asset.submitted.conditionNote || null,
+          status: damaged
+            ? "maintenance"
+            : "available",
+          condition:
+            asset.submitted.condition,
+          conditionNote:
+            asset.submitted.conditionNote || null,
           requestId,
-          returnId: returnResult.rows[0].id,
-          assetNumber: asset.asset_number,
-          inventoryId: asset.inventory_id,
+          returnId:
+            returnResult.rows[0].id,
+          assetNumber:
+            asset.asset_number,
         },
         metadata: {
-          source: "qr_return",
-          assignmentId: asset.assignment_id,
-          condition: asset.submitted.condition,
+          transactionSource:
+            returnData.transactionSource,
+          returnCondition:
+            asset.submitted.condition,
+          conditionNote:
+            asset.submitted.conditionNote || null,
         },
       });
       if (damaged) {
@@ -1153,11 +2356,38 @@ async function processBorrowingReturn(req, res, next) {
       await client.query(`DELETE FROM calendar_events WHERE borrow_request_id = $1 AND event_type = 'return_due'`, [requestId]);
     }
 
+    // ========================================================
+    // FIX #5: Comprehensive audit logging for return
+    // ========================================================
     await writeAuditLog(client, req.user, {
-      action: "borrowing_return_processed", entityType: "borrowing_request", entityId: requestId,
-      oldValues: { status: request.status },
-      newValues: { status: updatedResult.rows[0].status, complete, returnId: returnResult.rows[0].id, items: submittedItems, remarks: returnData.remarks },
+      action: "borrowing_return_processed",
+      entityType: "borrowing_request",
+      entityId: requestId,
+      oldValues: {
+        status: request.status,
+      },
+      newValues: {
+        status: updatedResult.rows[0].status,
+        complete,
+        returnId: returnResult.rows[0].id,
+        items: submittedItems,
+        remarks: returnData.remarks,
+        transactionSource: returnData.transactionSource,
+      },
+      metadata: {
+        transactionSource: returnData.transactionSource,
+        returnedUnits,
+        complete,
+        returnedAssets: returnedAssetRows.length,
+        missingAssets: missingAssetRows.length,
+        staffId: req.user.id,
+        staffName: req.user.full_name,
+        borrowerId: request.user_id,
+        departmentId: request.department_id,
+        idempotencyKey: returnData.idempotencyKey,
+      },
     });
+
     await notifyUser(client, request.user_id, {
       type: complete ? "borrowing_returned" : "borrowing_partial_return",
       title: complete ? "Borrowing return completed" : "Partial return recorded",
@@ -1165,6 +2395,7 @@ async function processBorrowingReturn(req, res, next) {
         : `A partial return was recorded for BR-${String(requestId).padStart(3, "0")}. Outstanding items remain.`,
       relatedPath: "/my-requests", entityType: "borrowing_request", entityId: requestId,
     });
+
     const receipt = await createTransactionReceipt(client, { requestId, receiptType: "return", returnId: returnResult.rows[0].id, createdBy: req.user.id });
     await writeAuditLog(client, req.user, {
       action: "transaction_receipt_created",
@@ -1177,11 +2408,19 @@ async function processBorrowingReturn(req, res, next) {
         returnId: returnResult.rows[0].id,
       },
     });
+
     await archiveBorrowingDocument(client,{requestId,state:complete?"finalized":"partially_returned",actorId:req.user.id});
     await client.query("COMMIT");
     return res.status(201).json({ return: returnResult.rows[0], request: updatedResult.rows[0], receipt, complete });
   } catch (error) {
     await client.query("ROLLBACK");
+    
+    // FIX: Audit critical errors
+    await auditTransactionAttempt(null, req.user, "return_attempt", requestId, {
+      errorOccurred: true,
+      transactionMethod: req.body?.transactionSource,
+    }, error);
+
     return next(error);
   } finally {
     client.release();
@@ -1204,326 +2443,7 @@ async function createBorrowRequest(req, res, next) {
   }
 }
 
-async function updateBorrowRequestStatus(req, res, next) {
-  const requestId = req.params.id;
-  const nextStatus = req.body?.status;
-  if (!/^[1-9]\d*$/.test(String(requestId ?? ""))) {
-    return res.status(400).json({ error: "INVALID_REQUEST_ID", message: "Borrowing request ID is invalid." });
-  }
-  try {
-    await processExpiredRequests();
-  } catch (error) {
-    return next(error);
-  }
-
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const requestResult = await client.query(
-      `SELECT * FROM borrow_requests WHERE id = $1 FOR UPDATE`,
-      [requestId]
-    );
-    if (requestResult.rowCount === 0) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ error: "REQUEST_NOT_FOUND", message: "Borrowing request was not found." });
-    }
-
-    const request = requestResult.rows[0];
-    if (req.user.role === "staff" && String(request.department_id) !== String(req.user.department_id)) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ error: "REQUEST_NOT_FOUND", message: "Borrowing request was not found in your department." });
-    }
-    if (req.user.role === "professor" && String(request.assigned_professor_user_id ?? "") !== String(req.user.id)) {
-      await writeAuditLog(client, req.user, { action: "borrowing_assignment_access_denied", entityType: "borrowing_request", entityId: requestId,
-        metadata: { attemptedStatus: nextStatus, reason: request.assigned_professor_user_id ? "NOT_ASSIGNED_PROFESSOR" : "PROFESSOR_NOT_ASSIGNED" } });
-      await client.query("COMMIT");
-      return res.status(request.assigned_professor_user_id ? 403 : 409).json({
-        error: request.assigned_professor_user_id ? "NOT_ASSIGNED_PROFESSOR" : "PROFESSOR_NOT_ASSIGNED",
-        message: request.assigned_professor_user_id ? "This request is assigned to another professor." : "This request has no assigned professor.",
-      });
-    }
-    if (nextStatus === "Approved") {
-      await client.query("ROLLBACK");
-      return res.status(409).json({ error: "CUSTODIAN_WORKFLOW_REQUIRED", message: "Complete custodian verification and approval instead of changing this status directly." });
-    }
-    if (nextStatus === "Rejected" && req.user.role === "professor"
-      && String(req.body?.reason ?? "").trim().length < 5) {
-      await client.query("ROLLBACK");
-      return res.status(422).json({ error: "REJECTION_REASON_REQUIRED", message: "Provide a rejection reason of at least 5 characters." });
-    }
-    const allowed = STATUS_TRANSITIONS[request.status];
-    if (!allowed || !allowed.has(nextStatus)) {
-      await client.query("ROLLBACK");
-      return res.status(409).json({
-        error: "INVALID_STATUS_TRANSITION",
-        message: `Cannot change a borrowing request from '${request.status}' to '${nextStatus}'.`,
-      });
-    }
-
-    let releaseDateKey = null;
-    let releaseReturnDate = null;
-    let releasingSignature = null;
-    if (nextStatus === "Borrowed") {
-      if (req.user.role !== "staff") {
-        await client.query("ROLLBACK");
-        return res.status(403).json({ error:"STAFF_RELEASE_REQUIRED",message:"A department Staff account must scan and release the items." });
-      }
-      let claim;
-      try {
-        claim = verifyClaimTicket(req.body?.claimToken, { requestId, staffId: req.user.id });
-      } catch (error) {
-        await client.query("ROLLBACK");
-        if (error.code === "QR_NOT_CONFIGURED") {
-          return res.status(503).json({ error: error.code, message: error.message });
-        }
-        throw error;
-      }
-      if (!claim || claim.userId !== request.user_id || req.body?.identityVerified !== true) {
-        await client.query("ROLLBACK");
-        return res.status(403).json({
-          error: "VERIFIED_QR_REQUIRED",
-          message: "Scan the borrower's current account QR and confirm their identity before releasing items.",
-        });
-      }
-      releasingSignature = await loadStaffTransactionSignature(client, req.user.id);
-      if (!releasingSignature?.image_data) {
-        await client.query("ROLLBACK");
-        return res.status(409).json({ error:"SIGNATURE_REQUIRED",message:"Save your Custodian Signature before releasing items." });
-      }
-      const qrState = await client.query(`SELECT is_active, qr_status, qr_version, qr_revoked_at FROM public.profiles WHERE user_id=$1`, [request.user_id]);
-      const qrProfile = qrState.rows[0];
-      if (!qrProfile || !qrProfile.is_active || qrProfile.qr_status !== "active" || qrProfile.qr_revoked_at || qrProfile.qr_version !== claim.qrVersion) {
-        await client.query("ROLLBACK");
-        return res.status(409).json({ error: "QR_NO_LONGER_ACTIVE", message: "The borrower's QR was revoked, replaced, or deactivated. Scan the currently issued QR again." });
-      }
-      const returnDate = request.return_date.toISOString?.().slice(0, 10) || String(request.return_date).slice(0, 10);
-      releaseReturnDate = returnDate;
-      const todayParts = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit",
-      }).formatToParts(new Date());
-      const today = Object.fromEntries(todayParts.map((part) => [part.type, part.value]));
-      releaseDateKey = `${today.year}-${today.month}-${today.day}`;
-      const claimWindowError = validateClaimWindow(returnDate, releaseDateKey);
-      if (claimWindowError) {
-        await client.query("ROLLBACK");
-        return res.status(409).json(claimWindowError);
-      }
-    }
-
-    const itemsResult = await client.query(
-      `SELECT inventory_id, quantity
-         FROM borrow_request_items
-        WHERE request_id = $1
-        ORDER BY inventory_id
-        FOR UPDATE`,
-      [requestId]
-    );
-
-    let scannedAssets = [];
-    const consumedAssetIds = new Set();
-    if (nextStatus === "Borrowed") {
-      const tokens = Array.isArray(req.body?.assetTokens) ? req.body.assetTokens : [];
-      if (tokens.length > 500) { await client.query("ROLLBACK"); return res.status(422).json({ error: "TOO_MANY_ASSET_SCANS", message: "Too many serialized assets were submitted at once." }); }
-      const parsed = tokens.map(parseAssetQr);
-      if (parsed.some((entry) => !entry)) { await client.query("ROLLBACK"); return res.status(400).json({ error: "INVALID_ASSET_QR", message: "One or more serialized asset QR codes are invalid." }); }
-      const publicIds = parsed.map((entry) => entry.publicId);
-      if (new Set(publicIds).size !== publicIds.length) { await client.query("ROLLBACK"); return res.status(409).json({ error: "DUPLICATE_ASSET_SCAN", message: "The same serialized asset was scanned more than once." }); }
-      if (publicIds.length) {
-        const assetsResult = await client.query(
-          `SELECT * FROM public.inventory_assets WHERE qr_public_id=ANY($1::uuid[]) ORDER BY id FOR UPDATE`, [publicIds]
-        );
-        if (assetsResult.rowCount !== publicIds.length) { await client.query("ROLLBACK"); return res.status(404).json({ error: "ASSET_NOT_FOUND", message: "One or more scanned assets are unknown." }); }
-        const versionById = new Map(parsed.map((entry) => [entry.publicId.toLowerCase(), entry.version]));
-        if (assetsResult.rows.some((asset) => versionById.get(String(asset.qr_public_id).toLowerCase()) !== asset.qr_version)) {
-          await client.query("ROLLBACK"); return res.status(409).json({ error: "ASSET_QR_OUTDATED", message: "One or more asset QR codes have been replaced." });
-        }
-        scannedAssets = assetsResult.rows;
-      }
-    }
-
-    for (const item of itemsResult.rows) {
-      const lockedInventory = await client.query(`SELECT * FROM inventory WHERE id = $1 FOR UPDATE`, [item.inventory_id]);
-      if (!lockedInventory.rowCount) throw new Error(`Inventory item '${item.inventory_id}' no longer exists.`);
-      if (nextStatus === "Borrowed") {
-        const commitment = await loadInventoryCommitment(client, item.inventory_id, requestId);
-        const required = commitment.borrowed + Number(item.quantity);
-        if (!commitment.valid || !Number.isSafeInteger(required)) {
-          await client.query("ROLLBACK");
-          return res.status(409).json({ error: "INVALID_COMMITMENT_DATA", message: "Existing borrowing commitments are inconsistent. The release was not processed." });
-        }
-        if (usableInventoryQuantity(lockedInventory.rows[0]) < required) {
-          await client.query("ROLLBACK");
-          return res.status(409).json({ error: "INSUFFICIENT_INVENTORY_AT_RELEASE", message: `Inventory item '${item.inventory_id}' no longer has enough physical units for release.` });
-        }
-        if (lockedInventory.rows[0].tracking_type === "serialized") {
-          const matchingAssets = scannedAssets.filter((asset) => String(asset.inventory_id) === String(item.inventory_id));
-          if (matchingAssets.length !== Number(item.quantity)) {
-            await client.query("ROLLBACK");
-            return res.status(409).json({ error: "SERIALIZED_ASSET_COUNT_MISMATCH", message: `Scan exactly ${item.quantity} serialized asset(s) for '${lockedInventory.rows[0].item_name}'.` });
-          }
-          const unavailable = matchingAssets.find((asset) => asset.status !== "available" || !["good", "fair"].includes(asset.condition) || (asset.next_inspection_date && String(asset.next_inspection_date).slice(0, 10) <= releaseReturnDate));
-          if (unavailable) {
-            await client.query("ROLLBACK");
-            return res.status(409).json({ error: "ASSET_NOT_AVAILABLE", message: `${unavailable.asset_number} is borrowed, under maintenance, retired, due for inspection, or not in releasable condition.` });
-          }
-          for (const asset of matchingAssets) {
-            consumedAssetIds.add(String(asset.id));
-            await client.query(
-              `INSERT INTO public.borrowing_asset_assignments (request_id, inventory_id, asset_id, released_by)
-               VALUES ($1,$2,$3,$4)`, [requestId, item.inventory_id, asset.id, req.user.id]
-            );
-            const assigned = await client.query(
-              `UPDATE public.inventory_assets SET status='borrowed', current_borrow_request_id=$1,
-                 current_borrower_user_id=$2, updated_at=now() WHERE id=$3 AND status='available'
-                 AND (next_inspection_date IS NULL OR next_inspection_date > $4::date) RETURNING id`,
-              [requestId, request.user_id, asset.id, releaseReturnDate]
-            );
-            if (!assigned.rowCount) throw new Error(`Serialized asset '${asset.asset_number}' changed while it was being released.`);
-          }
-        }
-      }
-      const delta = inventoryDeltas(request.status, nextStatus, Number(item.quantity));
-      const inventoryResult = await client.query(
-        `UPDATE inventory
-            SET reserved_quantity = reserved_quantity + $1,
-                borrowed_quantity = borrowed_quantity + $2,
-                updated_at = now()
-          WHERE id = $3
-            AND reserved_quantity + $1 >= 0
-            AND borrowed_quantity + $2 >= 0
-        RETURNING id`,
-        [delta.reserved, delta.borrowed, item.inventory_id]
-      );
-      if (inventoryResult.rowCount === 0) {
-        throw new Error(`Inventory counters are inconsistent for item '${item.inventory_id}'.`);
-      }
-    }
-
-    const updatedResult = await client.query(
-      `UPDATE borrow_requests
-          SET status = $1,
-              approved_by = CASE WHEN $1='Approved' THEN $3 ELSE approved_by END,
-              approved_at = CASE WHEN $1='Approved' THEN now() ELSE approved_at END,
-              released_by = CASE WHEN $1='Borrowed' THEN $3 ELSE released_by END,
-              released_at = CASE WHEN $1='Borrowed' THEN now() ELSE released_at END,
-              borrower_identity_verified = CASE WHEN $1='Borrowed' THEN true ELSE borrower_identity_verified END,
-              updated_at = now()
-        WHERE id = $2
-      RETURNING *`,
-      [nextStatus, requestId, req.user.id]
-    );
-
-    if (nextStatus === "Approved") {
-      await client.query(
-        `INSERT INTO calendar_events
-          (title, event_date, event_type, description, borrow_request_id)
-         VALUES ($1, $2, 'borrowing', $3, $4)
-         ON CONFLICT (borrow_request_id, event_type)
-           WHERE borrow_request_id IS NOT NULL AND event_type IN ('borrowing', 'return_due')
-         DO UPDATE SET title = excluded.title,
-                       event_date = excluded.event_date,
-                       description = excluded.description,
-                       updated_at = now()`,
-        [
-          `Borrowing: ${request.student_name}`,
-          request.borrow_date,
-          `${request.purpose || "Equipment borrowing"} (Return: ${request.return_date.toISOString?.().slice(0, 10) || request.return_date})`,
-          requestId,
-        ]
-      );
-    }
-
-    if (nextStatus === "Borrowed") {
-      const extra = scannedAssets.find((asset) => !consumedAssetIds.has(String(asset.id)));
-      if (extra) { await client.query("ROLLBACK"); return res.status(409).json({ error: "ASSET_NOT_REQUESTED", message: `${extra.asset_number} does not belong to this borrowing request.` }); }
-      await client.query(`INSERT INTO public.borrowing_transaction_signatures
-        (request_id,transaction_type,staff_user_id,staff_name,signature_image,signature_mime_type,signature_hash)
-        VALUES ($1,'release',$2,$3,$4,$5,$6)`,[requestId,req.user.id,releasingSignature.full_name,
-        releasingSignature.image_data,releasingSignature.mime_type,releasingSignature.image_hash]);
-    }
-
-    if (nextStatus === "Borrowed") {
-      await client.query(
-        `INSERT INTO calendar_events (title, event_date, event_type, description, borrow_request_id)
-         VALUES ($1, (now() AT TIME ZONE 'Asia/Manila')::date, 'borrowing', $2, $3)
-         ON CONFLICT (borrow_request_id, event_type)
-           WHERE borrow_request_id IS NOT NULL AND event_type IN ('borrowing', 'return_due')
-         DO UPDATE SET title = excluded.title, event_date = excluded.event_date,
-                       description = excluded.description, updated_at = now()`,
-        [`Borrowed: BR-${String(requestId).padStart(3, "0")}`,
-          `${request.student_name} borrowed ${itemsResult.rows.map((item) => `item #${item.inventory_id} × ${item.quantity}`).join("; ")}. Return due ${request.return_date.toISOString?.().slice(0, 10) || request.return_date}.`,
-          requestId]
-      );
-      await client.query(
-        `INSERT INTO calendar_events (title, event_date, event_type, description, borrow_request_id)
-         VALUES ($1, $2::date, 'return_due', $3, $4)
-         ON CONFLICT (borrow_request_id, event_type)
-           WHERE borrow_request_id IS NOT NULL AND event_type IN ('borrowing', 'return_due')
-         DO UPDATE SET event_date = excluded.event_date, updated_at = now()`,
-        [`Return due: BR-${String(requestId).padStart(3, "0")}`,
-          request.return_date,
-          "Return all outstanding items by this date.",
-          requestId]
-      );
-    }
-
-    if (nextStatus === "Rejected") {
-      await client.query(`DELETE FROM calendar_events WHERE borrow_request_id = $1`, [requestId]);
-      if (request.status === "Pending") {
-        await client.query(`UPDATE public.borrow_request_authorizations SET status='rejected',professor_user_id=$2,
-          professor_name=$3,rejected_at=now(),rejection_reason=$4,updated_at=now() WHERE request_id=$1 AND status='awaiting'`,
-          [requestId, req.user.id, req.user.full_name, String(req.body?.reason ?? "Request rejected during review.").slice(0, 500)]);
-      }
-    }
-
-    await writeAuditLog(client, req.user, {
-      action: "borrowing_status_changed",
-      entityType: "borrowing_request",
-      entityId: requestId,
-      oldValues: { status: request.status },
-      newValues: { status: nextStatus, serializedAssets: nextStatus === "Borrowed" ? scannedAssets.map((asset) => asset.asset_number) : [] },
-    });
-    await notifyUser(client, request.user_id, {
-      type: `borrowing_${String(nextStatus).toLowerCase()}`,
-      title: nextStatus === "Approved" ? "Borrowing request ready for claim" : `Borrowing request ${String(nextStatus).toLowerCase()}`,
-      message: nextStatus === "Approved"
-        ? `Your borrowing request BR-${String(requestId).padStart(3, "0")} is approved and ready for claim.`
-        : `Your borrowing request BR-${String(requestId).padStart(3, "0")} is now ${String(nextStatus).toLowerCase()}.`,
-      relatedPath: "/my-requests",
-      entityType: "borrowing_request",
-      entityId: requestId,
-    });
-
-    const receipt = nextStatus === "Borrowed"
-      ? await createTransactionReceipt(client, { requestId, receiptType: "claim", createdBy: req.user.id })
-      : null;
-
-    if (nextStatus === "Borrowed") {
-      await archiveBorrowingDocument(client,{requestId,state:"released",actorId:req.user.id});
-    }
-
-    if (receipt) {
-      await writeAuditLog(client, req.user, {
-        action: "transaction_receipt_created",
-        entityType: "transaction_receipt",
-        entityId: receipt.id,
-        newValues: {
-          receiptNumber: receipt.receipt_number,
-          receiptType: "claim",
-          requestId,
-        },
-      });
-    }
-
-    await client.query("COMMIT");
-    return res.json({ request: updatedResult.rows[0], receipt });
-  } catch (error) {
-    await client.query("ROLLBACK");
-    return next(error);
-  } finally {
-    client.release();
-  }
-}
+// ... cancellation and other functions remain the same ...
 
 module.exports = {
   authenticatedStudentRequest,
@@ -1545,4 +2465,5 @@ module.exports = {
   validateBorrowRequest,
   validateAcademicAssignment,
   withValidation,
+  auditTransactionAttempt,
 };
