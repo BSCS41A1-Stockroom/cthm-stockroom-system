@@ -367,6 +367,52 @@ async function authorizeRequest(req, res, next) {
   } catch (error) { await client.query("ROLLBACK"); return next(error); } finally { client.release(); }
 }
 
+async function rejectAuthorizationRequest(req, res, next) {
+  if (!UUID.test(req.params.token)) return res.status(400).json({ error: "INVALID_REVIEW_LINK", message: "This authorization link is invalid." });
+  const reason = String(req.body?.reason ?? "").trim();
+  if (reason.length < 5 || reason.length > 500) {
+    return res.status(422).json({ error: "REJECTION_REASON_REQUIRED", message: "Provide a rejection reason between 5 and 500 characters." });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(`SELECT authz.request_id,authz.status AS authorization_status,
+        request.status AS request_status,request.user_id,request.assigned_professor_user_id,profile.full_name
+      FROM public.borrow_request_authorizations authz
+      JOIN public.borrow_requests request ON request.id=authz.request_id
+      JOIN public.profiles profile ON profile.user_id=$2
+      WHERE authz.review_token=$1 FOR UPDATE OF authz,request`, [req.params.token, req.user.id]);
+    const row = result.rows[0];
+    const denial = ownershipError(row, req.user.id);
+    if (denial) {
+      if (row) {
+        await auditDeniedAccess(client, req.user, req.params.token, row, denial);
+        await client.query("COMMIT");
+      } else await client.query("ROLLBACK");
+      return res.status(denial.status).json({ error: denial.error, message: denial.message });
+    }
+    if (row.authorization_status !== "awaiting" || row.request_status !== "Pending") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "ALREADY_REVIEWED", message: "This request is no longer awaiting professor authorization." });
+    }
+    await client.query(`UPDATE public.borrow_request_authorizations
+      SET status='rejected',professor_user_id=$2,professor_name=$3,rejected_at=now(),rejection_reason=$4,updated_at=now()
+      WHERE request_id=$1`, [row.request_id, req.user.id, row.full_name, reason]);
+    await client.query(`UPDATE public.borrow_requests
+      SET status='Rejected',updated_at=now() WHERE id=$1`, [row.request_id]);
+    await writeAuditLog(client, req.user, { action: "borrowing_professor_rejected", entityType: "borrowing_request", entityId: row.request_id,
+      newValues: { reason } });
+    await notifyUser(client, row.user_id, { type: "request_rejected", title: "Borrowing request rejected",
+      message: `Your request BR-${String(row.request_id).padStart(3,"0")} was rejected by the assigned professor. Reason: ${reason}`,
+      relatedPath: "/my-requests", entityType: "borrowing_request", entityId: row.request_id });
+    await client.query("COMMIT");
+    return res.json({ status: "rejected", requestStatus: "Rejected" });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    return next(error);
+  } finally { client.release(); }
+}
+
 async function downloadAuthorizedDocument(req, res, next) {
   if (!UUID.test(req.params.token)) return res.status(400).json({ error: "INVALID_REVIEW_LINK", message: "This authorization link is invalid." });
   try {
@@ -445,4 +491,4 @@ async function downloadAuthorizedDocument(req, res, next) {
   } catch (error) { return next(error); }
 }
 
-module.exports = { approveCustodianRequest, authorizeRequest, decodeSignature, downloadAuthorizedDocument, getAuthorizationReview, getCustodianReview, getMyAdminSignature, getMyCustodianSignature, getMySignature, getMyStudentSignature, ownershipError, saveMyAdminSignature, saveMyCustodianSignature, saveMySignature, saveMyStudentSignature, verifyCustodianRequest };
+module.exports = { approveCustodianRequest, authorizeRequest, decodeSignature, downloadAuthorizedDocument, getAuthorizationReview, getCustodianReview, getMyAdminSignature, getMyCustodianSignature, getMySignature, getMyStudentSignature, ownershipError, rejectAuthorizationRequest, saveMyAdminSignature, saveMyCustodianSignature, saveMySignature, saveMyStudentSignature, verifyCustodianRequest };

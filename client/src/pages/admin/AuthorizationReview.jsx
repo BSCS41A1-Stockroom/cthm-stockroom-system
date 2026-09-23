@@ -40,7 +40,7 @@ export default function AuthorizationReview() {
     if (rejectionReason.trim().length < 5) { setError("Provide a rejection reason of at least 5 characters."); return; }
     setBusy(true); setError("");
     try {
-      const response = await authenticatedFetch(`/api/borrowings/${review.id}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "Rejected", reason: rejectionReason.trim() }) });
+      const response = await authenticatedFetch(`/api/authorizations/${token}/reject`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: rejectionReason.trim() }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.message);
       setOutcome("rejected");
@@ -71,7 +71,7 @@ export default function AuthorizationReview() {
 
   if (error && !review) return <main className="authorization-page"><div className="authorization-state error">{error}</div></main>;
   if (!review) return <main className="authorization-page"><div className="authorization-state">Loading authorization document...</div></main>;
-  if (outcome) return <main className="authorization-page"><div className={`authorization-state ${outcome === "authorized" ? "success" : "error"}`}><h1>{outcome === "authorized" ? "Request authorized" : "Request rejected"}</h1><p>{outcome === "authorized" ? "The signed snapshot is preserved and now awaits final admin approval." : "The student has been notified and the request can no longer be authorized."}</p>{error && <p className="authorization-message error">{error}</p>}<div className="authorization-complete-actions">{outcome === "authorized" && <button type="button" className="authorize-button" disabled={downloading} onClick={downloadSignedForm}>{downloading ? "Preparing form..." : "Download signed form"}</button>}<Link to="/professor/requests">Return to requests</Link></div></div></main>;
+  if (outcome) return <main className="authorization-page"><div className={`authorization-state ${outcome === "authorized" ? "success" : "error"}`}><h1>{outcome === "authorized" ? "Request authorized" : "Request rejected"}</h1><p>{outcome === "authorized" ? "The signed snapshot is preserved and now awaits custodian verification, followed by final Custodian Head approval." : "The student has been notified and the authorization QR is now closed."}</p>{error && <p className="authorization-message error">{error}</p>}<div className="authorization-complete-actions">{outcome === "authorized" && <button type="button" className="authorize-button" disabled={downloading} onClick={downloadSignedForm}>{downloading ? "Preparing form..." : "Download signed form"}</button>}<Link to="/professor/requests">Return to requests</Link></div></div></main>;
 
   return <main className="authorization-page">
     <header><span>Official borrower’s form review</span><h1>BR-{String(review.id).padStart(3, "0")}</h1><p>Review every field before applying your saved electronic signature.</p></header>
