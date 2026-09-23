@@ -24,7 +24,7 @@ test("classifies an afternoon-only LOA notice as partial, not a whole-day block"
   assert.equal(result.scope, "partial_day");
   assert.deepEqual(result.dates, ["2026-09-09"]);
   assert.match(result.evidence.suspensionPhrase, /suspended/i);
-  assert.match(result.warnings.join(" "), /cannot|do not confirm/i);
+  assert.match(result.warnings.join(" "), /do not block the whole date/i);
 });
 
 test("classifies a full-day onsite suspension even when offices stay open", () => {
@@ -58,14 +58,14 @@ test("rejects invalid calendar dates and limits closure spans", () => {
   assert.equal(datesBetween("2026-01-01", "2026-12-31").length, 31);
 });
 
-test("checks only the selected borrow and return dates", async () => {
+test("checks the full request interval against closure candidates", async () => {
   const calls = [];
   const client = { query: async (sql, values) => {
     calls.push({ sql, values });
     return { rows: [], rowCount: 0 };
   } };
   assert.equal(await findClosure(client, ["2026-09-23", "2026-09-25"], 2), null);
-  assert.equal(calls.length, 3);
-  assert.match(calls[2].sql, /unnest\(\$1::date\[\]\)/);
-  assert.deepEqual(calls[2].values, [["2026-09-23", "2026-09-25"], 2]);
+  assert.equal(calls.length, 5);
+  assert.match(calls[4].sql, /start_date <= \$2::date/);
+  assert.deepEqual(calls[4].values, ["2026-09-23", "2026-09-25", 2]);
 });

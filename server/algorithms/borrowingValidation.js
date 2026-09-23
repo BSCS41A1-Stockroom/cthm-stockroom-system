@@ -1,5 +1,7 @@
 "use strict";
 
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const POSTGRES_INTEGER_MAX = 2_147_483_647;
 
@@ -35,6 +37,14 @@ function validateBorrowingRequestShape(request) {
   if (!isValidDate(candidate.returnDate)) errors.push({ code: "INVALID_RETURN_DATE", message: "Return date must be a valid YYYY-MM-DD date." });
   if (isValidDate(candidate.borrowDate) && isValidDate(candidate.returnDate) && candidate.returnDate < candidate.borrowDate) {
     errors.push({ code: "INVALID_DATE_RANGE", message: "Return date cannot be before the borrow date." });
+  }
+  const startTime = candidate.startTime ?? null;
+  const endTime = candidate.endTime ?? null;
+  if ((startTime == null) !== (endTime == null)
+    || (startTime != null && (!TIME_PATTERN.test(startTime) || !TIME_PATTERN.test(endTime)))) {
+    errors.push({ code: "INVALID_TIME_RANGE", message: "Enter both borrow and return times in HH:mm format, or leave both blank." });
+  } else if (startTime != null && candidate.borrowDate === candidate.returnDate && startTime >= endTime) {
+    errors.push({ code: "INVALID_TIME_RANGE", message: "Return time must be after borrow time for a same-day request." });
   }
   if (typeof candidate.purpose !== "string" || !candidate.purpose.trim()) {
     errors.push({ code: "PURPOSE_REQUIRED", message: "Purpose is required." });

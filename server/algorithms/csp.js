@@ -19,6 +19,7 @@
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const { schedulesOverlap } = require("../utils/scheduleIntervals");
 
 
 /* ============================================================
@@ -396,8 +397,8 @@ function normalizeRequest(request) {
     endMinutes != null
   ) {
     invariant(
-      startMinutes < endMinutes,
-      "request.endTime must be after request.startTime"
+      borrowDate !== normalizedReturnDate || startMinutes < endMinutes,
+      "request.endTime must be after request.startTime on the same date"
     );
   }
 
@@ -553,11 +554,6 @@ function checkTimeOverlap(
 ) {
   const normalized =
     ensureNormalizedRequest(request);
-  const usesTimeIntervals =
-    normalized.startMinutes != null &&
-    normalized.endMinutes != null;
-
-
   for (
     const existingRaw
     of existingRequests
@@ -604,18 +600,7 @@ function checkTimeOverlap(
     }
 
 
-    const overlaps = usesTimeIntervals
-      ? existing.borrowDate === normalized.borrowDate
-        && existing.startMinutes != null
-        && existing.endMinutes != null
-        && intervalsOverlap(
-          normalized.startMinutes,
-          normalized.endMinutes,
-          existing.startMinutes,
-          existing.endMinutes
-        )
-      : normalized.borrowDate <= existing.returnDate
-        && existing.borrowDate <= normalized.returnDate;
+    const overlaps = schedulesOverlap(normalized, existing);
 
 
     if (!overlaps) {

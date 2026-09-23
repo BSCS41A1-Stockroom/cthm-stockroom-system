@@ -155,7 +155,10 @@ async function saveEvent(req, res, next) {
         const assignedRoom = await client.query("SELECT department_id FROM public.laboratory_rooms WHERE id=$1", [event.roomId]);
         departmentId = assignedRoom.rows[0]?.department_id || departmentId;
       }
-      const closure = await findClosure(client, [event.date], departmentId);
+      const closure = await findClosure(client, {
+        borrowDate: event.date, returnDate: event.date,
+        startTime: event.start || null, endTime: event.end || null,
+      }, departmentId);
       if (closure) {
         await client.query("ROLLBACK");
         return res.status(422).json({ error: "CALENDAR_DATE_CLOSED", reasons: [`${event.date} is closed for ${closure.title}. Choose another date.`] });

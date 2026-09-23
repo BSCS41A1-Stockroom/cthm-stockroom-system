@@ -90,7 +90,7 @@ async function saveMyStudentSignature(req, res, next) {
 
 async function loadReview(token, userId) {
   return pool.query(`SELECT authz.review_token,authz.status AS authorization_status,authz.authorized_at,
-      authz.professor_name,request.id,request.student_name,request.student_id,request.borrow_date,request.return_date,
+      authz.professor_name,request.id,request.student_name,request.student_id,request.borrow_date,request.return_date,request.start_time,request.end_time,
       request.purpose,request.status,request.assigned_professor_user_id,profile.full_name AS current_professor_name,
       department.name AS department_name,department.code AS department_code,section.name AS section_name,
       assigned.full_name AS assigned_professor_name,
@@ -249,7 +249,7 @@ async function approveCustodianRequest(req, res, next) {
   try {
     await client.query("BEGIN");
     const result = await client.query(`SELECT request.id,request.user_id,request.student_name,request.student_id,request.borrow_date,
-        request.return_date,request.purpose,request.status,request.department_id,department.name AS department_name,
+        request.return_date,request.start_time,request.end_time,request.purpose,request.status,request.department_id,department.name AS department_name,
         section.name AS section_name,professor.professor_name,custodian.verified_by,custodian.verified_name,
         custodian.verified_at,custodian.verified_signature_hash,custodian.approved_at,
         signature.image_data AS current_signature,signature.mime_type AS current_signature_mime,
@@ -265,7 +265,7 @@ async function approveCustodianRequest(req, res, next) {
     const row = result.rows[0];
     if (!row) { await client.query("ROLLBACK"); return res.status(404).json({ error:"REQUEST_NOT_FOUND",message:"An authorized request awaiting final review was not found." }); }
     if (row.status !== "Validated" || !row.verified_at) { await client.query("ROLLBACK"); return res.status(409).json({ error:"VERIFICATION_REQUIRED",message:"Custodian verification must be completed before approval." }); }
-    const approvalClosure = await findClosure(client, [row.borrow_date, row.return_date], row.department_id);
+    const approvalClosure = await findClosure(client, row, row.department_id);
     if (approvalClosure) { await client.query("ROLLBACK"); return res.status(409).json({ error: "CALENDAR_DATE_CLOSED", message: `This request is affected by ${approvalClosure.title}. Arrange a new date before approval.` }); }
     if (row.approved_at) { await client.query("ROLLBACK"); return res.status(409).json({ error:"ALREADY_APPROVED",message:"This request already has final Custodian Head approval." }); }
     if (!row.current_signature) { await client.query("ROLLBACK"); return res.status(409).json({ error:"SIGNATURE_REQUIRED",message:"Save your Custodian Head Signature in Profile & Security before approving requests." }); }
@@ -326,7 +326,7 @@ async function authorizeRequest(req, res, next) {
   try {
     await client.query("BEGIN");
     const record = await client.query(`SELECT authz.*,request.status AS request_status,request.user_id,request.student_name,request.student_id,
-        request.borrow_date,request.return_date,request.purpose,request.department_id,request.assigned_professor_user_id,
+        request.borrow_date,request.return_date,request.start_time,request.end_time,request.purpose,request.department_id,request.assigned_professor_user_id,
         department.name AS department_name,section.name AS section_name,profile.full_name,
         signature.image_data,signature.mime_type,signature.image_hash
       FROM public.borrow_request_authorizations AS authz JOIN public.borrow_requests request ON request.id=authz.request_id
@@ -342,7 +342,7 @@ async function authorizeRequest(req, res, next) {
       return res.status(denial.status).json({ error: denial.error, message: denial.message });
     }
     if (row.status !== "awaiting" || row.request_status !== "Pending") { await client.query("ROLLBACK"); return res.status(409).json({ error: "ALREADY_REVIEWED", message: "This request is no longer awaiting professor authorization." }); }
-    const reviewClosure = await findClosure(client, [row.borrow_date, row.return_date], row.department_id);
+    const reviewClosure = await findClosure(client, row, row.department_id);
     if (reviewClosure) { await client.query("ROLLBACK"); return res.status(409).json({ error: "CALENDAR_DATE_CLOSED", message: `This request is affected by ${reviewClosure.title}. Arrange a new date before authorization.` }); }
     if (!row.image_data) { await client.query("ROLLBACK"); return res.status(409).json({ error: "SIGNATURE_REQUIRED", message: "Save your signature in Signature Settings before authorizing this request." }); }
     const items = await client.query(`SELECT item.inventory_id,inventory.item_name,item.quantity FROM public.borrow_request_items item JOIN public.inventory inventory ON inventory.id=item.inventory_id WHERE item.request_id=$1 ORDER BY item.inventory_id`, [row.request_id]);

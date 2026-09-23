@@ -5,6 +5,23 @@ const assert = require("node:assert/strict");
 const PizZip = require("pizzip");
 const generateBorrowerForm = require("../generateBorrowerForm");
 
+function rowCells(xml, rowIndex) {
+  const rows = [...xml.matchAll(/<w:tr(?:\s[^>]*)?>[\s\S]*?<\/w:tr>/g)];
+  return [...rows[rowIndex][0].matchAll(/<w:tc(?:\s[^>]*)?>[\s\S]*?<\/w:tc>/g)].map((entry) => entry[0]);
+}
+
+test("writes requested item details into initially empty official table cells", () => {
+  const form = generateBorrowerForm({ items: [{ description: "Stainless serving spoon", quantity: 3, released: 3, returned: 0, unreturned: 3, remarks: "For laboratory use" }] });
+  const xml = new PizZip(form).file("word/document.xml").asText();
+  const cells = rowCells(xml, 3);
+  assert.match(cells[1], /Stainless serving spoon/);
+  assert.match(cells[2], />3<\/w:t>/);
+  assert.match(cells[3], />3<\/w:t>/);
+  assert.match(cells[4], />0<\/w:t>/);
+  assert.match(cells[5], />3<\/w:t>/);
+  assert.match(cells[6], /For laboratory use/);
+});
+
 test("embeds the professor signature and printed authorization in the official form", () => {
   const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0]);
   const form = generateBorrowerForm({
@@ -56,6 +73,17 @@ test("places releasing and receiving staff signature snapshots on their transact
   assert.match(xml,/Release Staff/); assert.match(xml,/Return Staff/);
   assert.ok(zip.file("word/media/custodian-released-signature.png"));
   assert.ok(zip.file("word/media/custodian-returned-signature.png"));
+});
+
+test("release signature is written only under Released by until an actual return is processed", () => {
+  const signature=Buffer.from([137,80,78,71,13,10,26,10,0]);
+  const form=generateBorrowerForm({items:[{description:"Knife",quantity:1,released:1}],
+    releasedName:"Release Staff",releasedAt:"September 20, 2026",releasedSignature:signature,releasedSignatureMime:"image/png"});
+  const xml=new PizZip(form).file("word/document.xml").asText();
+  const cells=rowCells(xml,46);
+  assert.match(cells[0],/r:embed="rIdCustodianreleasedSignature"/);
+  assert.doesNotMatch(cells[1],/r:embed=/);
+  assert.doesNotMatch(xml,/r:embed="rIdCustodianreturnedSignature"/);
 });
 
 test("places the immutable borrower signature snapshot on the student signature line", () => {
