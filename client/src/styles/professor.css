@@ -3283,6 +3283,91 @@ button.professor-stat-card:hover {
     font-size: 18px;
 }
 
+.professor-qr-layout {
+    grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr);
+}
+
+.professor-qr-camera,
+.professor-qr-manual,
+.professor-qr-empty {
+    min-height: 360px;
+}
+
+.professor-qr-camera.has-error {
+    min-height: 280px;
+    padding: 30px;
+}
+
+.professor-qr-camera.has-error .professor-authorization-reader {
+    display: none;
+}
+
+.professor-qr-layout.camera-error .professor-qr-empty {
+    min-height: 280px;
+}
+
+.professor-camera-error {
+    width: min(480px, 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 24px;
+    border: 1px solid #ebc9c3;
+    border-radius: 10px;
+    background: #fff8f6;
+    color: #8a3d32;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.professor-camera-error > svg {
+    font-size: 24px;
+}
+
+.professor-camera-error strong {
+    color: var(--professor-navy);
+    font-size: 14px;
+}
+
+.professor-camera-error span {
+    max-width: 390px;
+    color: var(--professor-muted);
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.professor-camera-error > div {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.professor-camera-error button {
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 13px;
+    border: 1px solid var(--professor-border);
+    border-radius: 7px;
+    background: #fff;
+    color: var(--professor-navy);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.professor-camera-error button:first-child {
+    border-color: var(--professor-navy);
+    background: var(--professor-navy);
+    color: #fff;
+}
+
 @media (max-width: 760px) {
     .professor-request-card {
         grid-template-columns: 1fr;
@@ -3297,6 +3382,10 @@ button.professor-stat-card:hover {
     .professor-request-actions button,
     .professor-request-actions a {
         flex: 1 1 150px;
+    }
+
+    .professor-qr-layout {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -3323,5 +3412,14 @@ button.professor-stat-card:hover {
     .professor-qr-empty {
         padding-left: 16px;
         padding-right: 16px;
+    }
+
+    .professor-camera-error {
+        padding: 20px 14px;
+    }
+
+    .professor-camera-error > div,
+    .professor-camera-error button {
+        width: 100%;
     }
 }
