@@ -1,7 +1,7 @@
 "use strict";
 const express = require("express");
 const { authenticate, requireRoles } = require("../middleware/auth");
-const { approveCustodianRequest, authorizeRequest, downloadAuthorizedDocument, getAuthorizationReview, getCustodianReview, getMyAdminSignature, getMyCustodianSignature, getMySignature, getMyStudentSignature, saveMyAdminSignature, saveMyCustodianSignature, saveMySignature, saveMyStudentSignature, verifyCustodianRequest } = require("../controllers/authorizationController");
+const { approveCustodianRequest, authorizeRequest, downloadAuthorizedDocument, getAuthorizationReview, getCustodianReview, getMyAdminSignature, getMyCustodianSignature, getMySignature, getMyStudentSignature, rejectAuthorizationRequest, saveMyAdminSignature, saveMyCustodianSignature, saveMySignature, saveMyStudentSignature, verifyCustodianRequest } = require("../controllers/authorizationController");
 const router = express.Router();
 router.use(authenticate);
 router.get("/signature", requireRoles("professor"), getMySignature);
@@ -18,4 +18,5 @@ router.post("/requests/:id/approve", requireRoles("admin"), approveCustodianRequ
 router.get("/:token/document", requireRoles("student", "professor", "staff", "department_head", "admin"), downloadAuthorizedDocument);
 router.get("/:token", requireRoles("professor"), getAuthorizationReview);
 router.post("/:token/authorize", requireRoles("professor"), authorizeRequest);
+router.post("/:token/reject", requireRoles("professor"), rejectAuthorizationRequest);
 module.exports = router;
