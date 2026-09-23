@@ -3098,3 +3098,230 @@ button.professor-stat-card:hover {
   font-size: 12px;
   font-weight: 800;
 }
+
+/* Current professor request cards */
+.professor-requests-page .professor-request-search {
+    max-width: none;
+    margin-bottom: 16px;
+}
+
+.professor-requests-page .professor-request-summary-card span,
+.professor-requests-page .professor-request-summary-text {
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.professor-requests-page .professor-request-list {
+    display: grid;
+    gap: 12px;
+}
+
+.professor-request-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 24px;
+    padding: 20px;
+    border: 1px solid var(--professor-border);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 5px 18px rgba(23, 38, 60, 0.04);
+}
+
+.professor-request-main {
+    min-width: 0;
+}
+
+.professor-request-student {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+.professor-request-student > div:last-child {
+    min-width: 0;
+}
+
+.professor-request-student h3 {
+    margin: 0;
+    color: var(--professor-navy);
+    font-size: 15px;
+}
+
+.professor-request-student span {
+    display: block;
+    margin-top: 3px;
+    color: var(--professor-muted);
+    font-size: 12px;
+}
+
+.professor-request-main > p {
+    margin: 13px 0 10px;
+    color: var(--professor-text);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.professor-request-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px 16px;
+    color: var(--professor-muted);
+    font-size: 11px;
+}
+
+.professor-request-meta span {
+    overflow-wrap: anywhere;
+}
+
+.professor-request-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.professor-request-actions button,
+.professor-request-actions a {
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 0 14px;
+    border: 1px solid var(--professor-border);
+    border-radius: 7px;
+    background: #fff;
+    color: var(--professor-navy);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.professor-request-actions a {
+    border-color: var(--professor-navy);
+    background: var(--professor-navy);
+    color: #fff;
+}
+
+.professor-request-actions button:hover {
+    background: var(--professor-hover);
+}
+
+.professor-request-actions a:hover {
+    background: var(--professor-navy-light);
+}
+
+.professor-review-modal-header > div > span {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--professor-gold);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .12em;
+}
+
+.professor-review-purpose {
+    margin: 0;
+    padding: 12px 13px;
+    border: 1px solid #edf0f2;
+    border-radius: 7px;
+    background: #fafbfc;
+    color: var(--professor-text);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.professor-review-modal-footer a {
+    text-decoration: none;
+}
+
+/* Keep the third-party camera widget inside the professor card. */
+.professor-authorization-reader {
+    width: min(420px, 100%);
+    overflow: hidden;
+    border: 1px solid var(--professor-border) !important;
+    border-radius: 10px;
+    background: #f8f9fb;
+}
+
+.professor-authorization-reader video,
+.professor-authorization-reader img {
+    display: block;
+    width: 100% !important;
+    max-width: 100%;
+    border-radius: 9px;
+}
+
+.professor-authorization-reader button {
+    min-height: 36px;
+    margin: 8px;
+    padding: 0 12px;
+    border: 1px solid var(--professor-navy);
+    border-radius: 6px;
+    background: var(--professor-navy);
+    color: #fff;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.professor-qr-page .professor-qr-mode-bar button,
+.professor-qr-page .professor-qr-card-header p,
+.professor-qr-page .professor-qr-camera > span,
+.professor-qr-page .professor-qr-manual label,
+.professor-qr-page .professor-qr-input input,
+.professor-qr-page .professor-qr-verify-btn,
+.professor-qr-page .professor-qr-empty span {
+    font-size: 11px;
+}
+
+.professor-qr-page .professor-qr-card-header h2 {
+    font-size: 18px;
+}
+
+@media (max-width: 760px) {
+    .professor-request-card {
+        grid-template-columns: 1fr;
+        gap: 16px;
+        padding: 16px;
+    }
+
+    .professor-request-actions {
+        justify-content: stretch;
+    }
+
+    .professor-request-actions button,
+    .professor-request-actions a {
+        flex: 1 1 150px;
+    }
+}
+
+@media (max-width: 520px) {
+    .professor-request-summary-text {
+        font-size: 11px;
+        line-height: 1.5;
+    }
+
+    .professor-request-tabs {
+        width: 100%;
+    }
+
+    .professor-request-tabs button {
+        flex: 1;
+        justify-content: center;
+        padding-inline: 9px;
+        font-size: 11px;
+    }
+
+    .professor-qr-card-header,
+    .professor-qr-camera,
+    .professor-qr-manual,
+    .professor-qr-empty {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+}
