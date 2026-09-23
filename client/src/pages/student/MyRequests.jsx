@@ -50,6 +50,8 @@ export default function MyRequests() {
   const [rescheduleRequest, setRescheduleRequest] = useState(null);
   const [replacementBorrowDate, setReplacementBorrowDate] = useState("");
   const [replacementReturnDate, setReplacementReturnDate] = useState("");
+  const [replacementStartTime, setReplacementStartTime] = useState("");
+  const [replacementEndTime, setReplacementEndTime] = useState("");
   const [replacementConsent, setReplacementConsent] = useState(false);
   const [rescheduleBusy, setRescheduleBusy] = useState(false);
   const [rescheduleError, setRescheduleError] = useState("");
@@ -122,7 +124,8 @@ export default function MyRequests() {
     try {
       const response = await authenticatedFetch(`/api/borrowings/${rescheduleRequest.id}/reschedule`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ borrowDate: replacementBorrowDate, returnDate: replacementReturnDate, borrowerConsent: replacementConsent }),
+        body: JSON.stringify({ borrowDate: replacementBorrowDate, returnDate: replacementReturnDate,
+          startTime: replacementStartTime || null, endTime: replacementEndTime || null, borrowerConsent: replacementConsent }),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.validation?.reasons?.[0]?.message || result.message || "Could not reschedule request.");
@@ -294,11 +297,11 @@ export default function MyRequests() {
               <div><h3>Assigned professor</h3><p>{activeRequest.assignedProfessorName || "Not assigned"}</p></div>
               <div>
                 <h3>Borrow date</h3>
-                <p>{formatDate(activeRequest.borrowDate)}</p>
+                <p>{formatDate(activeRequest.borrowDate)}{activeRequest.startTime ? ` at ${activeRequest.startTime}` : ""}</p>
               </div>
               <div>
                 <h3>Return date</h3>
-                <p>{formatDate(activeRequest.returnDate)}</p>
+                <p>{formatDate(activeRequest.returnDate)}{activeRequest.endTime ? ` at ${activeRequest.endTime}` : ""}</p>
               </div>
             </div>
 
@@ -315,7 +318,7 @@ export default function MyRequests() {
             <div className="request-detail-actions">
               <button type="button" className="detail-secondary-btn" onClick={() => setActiveRequest(null)}>Close</button>
               {["pending", "validated"].includes(activeRequest.status) && <button type="button" className="detail-danger-btn" onClick={() => { setWithdrawRequest(activeRequest); setWithdrawReason(""); setWithdrawError(""); }}>Withdraw Request</button>}
-              {activeRequest.calendarDisruption && ["pending", "validated", "approved"].includes(activeRequest.status) && <button type="button" className="receipt-action-btn" onClick={() => { setRescheduleRequest(activeRequest); setReplacementBorrowDate(""); setReplacementReturnDate(""); setReplacementConsent(false); setRescheduleError(""); }}>Request New Dates</button>}
+              {activeRequest.calendarDisruption && ["pending", "validated", "approved"].includes(activeRequest.status) && <button type="button" className="receipt-action-btn" onClick={() => { setRescheduleRequest(activeRequest); setReplacementBorrowDate(""); setReplacementReturnDate(""); setReplacementStartTime(""); setReplacementEndTime(""); setReplacementConsent(false); setRescheduleError(""); }}>Request New Dates</button>}
               {activeRequest.authorizationStatus === "authorized" && <button type="button" className="receipt-action-btn" disabled={documentBusyId === activeRequest.id} onClick={() => downloadBorrowerForm(activeRequest)}><FaDownload /> {documentBusyId === activeRequest.id ? "Preparing..." : "Download Form"}</button>}
               {["borrowed", "returned"].includes(activeRequest.status) && <button type="button" className="receipt-action-btn" onClick={() => setReceiptRequestId(activeRequest.id)}><FaReceipt /> View Receipts</button>}
             </div>
@@ -331,6 +334,8 @@ export default function MyRequests() {
             {rescheduleError && <p className="state-msg error">{rescheduleError}</p>}
             <label>New borrowing date<input type="date" required value={replacementBorrowDate} onChange={(event) => setReplacementBorrowDate(event.target.value)} /></label>
             <label>New return date<input type="date" required min={replacementBorrowDate || undefined} value={replacementReturnDate} onChange={(event) => setReplacementReturnDate(event.target.value)} /></label>
+            <label>New borrow time <span>(optional)</span><input type="time" value={replacementStartTime} onChange={(event) => setReplacementStartTime(event.target.value)} /></label>
+            <label>New return time <span>(optional)</span><input type="time" value={replacementEndTime} onChange={(event) => setReplacementEndTime(event.target.value)} /></label>
             <label className="reschedule-consent"><input type="checkbox" required checked={replacementConsent} onChange={(event) => setReplacementConsent(event.target.checked)} /> I confirm the new dates and consent to applying my saved borrower signature to the replacement request.</label>
           </div>
           <div className="request-detail-actions"><button type="button" className="detail-secondary-btn" disabled={rescheduleBusy} onClick={() => setRescheduleRequest(null)}>Cancel</button><button type="submit" className="receipt-action-btn" disabled={rescheduleBusy}>{rescheduleBusy ? "Checking..." : "Submit replacement"}</button></div>

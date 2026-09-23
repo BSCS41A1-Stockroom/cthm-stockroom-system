@@ -18,6 +18,7 @@
  */
 
 const { IntervalTree } = require("./intervalTree");
+const { schedulesOverlap } = require("../utils/scheduleIntervals");
 
 
 /* ============================================================
@@ -226,10 +227,7 @@ function datesOverlap(left, right) {
     return false;
   }
 
-  return (
-    leftBorrowDate <= rightReturnDate &&
-    rightBorrowDate <= leftReturnDate
-  );
+  return schedulesOverlap(left, right);
 }
 
 
@@ -448,6 +446,9 @@ function isDuplicate(
   ) {
     return false;
   }
+
+  if ((request.startTime ?? request.start_time ?? null) !== (existing.startTime ?? existing.start_time ?? null)
+      || (request.endTime ?? request.end_time ?? null) !== (existing.endTime ?? existing.end_time ?? null)) return false;
 
   return (
     itemSignature(request.items) ===

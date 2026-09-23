@@ -115,6 +115,8 @@ function normalizeRequest(body) {
     returnDate:
       source.returnDate ??
       source.return_date,
+    startTime: source.startTime ?? source.start_time ?? null,
+    endTime: source.endTime ?? source.end_time ?? null,
 
     purpose:
       source.purpose,
@@ -154,6 +156,8 @@ function serializeBorrowRequest(request) {
     studentId: request.student_id,
     borrowDate: request.borrow_date,
     returnDate: request.return_date,
+    startTime: request.start_time?.slice(0, 5) ?? null,
+    endTime: request.end_time?.slice(0, 5) ?? null,
     purpose: request.purpose,
     departmentId: request.department_id ?? null,
     departmentName: request.department_name ?? null,
@@ -460,6 +464,8 @@ function validatePolicyConstraints({
     studentId: request.studentId.trim().toLowerCase(),
     borrowDate: request.borrowDate,
     returnDate: request.returnDate,
+    startTime: request.startTime,
+    endTime: request.endTime,
     purpose: request.purpose,
     status: "pending",
     items: request.items.map((item) => ({
@@ -472,6 +478,8 @@ function validatePolicyConstraints({
     studentId: String(existing.studentId).trim().toLowerCase(),
     borrowDate: existing.borrowDate,
     returnDate: existing.returnDate,
+    startTime: existing.startTime,
+    endTime: existing.endTime,
     purpose: existing.purpose,
     status: existing.status,
     items: existing.items.map((item) => ({
@@ -567,11 +575,13 @@ async function loadValidationContext(client, request, userId = null) {
       WHERE bri.inventory_id::text = ANY($1::text[])
         AND (br.status = 'Borrowed' OR (
           br.status = ANY($2::text[])
-          AND br.borrow_date <= $3::date
-          AND br.return_date >= $4::date
+          AND (br.borrow_date + COALESCE(br.start_time,time '00:00'))
+            < CASE WHEN $6::time IS NULL THEN ($3::date + 1)::timestamp ELSE $3::date + $6::time END
+          AND (CASE WHEN br.end_time IS NULL THEN (br.return_date + 1)::timestamp ELSE br.return_date + br.end_time END)
+            > ($4::date + COALESCE($5::time,time '00:00'))
         ))
       GROUP BY bri.inventory_id`,
-    [inventoryIds, ["Pending", "Validated", "Approved"], request.returnDate, request.borrowDate]
+    [inventoryIds, ["Pending", "Validated", "Approved"], request.returnDate, request.borrowDate, request.startTime, request.endTime]
   );
 
   const outstandingResult = await client.query(
@@ -587,7 +597,7 @@ async function loadValidationContext(client, request, userId = null) {
   );
 
   const conflictsResult = await client.query(
-    `SELECT br.id, br.student_id, br.borrow_date, br.return_date, br.purpose, br.status,
+    `SELECT br.id, br.student_id, br.borrow_date, br.return_date, br.start_time, br.end_time, br.purpose, br.status,
             bri.inventory_id, bri.quantity
        FROM borrow_requests br
        LEFT JOIN borrow_request_items bri ON bri.request_id = br.id
@@ -617,6 +627,8 @@ async function loadValidationContext(client, request, userId = null) {
         studentId: row.student_id,
         borrowDate: row.borrow_date,
         returnDate: row.return_date,
+        startTime: row.start_time?.slice(0, 5) ?? null,
+        endTime: row.end_time?.slice(0, 5) ?? null,
         purpose: row.purpose,
         status: row.status,
         items: [],
@@ -697,7 +709,7 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
       }
     }
     if (validationOptions.beforeValidation) await validationOptions.beforeValidation(client, request);
-    const closedDate = await findClosure(client, [request.borrowDate, request.returnDate], request.departmentId);
+    const closedDate = await findClosure(client, request, request.departmentId);
     if (closedDate) {
       await client.query("ROLLBACK");
       return { request, validation: {
@@ -766,6 +778,8 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
           section_id,
           assigned_professor_user_id
           ,replaces_request_id
+          ,start_time
+          ,end_time
         )
       VALUES
         (
@@ -779,7 +793,9 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
           $8,
           $9,
           $10::uuid,
-          $11::bigint
+          $11::bigint,
+          $12::time,
+          $13::time
         )
       RETURNING *`,
       [
@@ -794,6 +810,8 @@ async function withValidation(body, persist, databasePool = pool, validationOpti
         request.sectionId,
         request.assignedProfessorId,
         validationOptions.replacesRequestId ?? null,
+        request.startTime,
+        request.endTime,
       ]
     );
     const savedRequest = requestResult.rows[0];
@@ -876,7 +894,7 @@ async function listBorrowRequests(req, res, next) {
     const studentOnly = req.user.role === "student";
     const result = await pool.query(
       `SELECT br.id, br.replaces_request_id, br.student_name, br.student_id, br.borrow_date,
-              br.return_date, br.actual_returned_at, br.purpose, br.status, br.created_at,
+              br.return_date, br.start_time, br.end_time, br.actual_returned_at, br.purpose, br.status, br.created_at,
               br.cancelled_by,br.cancelled_at,br.cancellation_reason,br.cancellation_type,
               canceller.full_name AS cancelled_by_name,
               br.department_id,department.name AS department_name,department.code AS department_code,
@@ -898,8 +916,10 @@ async function listBorrowRequests(req, res, next) {
               (SELECT closure.title FROM public.calendar_closures closure
                 WHERE closure.is_active=true
                   AND (closure.department_id IS NULL OR closure.department_id=br.department_id)
-                  AND (br.borrow_date BETWEEN closure.start_date AND closure.end_date
-                    OR br.return_date BETWEEN closure.start_date AND closure.end_date)
+                  AND (closure.start_date + COALESCE(closure.start_time,time '00:00'))
+                    < (CASE WHEN br.end_time IS NULL THEN (br.return_date + 1)::timestamp ELSE br.return_date + br.end_time END)
+                  AND (br.borrow_date + COALESCE(br.start_time,time '00:00'))
+                    < (CASE WHEN closure.end_time IS NULL THEN (closure.end_date + 1)::timestamp ELSE closure.end_date + closure.end_time END)
                 ORDER BY closure.start_date, closure.id LIMIT 1) AS calendar_disruption,
               COALESCE(
                 json_agg(json_build_object(
@@ -1161,7 +1181,7 @@ async function updateBorrowRequestStatus(req, res, next) {
     }
 
     if (nextStatus === "Borrowed") {
-      const closure = await findClosure(client, [request.borrow_date, request.return_date], request.department_id);
+      const closure = await findClosure(client, request, request.department_id);
       if (closure) {
         await client.query("ROLLBACK");
         return res.status(409).json({ error: "CALENDAR_DATE_CLOSED", message: `This request is affected by ${closure.title}. Arrange a new date before release.` });
@@ -2478,6 +2498,8 @@ async function rescheduleBorrowRequest(req, res, next) {
   const originalId = req.params.id;
   const borrowDate = req.body?.borrowDate;
   const returnDate = req.body?.returnDate;
+  const startTime = req.body?.startTime ?? null;
+  const endTime = req.body?.endTime ?? null;
   if (!/^[1-9]\d*$/.test(String(originalId)) || !isValidDate(borrowDate) || !isValidDate(returnDate)) {
     return res.status(422).json({ message: "Enter a valid request ID and replacement dates." });
   }
@@ -2498,7 +2520,7 @@ async function rescheduleBorrowRequest(req, res, next) {
       return res.status(409).json({ message: "Only unclaimed requests can be rescheduled." });
     }
     const replacement = authenticatedStudentRequest({
-      borrowDate, returnDate, purpose: original.purpose,
+      borrowDate, returnDate, startTime, endTime, purpose: original.purpose,
       departmentId: original.department_id, sectionId: original.section_id,
       assignedProfessorId: original.assigned_professor_user_id, items: original.items,
     }, req.user);
@@ -2513,7 +2535,7 @@ async function rescheduleBorrowRequest(req, res, next) {
             || !["Pending", "Validated", "Approved"].includes(current.status)) {
           throw Object.assign(new Error("This request can no longer be rescheduled."), { status: 409 });
         }
-        const closure = await findClosure(client, [current.borrow_date, current.return_date], current.department_id);
+        const closure = await findClosure(client, current, current.department_id);
         if (!closure) throw Object.assign(new Error("This request is no longer affected by a closure."), { status: 409 });
         const items = await client.query(
           "SELECT inventory_id,quantity FROM public.borrow_request_items WHERE request_id=$1 ORDER BY inventory_id FOR UPDATE", [originalId]
@@ -2545,7 +2567,7 @@ async function rescheduleBorrowRequest(req, res, next) {
         await writeAuditLog(client, req.user, {
           action: "borrowing_rescheduled", entityType: "borrowing_request", entityId: originalId,
           oldValues: { status: current.status, borrowDate: current.borrow_date, returnDate: current.return_date },
-          newValues: { status: "Withdrawn", borrowDate, returnDate },
+          newValues: { status: "Withdrawn", borrowDate, returnDate, startTime, endTime },
         });
       },
     });

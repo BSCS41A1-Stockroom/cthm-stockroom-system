@@ -1,6 +1,7 @@
 "use strict";
 
 const { isValidDate } = require("../algorithms/borrowingValidation");
+const { scheduleBounds, schedulesOverlap } = require("./scheduleIntervals");
 
 function datesBetween(startDate, endDate) {
   if (!isValidDate(startDate) || !isValidDate(endDate) || endDate < startDate) return [];
@@ -13,26 +14,29 @@ function datesBetween(startDate, endDate) {
 }
 
 async function lockClosureDates(client, startDate, endDate) {
+  await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", ["calendar-closures:global"]);
   for (const date of datesBetween(startDate, endDate)) {
     await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [`calendar-closure:${date}`]);
   }
 }
 
 async function findClosure(client, dates, departmentId = null) {
-  const uniqueDates = [...new Set(dates.filter(isValidDate))].sort();
-  for (const date of uniqueDates) await lockClosureDates(client, date, date);
-  if (!uniqueDates.length) return null;
+  const uniqueDates = Array.isArray(dates) ? [...new Set(dates.filter(isValidDate))].sort() : [];
+  const schedule = Array.isArray(dates)
+    ? { borrowDate: uniqueDates[0], returnDate: uniqueDates.at(-1) }
+    : dates;
+  if (!scheduleBounds(schedule)) return null;
+  await lockClosureDates(client, schedule.borrowDate ?? schedule.borrow_date, schedule.returnDate ?? schedule.return_date);
   const result = await client.query(
-    `SELECT id, title, start_date, end_date, source_kind
+    `SELECT id, title, start_date, end_date, start_time, end_time, source_kind
        FROM public.calendar_closures
       WHERE is_active=true
-        AND EXISTS (SELECT 1 FROM unnest($1::date[]) AS selected(day)
-                    WHERE selected.day BETWEEN start_date AND end_date)
-        AND (department_id IS NULL OR department_id=$2::bigint)
-      ORDER BY start_date, id LIMIT 1`,
-    [uniqueDates, departmentId]
+        AND start_date <= $2::date AND end_date >= $1::date
+        AND (department_id IS NULL OR department_id=$3::bigint)
+      ORDER BY start_date, id`,
+    [schedule.borrowDate ?? schedule.borrow_date, schedule.returnDate ?? schedule.return_date, departmentId]
   );
-  return result.rows[0] || null;
+  return result.rows.find((closure) => schedulesOverlap(schedule, closure)) || null;
 }
 
 const MONTHS = {
@@ -83,7 +87,7 @@ function suggestClosure(text) {
     evidence: { suspensionPhrase: positive ? suspension[0] : null, datePhrase: selected?.phrase || null },
     warnings: [
       ...(!positive ? ["No unambiguous class-suspension phrase was found."] : []),
-      ...(partial ? ["Partial-day suspension detected. This system only blocks whole dates; do not confirm it as a full-day closure."] : []),
+      ...(partial ? ["Partial-day suspension detected. Verify and enter the exact affected hours before confirming; do not block the whole date."] : []),
       ...(positive && !dates.length ? ["No unambiguous dated suspension was found; enter and verify the dates manually."] : []),
       ...(positive && /\b\d{1,2}\/\d{1,2}\/20\d{2}\b/.test(content) && !dates.length ? ["Numeric dates may be month/day or day/month; verify the original post."] : []),
       "Verify the school, campus, affected students, and dates against the original announcement.",

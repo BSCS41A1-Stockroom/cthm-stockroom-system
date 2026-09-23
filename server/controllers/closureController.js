@@ -6,11 +6,12 @@ const { isValidDate } = require("../algorithms/borrowingValidation");
 const { datesBetween, lockClosureDates, suggestClosure } = require("../utils/calendarClosures");
 const { writeAuditLog } = require("../utils/auditLog");
 const { notifyUser } = require("../utils/notifications");
+const { validTime, schedulesOverlap } = require("../utils/scheduleIntervals");
 
 async function listClosures(req, res, next) {
   try {
     const result = await pool.query(
-      `SELECT closure.id, closure.title, closure.start_date, closure.end_date,
+      `SELECT closure.id, closure.title, closure.start_date, closure.end_date, closure.start_time, closure.end_time,
               closure.department_id, closure.source_kind, closure.source_url, closure.source_key,
               closure.is_active, department.name AS department_name
          FROM public.calendar_closures closure
@@ -95,12 +96,17 @@ async function createClosure(req, res, next) {
   const sourceUrl = String(req.body?.sourceUrl || "").trim();
   const sourceKind = req.body?.sourceKind === "official_holiday" ? "official_holiday" : "school_announcement";
   const reviewId = req.body?.reviewId;
+  const startTime = req.body?.startTime || null;
+  const endTime = req.body?.endTime || null;
   const dates = datesBetween(startDate, endDate);
   if (title.length < 3 || title.length > 160 || !isValidDate(startDate) || !isValidDate(endDate)
       || endDate < startDate || !dates.length || dates.at(-1) !== endDate
       || (departmentId && !/^[1-9]\d*$/.test(String(departmentId)))
       || (reviewId && !/^[1-9]\d*$/.test(String(reviewId)))
-      || (sourceKind === "school_announcement" && !reviewId)) {
+      || (sourceKind === "school_announcement" && !reviewId)
+      || ((startTime == null) !== (endTime == null))
+      || (startTime != null && (!validTime(startTime) || !validTime(endTime)
+        || startDate !== endDate || startTime >= endTime))) {
     return res.status(422).json({ message: "Enter a title, valid date range of at most 31 days, and an optional valid department." });
   }
   if (sourceUrl && (!/^https:\/\//i.test(sourceUrl) || sourceUrl.length > 1000)) {
@@ -119,9 +125,11 @@ async function createClosure(req, res, next) {
         return res.status(409).json({ message: "This announcement is no longer awaiting review." });
       }
       const currentAnalysis = suggestClosure(review.caption);
-      if (!currentAnalysis.possibleSuspension || currentAnalysis.scope !== "full_day") {
+      if (!currentAnalysis.possibleSuspension
+          || (currentAnalysis.scope === "partial_day" && !startTime)
+          || (currentAnalysis.scope !== "full_day" && currentAnalysis.scope !== "partial_day")) {
         await client.query("ROLLBACK");
-        return res.status(422).json({ message: "This post is not a full-day class suspension. It cannot block an entire calendar date." });
+        return res.status(422).json({ message: "Partial-day suspensions require a verified time interval; non-suspension posts cannot block dates." });
       }
       if (sourceUrl !== (review.source_url || "")) {
         await client.query("ROLLBACK");
@@ -131,9 +139,9 @@ async function createClosure(req, res, next) {
     await lockClosureDates(client, startDate, endDate);
     const result = await client.query(
       `INSERT INTO public.calendar_closures
-        (title,start_date,end_date,department_id,source_kind,source_url,confirmed_by)
-       VALUES ($1,$2::date,$3::date,$4::bigint,$5,$6,$7) RETURNING *`,
-      [title, startDate, endDate, departmentId, sourceKind, sourceUrl || null, req.user.id]
+        (title,start_date,end_date,start_time,end_time,department_id,source_kind,source_url,confirmed_by)
+       VALUES ($1,$2::date,$3::date,$4::time,$5::time,$6::bigint,$7,$8,$9) RETURNING *`,
+      [title, startDate, endDate, startTime, endTime, departmentId, sourceKind, sourceUrl || null, req.user.id]
     );
     const closure = result.rows[0];
     if (reviewId) await client.query(
@@ -141,14 +149,14 @@ async function createClosure(req, res, next) {
         WHERE id=$1`, [reviewId, req.user.id, closure.id]
     );
     const impacted = await client.query(
-      `SELECT id, user_id, assigned_professor_user_id, status FROM public.borrow_requests
+      `SELECT id, user_id, assigned_professor_user_id, status, borrow_date,return_date,start_time,end_time FROM public.borrow_requests
         WHERE status IN ('Pending','Validated','Approved','Borrowed')
           AND (department_id=$1::bigint OR $1::bigint IS NULL)
-          AND (borrow_date BETWEEN $2::date AND $3::date
-            OR return_date BETWEEN $2::date AND $3::date)`,
+          AND borrow_date <= $3::date AND return_date >= $2::date`,
       [departmentId, startDate, endDate]
     );
-    for (const request of impacted.rows) {
+    const overlapping = impacted.rows.filter((request) => schedulesOverlap(request, closure));
+    for (const request of overlapping) {
       const message = request.status === "Borrowed"
         ? `The date of your active borrowing is affected by ${title}. Contact the stockroom about the return arrangement.`
         : `Your borrowing schedule is affected by ${title}. Contact your professor to arrange a new date; this request has not been moved automatically.`;
@@ -169,7 +177,7 @@ async function createClosure(req, res, next) {
       newValues: closure,
     });
     await client.query("COMMIT");
-    return res.status(201).json({ closure, affectedRequests: impacted.rowCount });
+    return res.status(201).json({ closure, affectedRequests: overlapping.length });
   } catch (error) { await client.query("ROLLBACK"); return next(error); }
   finally { client.release(); }
 }

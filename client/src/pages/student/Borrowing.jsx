@@ -6,7 +6,7 @@ import "./BorrowerFormPreview.css";
 import { authenticatedFetch } from "../../lib/api";
 import { useAuth } from "../../auth/useAuth";
 import { inventoryTotals } from "../../utils/inventoryAvailability";
-import { closureForDate } from "../../utils/closureEvents";
+import { closureForSchedule } from "../../utils/closureEvents";
 
 const DEFAULT_BORROWING_POLICY = Object.freeze({
   maxItemsPerRequest: 10,
@@ -41,6 +41,8 @@ export default function BorrowingInterface() {
 
   const [borrowDate, setBorrowDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [closures, setClosures] = useState([]);
   const [purpose, setPurpose] = useState("");
 
@@ -405,8 +407,10 @@ export default function BorrowingInterface() {
       return "Return date must be after borrow date.";
     }
 
-    const closure = closureForDate(closures, borrowDate, departmentId)
-      || closureForDate(closures, returnDate, departmentId);
+    if (Boolean(startTime) !== Boolean(endTime)) return "Enter both borrow and return times, or leave both blank for a full-day request.";
+    if (startTime && borrowDate === returnDate && startTime >= endTime) return "Return time must be after borrow time.";
+
+    const closure = closureForSchedule(closures, borrowDate, returnDate, startTime, endTime, departmentId);
     if (closure) return `The selected date is closed for ${closure.title}. Choose an open date.`;
 
     if (!purpose.trim()) {
@@ -463,6 +467,8 @@ export default function BorrowingInterface() {
           body: JSON.stringify({
             borrowDate,
             returnDate,
+            startTime: startTime || null,
+            endTime: endTime || null,
             purpose,
             studentName: studentName.trim(),
             studentId: studentId.trim(),
@@ -499,6 +505,8 @@ export default function BorrowingInterface() {
       setSelected({});
       setBorrowDate("");
       setReturnDate("");
+      setStartTime("");
+      setEndTime("");
       setPurpose("");
       setDepartmentId("");
       setSectionId("");
@@ -1684,6 +1692,17 @@ export default function BorrowingInterface() {
                 }
               />
 
+            </label>
+
+
+            <label>
+              Borrow Time (optional)
+              <input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
+            </label>
+
+            <label>
+              Return Time (optional)
+              <input type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} />
             </label>
 
 
