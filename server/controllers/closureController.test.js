@@ -38,3 +38,29 @@ test("a school announcement cannot block dates without a pending review", async 
   await createClosure({ body: { title: "Suspended classes", startDate: "2026-09-23", sourceKind: "school_announcement" } }, res, (error) => { throw error; });
   assert.equal(res.statusCode, 422);
 });
+
+test("a partial-day announcement cannot be confirmed as a whole-day closure", async () => {
+  const oldConnect = pool.connect;
+  const statements = [];
+  pool.connect = async () => ({
+    async query(sql) {
+      statements.push(sql);
+      if (sql.includes("SELECT * FROM public.announcement_reviews")) return {
+        rows: [{ id: 3, status: "pending", possible_suspension: true,
+          caption: "All AFTERNOON onsite classes are SUSPENDED September 9, 2026",
+          suspension_scope: "partial_day", source_url: "https://example.edu/post" }], rowCount: 1,
+      };
+      return { rows: [], rowCount: 0 };
+    },
+    release() {},
+  });
+  try {
+    const res = response();
+    await createClosure({ body: { title: "Afternoon suspension", startDate: "2026-09-09",
+      sourceKind: "school_announcement", sourceUrl: "https://example.edu/post", reviewId: 3 },
+    user: { id: "admin" } }, res, (error) => { throw error; });
+    assert.equal(res.statusCode, 422);
+    assert.equal(statements.includes("ROLLBACK"), true);
+    assert.equal(statements.some((sql) => sql.includes("INSERT INTO public.calendar_closures")), false);
+  } finally { pool.connect = oldConnect; }
+});

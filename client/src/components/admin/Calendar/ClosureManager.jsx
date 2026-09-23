@@ -19,6 +19,7 @@ export default function ClosureManager({ onChange }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const selectedReview = reviews.find((review) => review.id === selectedReviewId);
 
   const load = useCallback(async () => {
     try {
@@ -52,7 +53,7 @@ export default function ClosureManager({ onChange }) {
       const body = await response.json();
       if (!response.ok) throw new Error(body.message || "Unable to review announcement.");
       setSuggestion(body);
-      if (selectedReviewId && body.dates.length) setForm((current) => ({ ...current, startDate: body.dates[0], endDate: body.dates.at(-1) }));
+      if (selectedReviewId && body.scope === "full_day" && body.dates.length) setForm((current) => ({ ...current, startDate: body.dates[0], endDate: body.dates.at(-1) }));
     } catch (reason) { setError(reason.message); }
     finally { setBusy(false); }
   };
@@ -76,7 +77,9 @@ export default function ClosureManager({ onChange }) {
   const selectReview = (review) => {
     setSelectedReviewId(review.id); setCaption(review.caption);
     setSuggestion({ possibleSuspension: review.possible_suspension,
-      dates: review.suggested_start_date ? [review.suggested_start_date, review.suggested_end_date] : [],
+      scope: review.suspension_scope,
+      dates: review.evidence?.dates || (review.suggested_start_date ? [review.suggested_start_date, review.suggested_end_date] : []),
+      evidence: review.evidence || {},
       warnings: review.warnings || [] });
     setForm({ ...EMPTY, sourceKind: "school_announcement", title: "Class suspension", startDate: review.suggested_start_date || "",
       endDate: review.suggested_end_date || "", sourceUrl: review.source_url || "" });
@@ -161,12 +164,14 @@ export default function ClosureManager({ onChange }) {
       <h3>{selectedReviewId ? "Confirm selected announcement" : "Confirm a holiday"}</h3>
       {selectedReviewId && <p>Check the original source, school, dates, and affected department before confirming.</p>}
       {suggestion && <div className="closure-suggestion" role="status">
-        <strong>{suggestion.possibleSuspension ? "Possible class suspension" : "Not clearly a class suspension"}</strong>
+        <strong>{suggestion.scope === "partial_day" ? "Partial-day suspension — cannot block whole date" : suggestion.possibleSuspension ? "Possible full-day class suspension" : "Not clearly a class suspension"}</strong>
         <p>{suggestion.dates.length ? `Detected: ${suggestion.dates[0]}${suggestion.dates.length > 1 ? ` to ${suggestion.dates.at(-1)}` : ""}` : "No reliable date detected."}</p>
+        {suggestion.evidence?.suspensionPhrase && <small>Suspension wording: “{suggestion.evidence.suspensionPhrase}”</small>}
+        {suggestion.evidence?.datePhrase && <small>Date wording: “{suggestion.evidence.datePhrase}”</small>}
         {suggestion.warnings.map((warning) => <small key={warning}>{warning}</small>)}
       </div>}
       <form onSubmit={save} className="closure-form">
-        <label>Closure type<select value={form.sourceKind} onChange={(event) => setForm({ ...form, sourceKind: event.target.value })}><option value="school_announcement" disabled={!selectedReviewId}>School announcement</option><option value="official_holiday">Official holiday</option></select></label>
+        <label>Closure type<select value={form.sourceKind} disabled={Boolean(selectedReviewId)} onChange={(event) => setForm({ ...form, sourceKind: event.target.value })}><option value="school_announcement" disabled={!selectedReviewId}>School announcement</option><option value="official_holiday">Official holiday</option></select></label>
         <label>Reason<input required minLength={3} maxLength={160} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /></label>
         <label>First closed date<input required type="date" value={form.startDate} onChange={(event) => setForm({ ...form, startDate: event.target.value })} /></label>
         <label>Last closed date<input required type="date" min={form.startDate} value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} /></label>
@@ -174,7 +179,7 @@ export default function ClosureManager({ onChange }) {
           <option value="">All departments</option>{departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
         </select></label>
         <label>Official post link (optional)<input type="url" value={form.sourceUrl} readOnly={Boolean(selectedReviewId)} onChange={(event) => setForm({ ...form, sourceUrl: event.target.value })} placeholder="https://facebook.com/..." /></label>
-        <div className="closure-form-actions"><button type="submit" className="closure-primary" disabled={busy || (form.sourceKind === "school_announcement" && !selectedReviewId)}>Confirm and block dates</button></div>
+        <div className="closure-form-actions"><button type="submit" className="closure-primary" disabled={busy || (form.sourceKind === "school_announcement" && (!selectedReviewId || !selectedReview?.possible_suspension || ["partial_day", "none"].includes(selectedReview?.suspension_scope)))}>Confirm and block dates</button></div>
       </form>
       </section>
       <section className="closure-manager-section">

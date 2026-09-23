@@ -35,33 +35,57 @@ async function findClosure(client, dates, departmentId = null) {
   return result.rows[0] || null;
 }
 
+const MONTHS = {
+  january: 1, enero: 1, february: 2, pebrero: 2, march: 3, marso: 3,
+  april: 4, abril: 4, may: 5, mayo: 5, june: 6, hunyo: 6,
+  july: 7, hulyo: 7, august: 8, agosto: 8, september: 9, sept: 9,
+  setyembre: 9, october: 10, oktubre: 10, november: 11, nobyembre: 11,
+  december: 12, disyembre: 12,
+};
+const MONTH_PATTERN = Object.keys(MONTHS).sort((a, b) => b.length - a.length).join("|");
+const SUSPENSION_PATTERN = /\bwalang\s+(?:pasok|klase)\b|\bno\s+classes\b|\b(?:onsite\s+)?classes?(?:\s+and\s+(?:school\s+)?activities)?\s+(?:are\s+|will\s+be\s+)?suspended\b|\bclass(?:es)?\s+suspension\b|\bsuspension\s+of\s+(?:onsite\s+)?classes\b|\bsuspens(?:yon|ion)\s+ng\s+klase\b|\bsuspendido\s+ang\s+(?:mga\s+)?klase\b/i;
+
 function suggestClosure(text) {
-  const content = String(text || "").slice(0, 10000);
-  const normalized = content.toLowerCase();
-  const positive = /\bwalang\s+pasok\b|\bno\s+classes\b|\bclasses?\s+(?:are\s+)?suspended\b|\bclasses?\s+suspension\b|\bsuspens(?:yon|ion)\s+ng\s+klase\b/i.test(content);
-  const negation = /\bmay\s+pasok\b|\bclasses?\s+will\s+resume\b|\bno\s+suspension\b/i.test(content);
-  const year = normalized.match(/\b20\d{2}\b/)?.[0];
-  const monthNames = { january: 1, february: 2, march: 3, april: 4, may: 5, june: 6, july: 7, august: 8, september: 9, october: 10, november: 11, december: 12 };
-  const monthMatch = normalized.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:\s*[-–]\s*(\d{1,2}))?/);
-  const dates = [];
-  if (monthMatch && year) {
-    const month = monthNames[monthMatch[1]];
-    const first = Number(monthMatch[2]);
-    const last = Number(monthMatch[3] || first);
-    if (last >= first && last - first <= 30) {
-      for (let day = first; day <= last; day++) {
-        const candidate = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-        if (isValidDate(candidate)) dates.push(candidate);
-      }
-    }
+  const content = String(text || "").slice(0, 10000).normalize("NFKC");
+  const suspension = SUSPENSION_PATTERN.exec(content);
+  const negation = /\bmay\s+pasok\b|\bclasses?\s+(?:will\s+)?resume\b|\bno\s+suspension\b|\bnot\s+suspended\b/i.test(content);
+  const positive = Boolean(suspension) && !negation;
+  const nearby = suspension ? content.slice(Math.max(0, suspension.index - 90), suspension.index + suspension[0].length + 90) : "";
+  const partial = positive && /\b(?:morning|afternoon|evening|half[ -]?day|umaga|hapon|gabi)\b|\b(?:from|after|starting)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/i.test(nearby);
+  const candidates = [];
+  const addCandidate = (match, month, first, last, year) => {
+    const start = `${year}-${String(month).padStart(2, "0")}-${String(first).padStart(2, "0")}`;
+    const end = `${year}-${String(month).padStart(2, "0")}-${String(last).padStart(2, "0")}`;
+    if (last < first || last - first > 30 || !isValidDate(start) || !isValidDate(end)) return;
+    candidates.push({ index: match.index, phrase: match[0], dates: datesBetween(start, end) });
+  };
+  for (const match of content.matchAll(new RegExp(`\\b(${MONTH_PATTERN})\\.?\\s+(\\d{1,2})(?:\\s*(?:-|–|to|and)\\s*(\\d{1,2}))?\\s*,?\\s*(20\\d{2})\\b`, "gi"))) {
+    addCandidate(match, MONTHS[match[1].toLowerCase()], Number(match[2]), Number(match[3] || match[2]), match[4]);
   }
+  for (const match of content.matchAll(new RegExp(`\\b(\\d{1,2})(?:\\s*(?:-|–|to|and)\\s*(\\d{1,2}))?\\s+(?:ng\\s+)?(${MONTH_PATTERN})\\.?\\s*,?\\s*(20\\d{2})\\b`, "gi"))) {
+    addCandidate(match, MONTHS[match[3].toLowerCase()], Number(match[1]), Number(match[2] || match[1]), match[4]);
+  }
+  for (const match of content.matchAll(/\b(20\d{2})-(\d{2})-(\d{2})\b/g)) {
+    addCandidate(match, Number(match[2]), Number(match[3]), Number(match[3]), match[1]);
+  }
+  candidates.sort((a, b) => {
+    if (!suspension) return a.index - b.index;
+    const distance = (candidate) => Math.abs(candidate.index - suspension.index) - (candidate.index > suspension.index ? 20 : 0);
+    return distance(a) - distance(b);
+  });
+  const selected = positive ? candidates[0] : null;
+  const dates = selected?.dates || [];
   return {
-    possibleSuspension: positive && !negation,
+    possibleSuspension: positive,
+    scope: positive ? (partial ? "partial_day" : "full_day") : "none",
     dates,
     needsReview: true,
+    evidence: { suspensionPhrase: positive ? suspension[0] : null, datePhrase: selected?.phrase || null },
     warnings: [
-      ...(!positive || negation ? ["No unambiguous class-suspension phrase was found."] : []),
-      ...(!dates.length ? ["Dates could not be confirmed; enter them manually."] : []),
+      ...(!positive ? ["No unambiguous class-suspension phrase was found."] : []),
+      ...(partial ? ["Partial-day suspension detected. This system only blocks whole dates; do not confirm it as a full-day closure."] : []),
+      ...(positive && !dates.length ? ["No unambiguous dated suspension was found; enter and verify the dates manually."] : []),
+      ...(positive && /\b\d{1,2}\/\d{1,2}\/20\d{2}\b/.test(content) && !dates.length ? ["Numeric dates may be month/day or day/month; verify the original post."] : []),
       "Verify the school, campus, affected students, and dates against the original announcement.",
     ],
   };
