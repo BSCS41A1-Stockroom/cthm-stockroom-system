@@ -48,7 +48,7 @@ export default function PendingRequests() {
   const queueCount = requests.filter((request) => isInRoleQueue(request, "professor")).length;
 
   return <div className="professor-requests-page">
-    <div className="professor-page-header"><div><div className="professor-page-eyebrow">PROFESSOR PORTAL</div><h1>Pending Requests</h1><p>Review and electronically authorize validated student borrowing requests.</p></div></div>
+    <div className="professor-page-header"><div><div className="professor-page-eyebrow">PROFESSOR PORTAL</div><h1>Pending Requests</h1><p>Review and electronically authorize student borrowing requests assigned to you.</p></div></div>
     <div className="professor-request-summary"><div className="professor-request-summary-card"><div className="professor-summary-icon"><FaClipboardList /></div><div><span>Pending Review</span><strong>{queueCount}</strong></div></div><div className="professor-request-summary-text">A QR or review button opens the same protected authorization document.</div></div>
     <div className="professor-request-tabs" role="tablist" aria-label="Request views"><button type="button" role="tab" aria-selected={view === "queue"} className={view === "queue" ? "active" : ""} onClick={() => setView("queue")}>My Work Queue <span>{queueCount}</span></button><button type="button" role="tab" aria-selected={view === "history"} className={view === "history" ? "active" : ""} onClick={() => setView("history")}>History <span>{requests.length - queueCount}</span></button></div>
     <div className="professor-request-search"><FaSearch /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search student, ID, purpose, or item..." /></div>
@@ -61,6 +61,16 @@ export default function PendingRequests() {
         <div className="professor-request-actions"><button type="button" onClick={() => setSelected(request)}><FaEye /> View</button>{isInRoleQueue(request, "professor") && <Link to={`/authorize/${request.authorizationToken}`}><FaCheck /> Review & Sign</Link>}</div>
       </article>)}
     </div>
-    {selected && <div className="modal-overlay" onClick={() => setSelected(null)}><div className="modal-card" onClick={(event) => event.stopPropagation()}><div className="modal-header"><h2>BR-{String(selected.id).padStart(3, "0")}</h2><button onClick={() => setSelected(null)}>×</button></div><p><strong>{selected.studentName}</strong> · {selected.studentId}</p><p>{selected.departmentName || "Department not assigned"} · {selected.sectionName || "Section not assigned"}</p><ul>{selected.items.map((item) => <li key={item.inventoryId}>{item.name} × {item.quantity}</li>)}</ul><p>{selected.purpose}</p><BorrowingTimeline request={selected} /><DocumentArchive requestId={selected.id} /><div className="request-detail-actions"><Link className="approve-btn" to={`/authorize/${selected.authorizationToken}`}>Open authorization document</Link></div></div></div>}
+    {selected && <div className="professor-modal-overlay" onClick={() => setSelected(null)}><div className="professor-review-modal" role="dialog" aria-modal="true" aria-labelledby="professor-request-title" onClick={(event) => event.stopPropagation()}>
+      <div className="professor-review-modal-header"><div><span>REQUEST DETAILS</span><h2 id="professor-request-title">BR-{String(selected.id).padStart(3, "0")}</h2></div><button type="button" className="professor-modal-close" aria-label="Close request details" onClick={() => setSelected(null)}>×</button></div>
+      <div className="professor-review-modal-body">
+        <section className="professor-review-section"><div className="professor-review-section-title">Student information</div><div className="professor-review-student"><div className="professor-review-avatar">{selected.studentName?.charAt(0) || "S"}</div><div><strong>{selected.studentName}</strong><span>{selected.studentId}</span><small>{selected.departmentName || "Department not assigned"} · {selected.sectionName || "Section not assigned"}</small></div></div></section>
+        <section className="professor-review-section"><div className="professor-review-section-title">Purpose</div><p className="professor-review-purpose">{selected.purpose}</p></section>
+        <section className="professor-review-section"><div className="professor-review-section-title">Requested items</div><div className="professor-review-items">{(selected.items || []).map((item) => <div className="professor-review-item" key={item.inventoryId}><span>{item.name}</span><strong>× {item.quantity}</strong></div>)}</div></section>
+        <BorrowingTimeline request={selected} />
+        <DocumentArchive requestId={selected.id} />
+      </div>
+      <div className="professor-review-modal-footer"><button type="button" className="professor-modal-secondary" onClick={() => setSelected(null)}>Close</button>{isInRoleQueue(selected, "professor") && selected.authorizationToken && <Link className="professor-modal-approve" to={`/authorize/${selected.authorizationToken}`}><FaCheck /> Review &amp; Sign</Link>}</div>
+    </div></div>}
   </div>;
 }
