@@ -1,5 +1,11 @@
+import {
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import "./Borrowing.css";
 import "./BorrowerFormPreview.css";
@@ -7,6 +13,7 @@ import { authenticatedFetch } from "../../lib/api";
 import { useAuth } from "../../auth/useAuth";
 import { inventoryTotals } from "../../utils/inventoryAvailability";
 import { closureForSchedule } from "../../utils/closureEvents";
+import { renderAsync } from "docx-preview";
 
 const DEFAULT_BORROWING_POLICY = Object.freeze({
   maxItemsPerRequest: 10,
@@ -45,6 +52,7 @@ export default function BorrowingInterface() {
   const [endTime, setEndTime] = useState("");
   const [closures, setClosures] = useState([]);
   const [purpose, setPurpose] = useState("");
+  
 
   const [assignmentOptions, setAssignmentOptions] = useState({
     departments: [],
@@ -75,9 +83,10 @@ export default function BorrowingInterface() {
 
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewPdfUrl, setPreviewPdfUrl] = useState("");
   const [previewDocxBlob, setPreviewDocxBlob] = useState(null);
   const [previewControlNo, setPreviewControlNo] = useState("");
+
+  const borrowerPreviewRef = useRef(null);
 
   const [borrowingPolicy, setBorrowingPolicy] = useState(
     DEFAULT_BORROWING_POLICY
@@ -86,13 +95,7 @@ export default function BorrowingInterface() {
   const studentName = profile?.full_name || "";
   const studentId = profile?.student_id || "";
 
-  useEffect(() => {
-    return () => {
-      if (previewPdfUrl) {
-        URL.revokeObjectURL(previewPdfUrl);
-      }
-    };
-  }, [previewPdfUrl]);
+
 
   /*
    * ============================================================
@@ -608,6 +611,7 @@ export default function BorrowingInterface() {
 
   async function generateBorrowerFormFiles() {
     const now = new Date();
+
     const controlNo = generateControlNumber(now);
 
     const dateTime = now.toLocaleString("en-PH", {
@@ -624,52 +628,27 @@ export default function BorrowingInterface() {
       dateTime
     );
 
-    const requestOptions = {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(formData),
-    };
-
-    const [docxResponse, pdfResponse] = await Promise.all([
-      authenticatedFetch(
-        "/api/borrower-form",
-        requestOptions
-      ),
-      authenticatedFetch(
-        "/api/borrower-form/preview",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(formData),
-        }
-      ),
-    ]);
-
-    if (!docxResponse.ok) {
-      let message =
-        "Failed to generate Borrower's Form DOCX.";
-
-      try {
-        const body = await docxResponse.json();
-        message = body.message || message;
-      } catch {
-        // Response was not JSON.
+    const response = await authenticatedFetch(
+      "/api/borrower-form",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
       }
+    );
 
-      throw new Error(message);
-    }
-
-    if (!pdfResponse.ok) {
+    if (!response.ok) {
       let message =
-        "Failed to generate the official Borrower's Form preview.";
+        "Failed to generate Borrower's Form.";
 
       try {
-        const body = await pdfResponse.json();
-        message = body.message || message;
+        const body = await response.json();
+
+        message =
+          body.message ||
+          message;
 
         if (body.error) {
           message += ` (${body.error})`;
@@ -681,18 +660,13 @@ export default function BorrowingInterface() {
       throw new Error(message);
     }
 
-    const [docxBlob, pdfBlob] = await Promise.all([
-      docxResponse.blob(),
-      pdfResponse.blob(),
-    ]);
+    const docxBlob = await response.blob();
 
     return {
       controlNo,
       docxBlob,
-      pdfBlob,
     };
   }
-
   async function handlePrint() {
     setFormError("");
 
@@ -700,6 +674,7 @@ export default function BorrowingInterface() {
       setFormError(
         "Please select at least one item before printing."
       );
+
       return;
     }
 
@@ -717,18 +692,47 @@ export default function BorrowingInterface() {
       const {
         controlNo,
         docxBlob,
-        pdfBlob,
       } = await generateBorrowerFormFiles();
 
-      if (previewPdfUrl) {
-        URL.revokeObjectURL(previewPdfUrl);
-      }
-
-      const pdfUrl = URL.createObjectURL(pdfBlob);
-
-      setPreviewPdfUrl(pdfUrl);
       setPreviewDocxBlob(docxBlob);
       setPreviewControlNo(controlNo);
+
+      /*
+      * Wait until React has mounted the preview container.
+      * Then render the EXACT generated DOCX template
+      * inside the browser.
+      */
+      await new Promise((resolve) => {
+        requestAnimationFrame(resolve);
+      });
+
+      if (!borrowerPreviewRef.current) {
+        throw new Error(
+          "Borrower's Form preview container could not be created."
+        );
+      }
+
+      borrowerPreviewRef.current.innerHTML = "";
+
+      await renderAsync(
+        docxBlob,
+        borrowerPreviewRef.current,
+        undefined,
+        {
+          className: "borrower-docx",
+          inWrapper: true,
+          breakPages: true,
+          ignoreWidth: false,
+          ignoreHeight: false,
+          ignoreFonts: false,
+          renderHeaders: true,
+          renderFooters: true,
+          renderFootnotes: true,
+          renderEndnotes: true,
+          useBase64URL: true,
+          useMathMLPolyfill: true,
+        }
+      );
     } catch (error) {
       console.error(
         "Borrower's Form preview error:",
@@ -736,8 +740,9 @@ export default function BorrowingInterface() {
       );
 
       setPrintPreviewOpen(false);
+
       setFormError(
-        error.message ||
+        error?.message ||
           "Failed to generate Borrower's Form."
       );
     } finally {
@@ -748,13 +753,12 @@ export default function BorrowingInterface() {
   function closePrintPreview() {
     setPrintPreviewOpen(false);
 
-    if (previewPdfUrl) {
-      URL.revokeObjectURL(previewPdfUrl);
-      setPreviewPdfUrl("");
-    }
-
     setPreviewDocxBlob(null);
     setPreviewControlNo("");
+
+    if (borrowerPreviewRef.current) {
+      borrowerPreviewRef.current.innerHTML = "";
+    }
   }
 
   function downloadBorrowerForm() {
@@ -767,37 +771,126 @@ export default function BorrowingInterface() {
     );
 
     const link = document.createElement("a");
+
     link.href = url;
+
     link.download =
       `Borrowers-Form-${previewControlNo}.docx`;
 
     document.body.appendChild(link);
+
     link.click();
+
     link.remove();
 
-    setTimeout(() => {
+    window.setTimeout(() => {
       URL.revokeObjectURL(url);
     }, 1000);
   }
 
-  function printBorrowerFormPreview() {
-    if (!previewPdfUrl) {
-      return;
-    }
-
-    const printWindow = window.open(
-      previewPdfUrl,
-      "_blank",
-      "noopener,noreferrer"
-    );
-
-    if (!printWindow) {
-      setFormError(
-        "Your browser blocked the PDF preview window. Allow pop-ups for this site."
-      );
-    }
+function printBorrowerFormPreview() {
+  if (!borrowerPreviewRef.current) {
+    return;
   }
 
+  const previewContent =
+    borrowerPreviewRef.current.innerHTML;
+
+  if (!previewContent.trim()) {
+    setFormError(
+      "The Borrower's Form preview is not ready yet."
+    );
+
+    return;
+  }
+
+  const printWindow = window.open(
+    "",
+    "_blank",
+    "width=900,height=1200"
+  );
+
+  if (!printWindow) {
+    setFormError(
+      "Your browser blocked the print window. Allow pop-ups for this site."
+    );
+
+    return;
+  }
+
+  const styles = Array.from(
+    document.querySelectorAll(
+      'link[rel="stylesheet"], style'
+    )
+  )
+    .map((element) => element.outerHTML)
+    .join("\n");
+
+  printWindow.document.open();
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8" />
+
+        <title>
+          Borrower's Form
+        </title>
+
+        ${styles}
+
+        <style>
+          @page {
+            size: auto;
+            margin: 0;
+          }
+
+          html,
+          body {
+            margin: 0;
+            padding: 0;
+            background: white;
+          }
+
+          body {
+            overflow: visible !important;
+          }
+
+          .borrower-docx {
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+          }
+
+          .docx-wrapper {
+            background: white !important;
+            padding: 0 !important;
+          }
+
+          .docx {
+            margin: 0 auto !important;
+            box-shadow: none !important;
+          }
+        </style>
+      </head>
+
+      <body>
+        ${previewContent}
+
+        <script>
+          window.onload = function () {
+            setTimeout(function () {
+              window.print();
+            }, 500);
+          };
+        <\/script>
+      </body>
+    </html>
+  `);
+
+  printWindow.document.close();
+}
   /*
    * ============================================================
    * TABLE
@@ -1937,102 +2030,122 @@ export default function BorrowingInterface() {
 
 
       {/* ========================================================
-          OFFICIAL BORROWER'S FORM PREVIEW
-          ======================================================== */}
+    OFFICIAL BORROWER'S FORM PREVIEW
+    ======================================================== */}
 
-      {printPreviewOpen && (
-        <div
-          className="borrower-preview-overlay"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              closePrintPreview();
-            }
-          }}
-        >
-          <div className="borrower-preview-modal">
-            <div className="borrower-preview-header">
-              <div>
-                <span className="borrower-preview-eyebrow">
-                  OFFICIAL DOCUMENT PREVIEW
-                </span>
-                <h2>Borrower's Form</h2>
-                <p>
-                  This preview uses the generated Word document rendered as PDF,
-                  so the original template layout is preserved.
-                </p>
-              </div>
+{printPreviewOpen && (
+  <div
+    className="borrower-preview-overlay"
+    onMouseDown={(event) => {
+      if (event.target === event.currentTarget) {
+        closePrintPreview();
+      }
+    }}
+  >
+    <div className="borrower-preview-modal">
 
-              <button
-                type="button"
-                className="borrower-preview-close"
-                onClick={closePrintPreview}
-                aria-label="Close preview"
-              >
-                ×
-              </button>
-            </div>
+      {/* HEADER */}
+      <div className="borrower-preview-header">
+        <div>
+          <span className="borrower-preview-eyebrow">
+            OFFICIAL DOCUMENT PREVIEW
+          </span>
 
-            <div className="borrower-preview-body">
-              {previewLoading && (
-                <div className="borrower-preview-loading">
-                  <div className="borrower-preview-spinner" />
-                  <strong>Generating official form…</strong>
-                  <span>
-                    Preparing the exact template for preview.
-                  </span>
-                </div>
-              )}
+          <h2>Borrower's Form</h2>
 
-              {!previewLoading && previewPdfUrl && (
-                <iframe
-                  className="borrower-preview-pdf"
-                  title="Official Borrower's Form Preview"
-                  src={previewPdfUrl}
-                />
-              )}
-            </div>
-
-            <div className="borrower-preview-footer">
-              <div className="borrower-preview-control">
-                {previewControlNo && (
-                  <span>
-                    Control No. <strong>{previewControlNo}</strong>
-                  </span>
-                )}
-              </div>
-
-              <div className="borrower-preview-actions">
-                <button
-                  type="button"
-                  className="borrower-preview-secondary"
-                  onClick={closePrintPreview}
-                >
-                  Close
-                </button>
-
-                <button
-                  type="button"
-                  className="borrower-preview-secondary"
-                  onClick={printBorrowerFormPreview}
-                  disabled={!previewPdfUrl}
-                >
-                  Print
-                </button>
-
-                <button
-                  type="button"
-                  className="borrower-preview-primary"
-                  onClick={downloadBorrowerForm}
-                  disabled={!previewDocxBlob}
-                >
-                  Download DOCX
-                </button>
-              </div>
-            </div>
-          </div>
+          <p>
+            Preview of the official Borrower's Form template.
+          </p>
         </div>
-      )}
 
+        <button
+          type="button"
+          className="borrower-preview-close"
+          onClick={closePrintPreview}
+          aria-label="Close preview"
+        >
+          ×
+        </button>
+      </div>
+
+      {/* DOCUMENT BODY */}
+      <div className="borrower-preview-body">
+
+        {previewLoading && (
+          <div className="borrower-preview-loading">
+            <div className="borrower-preview-spinner" />
+
+            <strong>
+              Generating official form…
+            </strong>
+
+            <span>
+              Preparing the official template for preview.
+            </span>
+          </div>
+        )}
+
+        <div
+          ref={borrowerPreviewRef}
+          className="borrower-preview-docx"
+          style={{
+            display: previewLoading ? "none" : "block",
+          }}
+        />
+      </div>
+
+      {/* FOOTER */}
+      <div className="borrower-preview-footer">
+
+        <div className="borrower-preview-control">
+          {previewControlNo && (
+            <span>
+              Control No.{" "}
+              <strong>{previewControlNo}</strong>
+            </span>
+          )}
+        </div>
+
+        <div className="borrower-preview-actions">
+
+          <button
+            type="button"
+            className="borrower-preview-secondary"
+            onClick={closePrintPreview}
+          >
+            Close
+          </button>
+
+          <button
+            type="button"
+            className="borrower-preview-secondary"
+            onClick={printBorrowerFormPreview}
+            disabled={
+              previewLoading ||
+              !previewDocxBlob
+            }
+          >
+            Print
+          </button>
+
+          <button
+            type="button"
+            className="borrower-preview-primary"
+            onClick={downloadBorrowerForm}
+            disabled={
+              previewLoading ||
+              !previewDocxBlob
+            }
+          >
+            Download DOCX
+          </button>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+)}
       {/* ========================================================
           ITEM DETAILS MODAL
           ======================================================== */}

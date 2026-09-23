@@ -253,3 +253,440 @@
     min-width: 0;
   }
 }
+
+/* ============================================================
+   OFFICIAL BORROWER'S FORM PREVIEW
+   ============================================================ */
+
+.borrower-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background: rgba(15, 23, 42, 0.72);
+
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+
+.borrower-preview-modal {
+  width: min(1180px, 96vw);
+  height: min(92vh, 1000px);
+
+  display: flex;
+  flex-direction: column;
+
+  overflow: hidden;
+
+  background: #f5f3ee;
+
+  border: 1px solid rgba(182, 155, 98, 0.45);
+
+  border-radius: 18px;
+
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.35);
+}
+
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+
+.borrower-preview-header {
+  flex: 0 0 auto;
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 24px;
+
+  padding: 22px 26px;
+
+  background: #17263c;
+
+  color: #ffffff;
+}
+
+
+.borrower-preview-eyebrow {
+  display: block;
+
+  margin-bottom: 5px;
+
+  color: #b69b62;
+
+  font-size: 11px;
+  font-weight: 800;
+
+  letter-spacing: 0.14em;
+
+  text-transform: uppercase;
+}
+
+
+.borrower-preview-header h2 {
+  margin: 0;
+
+  color: #ffffff;
+
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+
+.borrower-preview-header p {
+  margin: 7px 0 0;
+
+  color: rgba(255, 255, 255, 0.72);
+
+  font-size: 13px;
+}
+
+
+.borrower-preview-close {
+  flex: 0 0 auto;
+
+  width: 38px;
+  height: 38px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid rgba(255, 255, 255, 0.16);
+
+  border-radius: 10px;
+
+  background: rgba(255, 255, 255, 0.08);
+
+  color: #ffffff;
+
+  font-size: 26px;
+  line-height: 1;
+
+  cursor: pointer;
+
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+
+.borrower-preview-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+
+  transform: translateY(-1px);
+}
+
+
+/* ============================================================
+   BODY
+   ============================================================ */
+
+.borrower-preview-body {
+  position: relative;
+
+  flex: 1 1 auto;
+
+  min-height: 0;
+
+  overflow: auto;
+
+  padding: 28px;
+
+  background: #dfe3e8;
+}
+
+
+/*
+ * This is the rendered DOCX.
+ *
+ * The actual document layout comes from
+ * LOA-Borrowers-Form.docx.
+ */
+
+.borrower-preview-docx {
+  width: 100%;
+  min-height: 100%;
+
+  overflow: visible;
+}
+
+
+/* docx-preview generated wrapper */
+
+.borrower-preview-docx .docx-wrapper {
+  width: 100% !important;
+
+  padding: 0 !important;
+
+  background: transparent !important;
+}
+
+
+/*
+ * Individual Word pages.
+ *
+ * Do NOT define the contents of the form here.
+ */
+
+.borrower-preview-docx section.docx {
+  margin: 0 auto 24px auto !important;
+
+  background: #ffffff !important;
+
+  box-shadow:
+    0 8px 30px rgba(15, 23, 42, 0.16);
+
+  overflow: visible !important;
+}
+
+
+/* ============================================================
+   LOADING
+   ============================================================ */
+
+.borrower-preview-loading {
+  position: absolute;
+
+  inset: 0;
+
+  z-index: 10;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 8px;
+
+  background: #dfe3e8;
+
+  color: #17263c;
+
+  text-align: center;
+}
+
+
+.borrower-preview-loading strong {
+  font-size: 15px;
+}
+
+
+.borrower-preview-loading span {
+  color: #6b7280;
+
+  font-size: 13px;
+}
+
+
+.borrower-preview-spinner {
+  width: 34px;
+  height: 34px;
+
+  margin-bottom: 8px;
+
+  border: 3px solid rgba(23, 38, 60, 0.16);
+
+  border-top-color: #b69b62;
+
+  border-radius: 50%;
+
+  animation:
+    borrower-preview-spin
+    0.8s linear infinite;
+}
+
+
+@keyframes borrower-preview-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+
+.borrower-preview-footer {
+  flex: 0 0 auto;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 16px;
+
+  padding: 15px 20px;
+
+  background: #ffffff;
+
+  border-top: 1px solid #ddd8cd;
+}
+
+
+.borrower-preview-control {
+  min-width: 0;
+
+  color: #6b7280;
+
+  font-size: 13px;
+}
+
+
+.borrower-preview-control strong {
+  color: #17263c;
+}
+
+
+.borrower-preview-actions {
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+}
+
+
+.borrower-preview-secondary,
+.borrower-preview-primary {
+  min-height: 40px;
+
+  padding: 0 16px;
+
+  border-radius: 9px;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    opacity 0.18s ease;
+}
+
+
+.borrower-preview-secondary {
+  border: 1px solid #d3cec4;
+
+  background: #ffffff;
+
+  color: #17263c;
+}
+
+
+.borrower-preview-primary {
+  border: 1px solid #b69b62;
+
+  background: #b69b62;
+
+  color: #17263c;
+}
+
+
+.borrower-preview-secondary:hover,
+.borrower-preview-primary:hover {
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 5px 15px rgba(15, 23, 42, 0.12);
+}
+
+
+.borrower-preview-secondary:disabled,
+.borrower-preview-primary:disabled {
+  opacity: 0.5;
+
+  cursor: not-allowed;
+
+  transform: none;
+
+  box-shadow: none;
+}
+
+
+/* ============================================================
+   MOBILE
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+  .borrower-preview-overlay {
+    padding: 0;
+  }
+
+
+  .borrower-preview-modal {
+    width: 100vw;
+    height: 100vh;
+
+    border-radius: 0;
+  }
+
+
+  .borrower-preview-header {
+    padding: 16px 18px;
+  }
+
+
+  .borrower-preview-header h2 {
+    font-size: 20px;
+  }
+
+
+  .borrower-preview-header p {
+    display: none;
+  }
+
+
+  .borrower-preview-body {
+    padding: 14px;
+  }
+
+
+  .borrower-preview-footer {
+    flex-direction: column;
+    align-items: stretch;
+
+    padding: 12px;
+  }
+
+
+  .borrower-preview-control {
+    text-align: center;
+  }
+
+
+  .borrower-preview-actions {
+    display: grid;
+
+    grid-template-columns:
+      1fr 1fr 1fr;
+
+    gap: 7px;
+  }
+
+
+  .borrower-preview-secondary,
+  .borrower-preview-primary {
+    width: 100%;
+
+    padding: 0 8px;
+
+    font-size: 12px;
+  }
+
+}
