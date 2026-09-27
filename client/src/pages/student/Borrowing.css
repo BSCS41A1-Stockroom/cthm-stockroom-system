@@ -4456,6 +4456,14 @@
     display: none;
 }
 
+.inventory-quantity-stepper {
+    display: contents;
+}
+
+.mobile-quantity-button {
+    display: none;
+}
+
 /* Final mobile overrides intentionally live last so legacy responsive blocks
    cannot hide the primary student action or shrink form controls. */
 @media (max-width: 700px) {
@@ -4814,6 +4822,56 @@
         width: 100% !important;
         min-width: 0;
         min-height: 40px;
+    }
+
+    .inventory-quantity-stepper {
+        display: grid;
+        grid-template-columns: 28px minmax(28px, 1fr) 28px;
+        width: 100%;
+        overflow: hidden;
+        border: 1px solid var(--borrow-border);
+        border-radius: 7px;
+        background: #fff;
+    }
+
+    .inventory-quantity-stepper .qty-input {
+        width: 100% !important;
+        height: 40px;
+        min-height: 40px;
+        padding: 0 2px;
+        border: 0;
+        border-right: 1px solid var(--borrow-border);
+        border-left: 1px solid var(--borrow-border);
+        border-radius: 0;
+        font-size: 14px !important;
+        appearance: textfield;
+        -moz-appearance: textfield;
+    }
+
+    .inventory-quantity-stepper .qty-input::-webkit-inner-spin-button,
+    .inventory-quantity-stepper .qty-input::-webkit-outer-spin-button {
+        margin: 0;
+        -webkit-appearance: none;
+    }
+
+    .mobile-quantity-button {
+        display: grid;
+        min-width: 0;
+        min-height: 40px;
+        padding: 0;
+        place-items: center;
+        border: 0;
+        background: #f7f8fa;
+        color: var(--borrow-navy);
+        font: inherit;
+        font-size: 17px;
+        font-weight: 800;
+        cursor: pointer;
+    }
+
+    .mobile-quantity-button:disabled {
+        color: #b8bec5;
+        cursor: not-allowed;
     }
 
     .inventory-card-details-btn {
