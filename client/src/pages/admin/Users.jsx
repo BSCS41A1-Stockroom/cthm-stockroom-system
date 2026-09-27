@@ -388,7 +388,8 @@ export default function Users() {
         sections.filter(
             (section) =>
                 String(
-                    section.department_id
+                    section.departmentId ??
+                        section.department_id
                 ) ===
                     String(
                         form.departmentId
