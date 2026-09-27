@@ -205,6 +205,20 @@ function normalizeUser(body = {}) {
             body.section_id ??
             null,
 
+        sectionIds: Array.from(new Set(
+            (Array.isArray(body.sectionIds ?? body.section_ids)
+                ? body.sectionIds ?? body.section_ids
+                : [])
+                .map((value) => String(value))
+                .filter((value) => /^[1-9]\d*$/.test(value))
+        )),
+
+        academicYear: String(
+            body.academicYear ?? body.academic_year ?? ""
+        ).trim(),
+
+        term: String(body.term ?? "").trim(),
+
         isActive:
             body.isActive ??
             body.is_active ??
@@ -268,13 +282,40 @@ function userErrors(
     }
 
     if (
-        ["student", "professor"].includes(user.role) &&
+        user.role === "student" &&
         !/^[1-9]\d*$/.test(
             String(user.sectionId ?? "")
         )
     ) {
         errors.push(
             "An active section is required for Student and Professor accounts."
+        );
+    }
+
+    if (
+        user.role === "professor" &&
+        user.sectionIds.length === 0
+    ) {
+        errors.push(
+            "Select at least one handled section for a Professor account."
+        );
+    }
+
+    if (
+        user.role === "professor" &&
+        (!user.academicYear || user.academicYear.length > 30)
+    ) {
+        errors.push(
+            "Academic year is required and cannot exceed 30 characters."
+        );
+    }
+
+    if (
+        user.role === "professor" &&
+        (!user.term || user.term.length > 40)
+    ) {
+        errors.push(
+            "Term is required and cannot exceed 40 characters."
         );
     }
 
@@ -322,21 +363,64 @@ async function professorSectionExists(
         return true;
     }
 
+    const requestedSections =
+        user.role === "professor"
+            ? user.sectionIds
+            : [user.sectionId];
+
     const result = await database.query(
         `
-        SELECT 1
+        SELECT id
         FROM public.academic_sections
-        WHERE id = $1
+        WHERE id = ANY($1::bigint[])
           AND department_id = $2
           AND is_active = true
         `,
         [
-            user.sectionId,
+            requestedSections,
             user.departmentId,
         ]
     );
 
-    return result.rowCount > 0;
+    return result.rowCount === requestedSections.length;
+}
+
+async function syncProfessorSections(
+    database,
+    professorId,
+    user
+) {
+    await database.query(
+        `
+        UPDATE public.professor_section_assignments
+        SET is_active = false,
+            updated_at = now()
+        WHERE professor_user_id = $1
+          AND is_active = true
+        `,
+        [professorId]
+    );
+
+    if (user.role !== "professor") {
+        return;
+    }
+
+    await database.query(
+        `
+        INSERT INTO public.professor_section_assignments
+          (professor_user_id, section_id, academic_year, term, is_active, updated_at)
+        SELECT $1, unnest($2::bigint[]), $3, $4, true, now()
+        ON CONFLICT (professor_user_id, section_id, academic_year, term)
+        DO UPDATE SET is_active = true,
+                      updated_at = now()
+        `,
+        [
+            professorId,
+            user.sectionIds,
+            user.academicYear,
+            user.term,
+        ]
+    );
 }
 
 async function listUsers(req, res, next) {
@@ -360,6 +444,38 @@ async function listUsers(req, res, next) {
                 department.name AS department_name,
                 profile.section_id,
                 section.name AS section_name,
+                ARRAY(
+                    SELECT assignment.section_id::text
+                    FROM public.professor_section_assignments assignment
+                    WHERE assignment.professor_user_id = profile.user_id
+                      AND assignment.is_active = true
+                    ORDER BY assignment.section_id
+                ) AS section_ids,
+                ARRAY(
+                    SELECT assigned_section.name
+                    FROM public.professor_section_assignments assignment
+                    JOIN public.academic_sections assigned_section
+                      ON assigned_section.id = assignment.section_id
+                    WHERE assignment.professor_user_id = profile.user_id
+                      AND assignment.is_active = true
+                    ORDER BY assigned_section.name
+                ) AS section_names,
+                (
+                    SELECT assignment.academic_year
+                    FROM public.professor_section_assignments assignment
+                    WHERE assignment.professor_user_id = profile.user_id
+                      AND assignment.is_active = true
+                    ORDER BY assignment.updated_at DESC, assignment.id DESC
+                    LIMIT 1
+                ) AS academic_year,
+                (
+                    SELECT assignment.term
+                    FROM public.professor_section_assignments assignment
+                    WHERE assignment.professor_user_id = profile.user_id
+                      AND assignment.is_active = true
+                    ORDER BY assignment.updated_at DESC, assignment.id DESC
+                    LIMIT 1
+                ) AS term,
                 profile.qr_status,
                 profile.qr_issued_at,
                 profile.qr_last_printed_at,
@@ -521,7 +637,7 @@ async function inviteUser(req, res, next) {
                     ? user.departmentId
                     : null,
 
-                ["student", "professor"].includes(user.role)
+                user.role === "student"
                     ? user.sectionId
                     : null,
             ]
@@ -532,6 +648,12 @@ async function inviteUser(req, res, next) {
                 "The invited user profile was not created."
             );
         }
+
+        await syncProfessorSections(
+            pool,
+            invitedId,
+            user
+        );
 
         await writeAuditLog(
             pool,
@@ -790,11 +912,17 @@ async function updateUser(
                         ? user.departmentId
                         : null,
 
-                    ["student", "professor"].includes(user.role)
+                    user.role === "student"
                         ? user.sectionId
                         : null,
                 ]
             );
+
+        await syncProfessorSections(
+            client,
+            req.params.id,
+            user
+        );
 
         if (
             current.role === "student" &&

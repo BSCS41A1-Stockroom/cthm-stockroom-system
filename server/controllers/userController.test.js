@@ -21,7 +21,8 @@ test("normalizes managed users and enforces role-specific identity", () => {
   assert.equal(student.email, "student@example.com"); assert.deepEqual(userErrors(student, true), []);
   assert.equal(userErrors(normalizeUser({ fullName: "Student", role: "student", studentId: "2026-1" })).some((error) => error.includes("department")), true);
   assert.equal(userErrors(normalizeUser({ fullName: "Student", role: "student", studentId: "2026-1", departmentId: 2 })).some((error) => error.includes("section")), true);
-  assert.equal(userErrors(normalizeUser({ fullName: "Professor", role: "professor", departmentId: 2, sectionId: 3 })).length, 0);
+  assert.equal(userErrors(normalizeUser({ fullName: "Professor", role: "professor", departmentId: 2, sectionIds: [3, 4], academicYear: "2026-2027", term: "First Semester" })).length, 0);
+  assert.equal(userErrors(normalizeUser({ fullName: "Professor", role: "professor", departmentId: 2, academicYear: "2026-2027", term: "First Semester" })).some((error) => error.includes("handled section")), true);
   assert.equal(userErrors(normalizeUser({ fullName: "Professor", role: "professor" })).some((error) => error.includes("department")), true);
   assert.equal(userErrors(normalizeUser({ fullName: "Department Head", role: "department_head", departmentId: 2 })).length, 0);
   assert.equal(userErrors(normalizeUser({ fullName: "Department Head", role: "department_head" })).some((error) => error.includes("department")), true);

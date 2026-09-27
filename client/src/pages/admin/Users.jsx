@@ -18,6 +18,9 @@ const EMPTY_FORM = {
     studentId: "",
     departmentId: "",
     sectionId: "",
+    sectionIds: [],
+    academicYear: "2026-2027",
+    term: "First Semester",
     isActive: true,
 };
 
@@ -310,6 +313,12 @@ export default function Users() {
                           user.section_id
                       )
                     : "",
+            sectionIds:
+                user.section_ids?.map(String) || [],
+            academicYear:
+                user.academic_year || "2026-2027",
+            term:
+                user.term || "First Semester",
             isActive:
                 user.is_active !== false,
         });
@@ -345,9 +354,14 @@ export default function Users() {
                         : "",
 
                 sectionId:
-                    ["student", "professor"].includes(role)
+                    role === "student"
                         ? current.sectionId
                         : "",
+
+                sectionIds:
+                    role === "professor"
+                        ? current.sectionIds
+                        : [],
             })
         );
     }
@@ -365,6 +379,7 @@ export default function Users() {
                  * department changes.
                  */
                 sectionId: "",
+                sectionIds: [],
             })
         );
     }
@@ -406,11 +421,20 @@ export default function Users() {
             }
 
             if (
-                ["student", "professor"].includes(form.role) &&
+                form.role === "student" &&
                 !form.sectionId
             ) {
                 throw new Error(
                     "Please select a section for this account."
+                );
+            }
+
+            if (
+                form.role === "professor" &&
+                form.sectionIds.length === 0
+            ) {
+                throw new Error(
+                    "Please select at least one handled section for this Professor."
                 );
             }
 
@@ -437,9 +461,14 @@ export default function Users() {
                         : null,
 
                 sectionId:
-                    ["student", "professor"].includes(form.role)
+                    form.role === "student"
                         ? form.sectionId
                         : null,
+
+                sectionIds:
+                    form.role === "professor"
+                        ? form.sectionIds
+                        : [],
             };
 
             const response =
@@ -1246,8 +1275,9 @@ export default function Users() {
                                         </td>
 
                                         <td>
-                                            {["student", "professor"].includes(user.role) &&
-                                            user.section_name
+                                            {user.role === "professor"
+                                                ? user.section_names?.join(", ") || "-"
+                                                : user.role === "student" && user.section_name
                                                 ? user.section_name
                                                 : "-"}
                                         </td>
@@ -1583,7 +1613,7 @@ export default function Users() {
                             </label>
                         )}
 
-                        {["student", "professor"].includes(form.role) && (
+                        {form.role === "student" && (
                             <label>
                                 Section
 
@@ -1651,6 +1681,88 @@ export default function Users() {
                                         </small>
                                     )}
                             </label>
+                        )}
+
+                        {form.role === "professor" && (
+                            <fieldset className="professor-section-fieldset">
+                                <legend>Handled sections</legend>
+
+                                {!form.departmentId ? (
+                                    <p>Select a department first.</p>
+                                ) : availableSections.length === 0 ? (
+                                    <p>No active sections are available for this department.</p>
+                                ) : (
+                                    <div className="professor-section-options">
+                                        {availableSections.map((section) => {
+                                            const sectionId = String(section.id);
+                                            return (
+                                                <label key={section.id}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={form.sectionIds.includes(sectionId)}
+                                                        onChange={(event) =>
+                                                            setForm((current) => ({
+                                                                ...current,
+                                                                sectionIds: event.target.checked
+                                                                    ? [...current.sectionIds, sectionId]
+                                                                    : current.sectionIds.filter((id) => id !== sectionId),
+                                                            }))
+                                                        }
+                                                    />
+                                                    <span>{section.name}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+
+                                {availableSections.length > 0 && (
+                                    <div className="professor-section-tools">
+                                        <button
+                                            type="button"
+                                            onClick={() => setForm((current) => ({
+                                                ...current,
+                                                sectionIds: availableSections.map((section) => String(section.id)),
+                                            }))}
+                                        >
+                                            Select all
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setForm((current) => ({ ...current, sectionIds: [] }))}
+                                        >
+                                            Clear
+                                        </button>
+                                    </div>
+                                )}
+                            </fieldset>
+                        )}
+
+                        {form.role === "professor" && (
+                            <div className="professor-term-grid">
+                                <label>
+                                    Academic year
+                                    <input
+                                        required
+                                        maxLength={30}
+                                        placeholder="2026-2027"
+                                        value={form.academicYear}
+                                        onChange={(event) => setForm({ ...form, academicYear: event.target.value })}
+                                    />
+                                </label>
+                                <label>
+                                    Term
+                                    <select
+                                        required
+                                        value={form.term}
+                                        onChange={(event) => setForm({ ...form, term: event.target.value })}
+                                    >
+                                        <option value="First Semester">First Semester</option>
+                                        <option value="Second Semester">Second Semester</option>
+                                        <option value="Summer Term">Summer Term</option>
+                                    </select>
+                                </label>
+                            </div>
                         )}
 
                         <label className="user-active">
