@@ -82,18 +82,31 @@ export default function BorrowingInterface() {
       ? "cards"
       : "table",
   );
+  const [isMobileBorrowing, setIsMobileBorrowing] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia?.("(max-width: 700px)").matches,
+  );
+  const [mobileStep, setMobileStep] = useState(1);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return undefined;
 
     const mobileQuery = window.matchMedia("(max-width: 700px)");
     const useBestViewForScreen = (event) => {
+      setIsMobileBorrowing(event.matches);
       setInventoryView(event.matches ? "cards" : "table");
     };
 
     mobileQuery.addEventListener?.("change", useBestViewForScreen);
     return () => mobileQuery.removeEventListener?.("change", useBestViewForScreen);
   }, []);
+
+  function showMobileStep(step) {
+    setFormError("");
+    setMobileStep(step);
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
 
   const [selectedItemDetails, setSelectedItemDetails] = useState(null);
 
@@ -451,6 +464,49 @@ export default function BorrowingInterface() {
     return "";
   }
 
+  function validateMobileDetails() {
+    if (!studentName.trim()) return "Student name is required.";
+    if (!studentId.trim()) return "Student ID is required.";
+    if (!departmentId) return "Please select your department.";
+    if (!sectionId) return "Please select your section.";
+    if (!assignedProfessorId) return "Select an assigned professor from the official suggestions.";
+    if (!borrowDate) return "Borrow date is required.";
+    if (!returnDate) return "Return date is required.";
+    if (new Date(returnDate) < new Date(borrowDate)) return "Return date must be after borrow date.";
+    if (Boolean(startTime) !== Boolean(endTime)) return "Enter both borrow and return times, or leave both blank for a full-day request.";
+    if (startTime && borrowDate === returnDate && startTime >= endTime) return "Return time must be after borrow time.";
+
+    const closure = closureForSchedule(closures, borrowDate, returnDate, startTime, endTime, departmentId);
+    if (closure) return `The selected date is closed for ${closure.title}. Choose an open date.`;
+    if (!purpose.trim()) return "Purpose is required.";
+    return "";
+  }
+
+  function continueToMobileItems() {
+    const validation = validateMobileDetails();
+    if (validation) {
+      setFormError(validation);
+      return;
+    }
+    showMobileStep(2);
+  }
+
+  function continueToMobileReview() {
+    if (totalItems === 0) {
+      setFormError("Please select at least one item.");
+      return;
+    }
+    if (totalItems > borrowingPolicy.maxItemsPerRequest) {
+      setFormError(`Each request may contain at most ${borrowingPolicy.maxItemsPerRequest} different items.`);
+      return;
+    }
+    if (totalUnits > borrowingPolicy.maxQuantityPerRequest) {
+      setFormError(`Each request may contain at most ${borrowingPolicy.maxQuantityPerRequest} total units.`);
+      return;
+    }
+    showMobileStep(3);
+  }
+
   /*
    * ============================================================
    * SUBMIT
@@ -533,6 +589,7 @@ export default function BorrowingInterface() {
       setProfessorQuery("");
       setBorrowerConsent(false);
       setSelectedItemDetails(null);
+      setMobileStep(1);
 
       loadInventory();
     } catch (error) {
@@ -1387,7 +1444,7 @@ function printBorrowerFormPreview() {
    */
 
   return (
-    <div className="borrow-page">
+    <div className={`borrow-page mobile-step-${mobileStep}`}>
 
       {/* HEADER */}
 
@@ -1402,6 +1459,17 @@ function printBorrowerFormPreview() {
         </p>
 
       </header>
+
+      {isMobileBorrowing && (
+        <nav className="mobile-borrow-progress" aria-label="Borrow request progress">
+          {[1, 2, 3].map((step) => (
+            <div key={step} className={step === mobileStep ? "active" : step < mobileStep ? "complete" : ""}>
+              <span>{step < mobileStep ? "✓" : step}</span>
+              <small>{step === 1 ? "Request" : step === 2 ? "Items" : "Review"}</small>
+            </div>
+          ))}
+        </nav>
+      )}
 
 
       {/* SUCCESS */}
@@ -1840,6 +1908,12 @@ function printBorrowerFormPreview() {
 
           </div>
 
+          <div className="mobile-step-actions mobile-step-one-actions">
+            <button type="button" className="mobile-primary-action" onClick={continueToMobileItems}>
+              Continue to Items <span aria-hidden="true">→</span>
+            </button>
+          </div>
+
         </div>
 
 
@@ -1973,6 +2047,13 @@ function printBorrowerFormPreview() {
 
         )}
 
+        <div className="mobile-step-actions mobile-item-navigation">
+          <button type="button" className="mobile-secondary-action" onClick={() => showMobileStep(1)}>Back</button>
+          <button type="button" className="mobile-primary-action" onClick={continueToMobileReview}>
+            Review Request <span aria-hidden="true">→</span>
+          </button>
+        </div>
+
 
         {/* FOOTER */}
 
@@ -2023,6 +2104,15 @@ function printBorrowerFormPreview() {
 
           </div>
 
+          <div className="mobile-selected-items" aria-label="Selected items">
+            {selectedList.map((item) => (
+              <div key={item.id}>
+                <span>{item.item_name || "Unnamed Item"}</span>
+                <strong>×{item.borrowQty}</strong>
+              </div>
+            ))}
+          </div>
+
 
           <label className="borrower-consent-field">
             <input type="checkbox" checked={borrowerConsent} onChange={(event) => setBorrowerConsent(event.target.checked)} />
@@ -2052,6 +2142,10 @@ function printBorrowerFormPreview() {
             </button>
 
           </div>
+
+          <button type="button" className="mobile-review-back" onClick={() => showMobileStep(2)}>
+            ← Back to items
+          </button>
 
         </div>
 
