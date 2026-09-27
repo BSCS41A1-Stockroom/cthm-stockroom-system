@@ -395,8 +395,14 @@ async function getAssignmentOptions(req, res, next) {
     const [departments, sections, professors, rooms] = await Promise.all([
       pool.query(`SELECT id,code,name FROM public.academic_departments WHERE is_active=true ORDER BY name,id`),
       pool.query(`SELECT id,department_id,name FROM public.academic_sections WHERE is_active=true ORDER BY name,id`),
-      pool.query(`SELECT user_id,department_id,full_name FROM public.profiles
-        WHERE role='professor' AND is_active=true AND department_id IS NOT NULL ORDER BY full_name,user_id`),
+      pool.query(`SELECT profile.user_id,profile.department_id,profile.full_name,
+          array_agg(distinct assignment.section_id order by assignment.section_id) AS section_ids
+        FROM public.profiles profile
+        JOIN public.professor_section_assignments assignment
+          ON assignment.professor_user_id=profile.user_id AND assignment.is_active=true
+        WHERE profile.role='professor' AND profile.is_active=true AND profile.department_id IS NOT NULL
+        GROUP BY profile.user_id,profile.department_id,profile.full_name
+        ORDER BY profile.full_name,profile.user_id`),
       pool.query(`SELECT id,department_id,name,room_type FROM public.laboratory_rooms
         WHERE is_active=true AND ($1::boolean=false OR department_id=$2) ORDER BY department_id,name,id`,
         [req.user.role === "staff", req.user.department_id]),
@@ -404,7 +410,7 @@ async function getAssignmentOptions(req, res, next) {
     return res.json({
       departments: departments.rows.map((row) => ({ id: row.id, code: row.code, name: row.name })),
       sections: sections.rows.map((row) => ({ id: row.id, departmentId: row.department_id, name: row.name })),
-      professors: professors.rows.map((row) => ({ id: row.user_id, departmentId: row.department_id, fullName: row.full_name })),
+      professors: professors.rows.map((row) => ({ id: row.user_id, departmentId: row.department_id, sectionIds: row.section_ids, fullName: row.full_name })),
       rooms: rooms.rows.map((row) => ({ id: row.id, departmentId: row.department_id, name: row.name, roomType: row.room_type })),
     });
   } catch (error) { return next(error); }
@@ -423,6 +429,8 @@ async function validateAcademicAssignment(client, request) {
     JOIN public.academic_sections AS section ON section.department_id=department.id AND section.id=$2 AND section.is_active=true
     JOIN public.profiles AS professor ON professor.department_id=department.id AND professor.user_id=$3::uuid
       AND professor.role='professor' AND professor.is_active=true
+    JOIN public.professor_section_assignments AS assignment ON assignment.professor_user_id=professor.user_id
+      AND assignment.section_id=section.id AND assignment.is_active=true
     WHERE department.id=$1 AND department.is_active=true
     FOR KEY SHARE OF department,section,professor`, [departmentId, sectionId, professorId]);
   return result.rowCount ? null : { code: "INVALID_ACADEMIC_ASSIGNMENT", message: "The selected section or professor does not belong to the active department." };

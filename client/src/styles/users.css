@@ -456,6 +456,9 @@
 
     padding: 28px;
 
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+
     background: var(--users-white);
 
     border: 1px solid var(--users-border-warm);
@@ -1720,5 +1723,107 @@
     .section-form-actions {
         padding-left: 20px;
         padding-right: 20px;
+    }
+}
+
+.professor-section-fieldset {
+    min-width: 0;
+    margin: 14px 0;
+    padding: 12px;
+    border: 1px solid var(--users-border);
+    border-radius: 8px;
+}
+
+.professor-section-fieldset legend {
+    padding: 0 5px;
+    color: #5f5a51;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.professor-section-fieldset > p {
+    margin: 2px 0;
+    color: var(--users-muted);
+    font-size: 12px;
+}
+
+.professor-section-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.user-modal .professor-section-options label {
+    display: flex;
+    min-width: 0;
+    min-height: 38px;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 7px 9px;
+    border-radius: 6px;
+    background: #f8f7f3;
+}
+
+.user-modal .professor-section-options input {
+    width: 17px;
+    height: 17px;
+    flex: 0 0 auto;
+    accent-color: var(--users-navy);
+}
+
+.professor-section-options span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.professor-section-tools {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 9px;
+}
+
+.professor-section-tools button {
+    min-height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--users-border);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--users-navy);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.professor-term-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.professor-term-grid .user-modal label,
+.user-modal .professor-term-grid label {
+    margin: 0;
+}
+
+@media (max-width: 600px) {
+    .user-modal {
+        width: calc(100vw - 20px);
+        max-height: calc(100dvh - 20px);
+        padding: 20px 16px;
+    }
+
+    .professor-section-options,
+    .professor-term-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .professor-section-options {
+        max-height: 210px;
     }
 }

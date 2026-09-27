@@ -357,6 +357,7 @@ export default function BorrowingInterface() {
       .filter(
         (professor) =>
           String(professor.departmentId) === String(departmentId) &&
+          (professor.sectionIds || []).map(String).includes(String(sectionId)) &&
           (!query ||
             professor.fullName
               .toLowerCase()
@@ -366,6 +367,7 @@ export default function BorrowingInterface() {
   }, [
     assignmentOptions.professors,
     departmentId,
+    sectionId,
     professorQuery,
   ]);
 
@@ -1615,11 +1617,11 @@ function printBorrowerFormPreview() {
                   !departmentId ||
                   assignmentLoading
                 }
-                onChange={(event) =>
-                  setSectionId(
-                    event.target.value
-                  )
-                }
+                onChange={(event) => {
+                  setSectionId(event.target.value);
+                  setAssignedProfessorId("");
+                  setProfessorQuery("");
+                }}
               >
 
                 <option value="">
