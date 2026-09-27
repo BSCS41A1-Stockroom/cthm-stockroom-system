@@ -14,7 +14,7 @@ alter table public.borrow_requests add constraint borrow_requests_time_pair_chec
 alter table public.calendar_closures
   add column if not exists start_time time,
   add column if not exists end_time time;
-
+   
 alter table public.calendar_closures drop constraint if exists calendar_closures_time_pair_check;
 alter table public.calendar_closures add constraint calendar_closures_time_pair_check check (
   (start_time is null and end_time is null)

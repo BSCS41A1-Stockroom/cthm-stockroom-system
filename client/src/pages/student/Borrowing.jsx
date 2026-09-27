@@ -83,6 +83,18 @@ export default function BorrowingInterface() {
       : "table",
   );
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return undefined;
+
+    const mobileQuery = window.matchMedia("(max-width: 700px)");
+    const useBestViewForScreen = (event) => {
+      setInventoryView(event.matches ? "cards" : "table");
+    };
+
+    mobileQuery.addEventListener?.("change", useBestViewForScreen);
+    return () => mobileQuery.removeEventListener?.("change", useBestViewForScreen);
+  }, []);
+
   const [selectedItemDetails, setSelectedItemDetails] = useState(null);
 
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
@@ -1411,12 +1423,16 @@ function printBorrowerFormPreview() {
 
           <div className="information-heading">
 
+            <span className="mobile-step-kicker">Step 1 of 3</span>
+
             <h2>
-              Borrowing Information
+              <span className="desktop-borrow-copy">Borrowing Information</span>
+              <span className="mobile-borrow-copy">Tell us about your request</span>
             </h2>
 
             <p>
-              Complete the information before submitting your request.
+              <span className="desktop-borrow-copy">Complete the information before submitting your request.</span>
+              <span className="mobile-borrow-copy">Choose your department, professor, schedule, and purpose.</span>
             </p>
 
           </div>
@@ -1866,12 +1882,16 @@ function printBorrowerFormPreview() {
 
             <div>
 
+              <span className="mobile-step-kicker">Step 2 of 3</span>
+
               <h2>
-                Inventory
+                <span className="desktop-borrow-copy">Inventory</span>
+                <span className="mobile-borrow-copy">Choose your items</span>
               </h2>
 
               <p>
-                Select the items and quantity you need.
+                <span className="desktop-borrow-copy">Select the items and quantity you need.</span>
+                <span className="mobile-borrow-copy">Search, select an item, then enter how many you need.</span>
               </p>
 
             </div>
@@ -1957,6 +1977,12 @@ function printBorrowerFormPreview() {
         {/* FOOTER */}
 
         <div className="borrow-footer">
+
+          <div className="mobile-review-heading">
+            <span className="mobile-step-kicker">Step 3 of 3</span>
+            <strong>Review and submit</strong>
+            <p>Check your selected quantity, confirm the request, then submit.</p>
+          </div>
 
           <div className="selection-summary">
 
