@@ -4473,6 +4473,10 @@
         overflow-x: clip;
     }
 
+    .borrow-page {
+        gap: 12px;
+    }
+
     .borrow-header h1 {
         font-size: clamp(24px, 8vw, 29px);
         line-height: 1.15;
@@ -4486,7 +4490,7 @@
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 0;
-        padding: 14px 16px;
+        padding: 11px 14px;
         border: 1px solid var(--borrow-border);
         border-radius: 13px;
         background: #fff;
@@ -4555,7 +4559,7 @@
     .borrow-panel {
         display: flex;
         flex-direction: column;
-        padding: 16px;
+        padding: 8px 0 18px;
         border-radius: 12px;
         background: transparent;
         border: 0;
@@ -4567,12 +4571,12 @@
         grid-template-columns: minmax(0, 0.65fr) minmax(0, 1.35fr);
         gap: 10px;
         width: 100%;
-        margin-top: 16px;
+        margin-top: 12px;
     }
 
     .mobile-step-one-actions {
         grid-template-columns: 1fr;
-        margin-top: 20px;
+        margin-top: 16px;
     }
 
     .mobile-primary-action,
@@ -4616,7 +4620,7 @@
     }
 
     .mobile-step-2 .table-heading {
-        margin-top: 0;
+        margin-top: 2px;
     }
 
     .borrowing-information {
@@ -4638,12 +4642,12 @@
 
     .table-heading {
         order: 3;
-        margin: 22px 0 10px;
+        margin: 14px 0 8px;
     }
 
     .filter-bar {
         order: 4;
-        margin-bottom: 12px;
+        margin-bottom: 9px;
     }
 
     .inventory-cards-wrap,
@@ -4651,8 +4655,13 @@
         order: 5;
     }
 
-    .borrow-footer {
+    .mobile-item-navigation {
         order: 6;
+        margin-top: 12px;
+    }
+
+    .borrow-footer {
+        order: 7;
     }
 
     .mobile-step-kicker {
@@ -4741,6 +4750,11 @@
     .inventory-card-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 8px;
+    }
+
+    .inventory-card-empty {
+        min-height: 150px;
+        padding: 20px;
     }
 
     .inventory-card-image-wrap {
