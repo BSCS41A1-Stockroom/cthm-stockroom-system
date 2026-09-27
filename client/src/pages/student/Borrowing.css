@@ -4625,8 +4625,10 @@
 
     .borrowing-information {
         order: 1;
+        min-width: 0;
+        overflow: hidden;
         margin-bottom: 0;
-        padding: 18px 16px;
+        padding: 18px;
         border: 1px solid var(--borrow-border);
         border-radius: 14px;
         background: var(--borrow-white);
@@ -4698,10 +4700,14 @@
     }
 
     .details-grid {
+        width: 100%;
+        min-width: 0;
         gap: 15px;
     }
 
     .details-grid label {
+        width: 100%;
+        min-width: 0;
         gap: 7px;
         font-size: 13px;
     }
@@ -4738,6 +4744,39 @@
     .item-details-quantity input {
         min-height: 44px;
         font-size: 16px !important;
+    }
+
+    .details-grid input,
+    .details-grid select,
+    .details-grid textarea,
+    .professor-combobox,
+    .professor-combobox input {
+        display: block;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        box-sizing: border-box;
+    }
+
+    .details-grid input[type="date"],
+    .details-grid input[type="time"] {
+        height: 48px;
+        padding: 0 11px;
+        overflow: hidden;
+        border-radius: 8px;
+    }
+
+    .details-grid input[type="date"]::-webkit-date-and-time-value,
+    .details-grid input[type="time"]::-webkit-date-and-time-value {
+        min-width: 0;
+        margin: 0;
+        text-align: left;
+    }
+
+    .details-grid select,
+    .details-grid input:not([readonly]),
+    .details-grid textarea {
+        border-radius: 8px;
     }
 
     .inventory-view-btn,
