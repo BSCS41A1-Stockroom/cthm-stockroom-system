@@ -4731,11 +4731,12 @@
     }
 
     .inventory-card-grid {
-        gap: 12px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
     }
 
     .inventory-card-image-wrap {
-        height: 132px;
+        height: 82px;
         aspect-ratio: auto;
     }
 
@@ -4748,16 +4749,31 @@
     }
 
     .inventory-card-content {
-        padding: 14px;
+        padding: 9px;
     }
 
     .inventory-card-title-row {
-        align-items: center;
-        margin-bottom: 12px;
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 9px;
     }
 
     .inventory-card-title h3 {
-        font-size: 16px;
+        display: -webkit-box;
+        min-height: 31px;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        font-size: 11px;
+        line-height: 1.35;
+    }
+
+    .inventory-stock-badge {
+        max-width: 100%;
+        padding: 4px 6px;
+        font-size: 8px;
+        white-space: normal;
     }
 
     .inventory-card-details {
@@ -4767,37 +4783,41 @@
     .inventory-card-actions {
         align-items: stretch;
         flex-direction: column;
-        gap: 10px;
-        margin-bottom: 10px;
+        gap: 7px;
+        margin-bottom: 0;
     }
 
     .inventory-card-select {
-        min-height: 46px;
-        padding: 0 12px;
+        min-height: 40px;
+        padding: 0 7px;
         border: 1px solid var(--borrow-border);
-        border-radius: 9px;
-        font-size: 14px;
+        border-radius: 7px;
+        font-size: 10px;
     }
 
     .inventory-card-select input {
-        width: 21px;
-        height: 21px;
+        width: 18px;
+        height: 18px;
     }
 
     .inventory-card-quantity {
-        justify-content: space-between;
+        align-items: stretch;
+        flex-direction: column;
+        gap: 4px;
     }
 
     .inventory-card-quantity > span {
-        font-size: 13px;
+        font-size: 9px;
     }
 
     .inventory-card-quantity .qty-input {
-        width: 88px !important;
+        width: 100% !important;
+        min-width: 0;
+        min-height: 40px;
     }
 
     .inventory-card-details-btn {
-        min-height: 44px;
+        display: none;
     }
 
     .borrow-footer {
@@ -4925,5 +4945,20 @@
     .borrower-preview-modal,
     .print-preview-modal {
         max-height: calc(100dvh - 16px) !important;
+    }
+}
+
+@media (max-width: 390px) {
+    .mobile-step-2 .inventory-card-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 9px;
+    }
+
+    .mobile-step-2 .inventory-card-image-wrap {
+        height: 96px;
+    }
+
+    .mobile-step-2 .inventory-card-title h3 {
+        font-size: 12px;
     }
 }
