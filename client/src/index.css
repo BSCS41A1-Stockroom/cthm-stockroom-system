@@ -324,3 +324,38 @@ body {
 .signout-submit{border:1px solid #b91c1c;background:#b91c1c;color:#fff;}
 .signout-cancel:hover:not(:disabled){background:#f9fafb;}
 .signout-submit:hover:not(:disabled){background:#991b1b;}
+
+/* Mobile-only interaction safeguards shared by every portal. A 16px control
+   font prevents iOS Safari from zooming the viewport when a field is focused. */
+@media (max-width: 700px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  html body input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  html body select,
+  html body textarea {
+    max-width: 100%;
+    font-size: 16px !important;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
+    min-width: 0;
+  }
+}

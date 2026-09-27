@@ -4857,7 +4857,7 @@
         border-right: 1px solid var(--borrow-border);
         border-left: 1px solid var(--borrow-border);
         border-radius: 0;
-        font-size: 14px !important;
+        font-size: 16px !important;
         appearance: textfield;
         -moz-appearance: textfield;
     }
