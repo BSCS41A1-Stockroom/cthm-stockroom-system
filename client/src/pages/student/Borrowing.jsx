@@ -304,6 +304,11 @@ export default function BorrowingInterface() {
     }));
   }
 
+  function adjustQuantity(id, change, max) {
+    const current = Number(selected[id]) || 1;
+    updateQuantity(id, current + change, max);
+  }
+
   /*
    * ============================================================
    * SELECTED ITEMS
@@ -1368,24 +1373,49 @@ function printBorrowerFormPreview() {
                       Quantity
                     </span>
 
-                    <input
-                      type="number"
-                      min="1"
-                      max={available}
-                      className="qty-input"
-                      disabled={!checked}
-                      value={
-                        selected[item.id] ??
-                        ""
-                      }
-                      onChange={(e) =>
-                        updateQuantity(
-                          item.id,
-                          e.target.value,
-                          available
-                        )
-                      }
-                    />
+                    <div className="inventory-quantity-stepper">
+                      <button
+                        type="button"
+                        className="mobile-quantity-button"
+                        aria-label={`Decrease quantity for ${item.item_name || "item"}`}
+                        disabled={!checked || Number(selected[item.id]) <= 1}
+                        onClick={() => adjustQuantity(item.id, -1, available)}
+                      >
+                        −
+                      </button>
+
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min="1"
+                        max={available}
+                        className="qty-input"
+                        aria-label={`Quantity for ${item.item_name || "item"}`}
+                        disabled={!checked}
+                        value={
+                          selected[item.id] ??
+                          ""
+                        }
+                        onFocus={(event) => event.currentTarget.select()}
+                        onChange={(e) =>
+                          updateQuantity(
+                            item.id,
+                            e.target.value,
+                            available
+                          )
+                        }
+                      />
+
+                      <button
+                        type="button"
+                        className="mobile-quantity-button"
+                        aria-label={`Increase quantity for ${item.item_name || "item"}`}
+                        disabled={!checked || Number(selected[item.id]) >= available}
+                        onClick={() => adjustQuantity(item.id, 1, available)}
+                      >
+                        +
+                      </button>
+                    </div>
 
                   </div>
 
