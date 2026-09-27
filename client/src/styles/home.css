@@ -1213,3 +1213,28 @@
 
 }
 
+/* Mobile usability safeguards. Keep the existing visual language while making
+   the student landing page comfortable to read and operate with one hand. */
+@media (max-width: 600px) {
+  .status-greeting span,
+  .primary-action-text p,
+  .announcement-content p {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .status-number span {
+    font-size: 10px;
+  }
+
+  .btn-primary-light,
+  .btn-primary-ghost,
+  .feature-button {
+    min-height: 44px;
+  }
+
+  .feature-card {
+    min-height: auto;
+  }
+}
+

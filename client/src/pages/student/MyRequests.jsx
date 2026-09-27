@@ -226,16 +226,16 @@ export default function MyRequests() {
                   const extra = items.length > 2 ? ` +${items.length - 2} more` : "";
                   return (
                     <tr key={req.id}>
-                      <td>
+                      <td data-label="Items">
                         <span className="items-preview">{preview || "—"}{extra}</span>
                       </td>
-                      <td className="muted">{formatDate(req.borrowDate)}</td>
-                      <td className="muted">{formatDate(req.returnDate)}</td>
-                      <td>
+                      <td className="muted" data-label="Borrow date">{formatDate(req.borrowDate)}</td>
+                      <td className="muted" data-label="Return date">{formatDate(req.returnDate)}</td>
+                      <td data-label="Status">
                         <StatusBadge status={req.status} />{req.overdue && <span className="requested-at"> Overdue</span>}
                         {req.calendarDisruption && <span className="requested-at" title={`Affected by ${req.calendarDisruption}. Contact your professor or stockroom; the date has not changed automatically.`}> · Schedule affected</span>}
                       </td>
-                      <td>
+                      <td data-label="Actions">
                         <button
                           type="button"
                           className="view-btn"

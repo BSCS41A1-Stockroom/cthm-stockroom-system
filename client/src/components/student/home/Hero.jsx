@@ -71,7 +71,7 @@ export default function Hero() {
           <button className="btn-primary-light" onClick={() => navigate("/borrowing")}>
             <FaBoxOpen /> New borrow request <FaArrowRight />
           </button>
-          <button className="btn-primary-ghost" onClick={() => navigate("/requests")}>
+          <button className="btn-primary-ghost" onClick={() => navigate("/my-requests")}>
             <FaClipboardList /> View my requests
           </button>
         </div>

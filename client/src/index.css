@@ -288,6 +288,38 @@ body {
 .signout-confirm-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;}
 .signout-confirm-actions button{padding:10px 15px;border-radius:8px;cursor:pointer;font:inherit;font-size:13px;font-weight:600;}
 .signout-confirm-actions button:disabled{cursor:not-allowed;opacity:.65;}
+
+@media (max-width: 600px) {
+  .profile-dropdown {
+    position: fixed;
+    top: calc(var(--topbar-height, 60px) + 6px);
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-width: none;
+  }
+
+  .profile-dropdown-link,
+  .profile-signout {
+    min-height: 48px;
+  }
+
+  .signout-confirm-overlay {
+    align-items: flex-end;
+    padding: 12px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .signout-confirm-dialog {
+    width: 100%;
+    max-width: none;
+    border-radius: 14px;
+  }
+
+  .signout-confirm-actions button {
+    min-height: 44px;
+  }
+}
 .signout-cancel{border:1px solid #d1d5db;background:#fff;color:#374151;}
 .signout-submit{border:1px solid #b91c1c;background:#b91c1c;color:#fff;}
 .signout-cancel:hover:not(:disabled){background:#f9fafb;}

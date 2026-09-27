@@ -2441,4 +2441,25 @@
     .calendar-page .modal-footer { padding: 13px 16px; }
     .calendar-page .modal-body { padding: 16px; }
     .calendar-page .form-grid { grid-template-columns: 1fr; }
+
+    .calendar-toolbar {
+        gap: 12px;
+    }
+
+    .toolbar-right,
+    .toolbar-right > * {
+        width: 100%;
+    }
+
+    .calendar-page .form-group input,
+    .calendar-page .form-group select,
+    .calendar-page .form-group textarea {
+        min-height: 44px;
+        font-size: 16px;
+    }
+
+    .calendar-page .modal-footer button,
+    .calendar-page .modal-header button {
+        min-height: 44px;
+    }
 }

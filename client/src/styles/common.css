@@ -2140,3 +2140,38 @@ body {
         transition: none !important;
     }
 }
+
+/* Shared mobile interaction baseline. Page-specific styles still control the
+   appearance; these rules only prevent cramped controls and viewport overflow. */
+@media (max-width: 600px) {
+    .page-content,
+    .common-content,
+    .page-content > *,
+    .common-content > * {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .page-content input:not([type="checkbox"]):not([type="radio"]),
+    .page-content select,
+    .page-content textarea,
+    .common-content input:not([type="checkbox"]):not([type="radio"]),
+    .common-content select,
+    .common-content textarea {
+        font-size: 16px;
+    }
+
+    .sidebar-nav-link,
+    .topbar-menu {
+        min-height: 44px;
+    }
+
+    .topbar-left {
+        min-width: 0;
+    }
+
+    .topbar-title {
+        min-width: 0;
+        max-width: min(52vw, 250px);
+    }
+}
