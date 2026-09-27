@@ -4445,3 +4445,106 @@
     }
 }
 .borrower-consent-field{display:flex;align-items:flex-start;gap:10px;margin:0 0 14px;padding:14px 16px;border:1px solid #dce2e8;border-radius:12px;background:#f8fafc;color:#445164;font-size:13px;line-height:1.5}.borrower-consent-field input{flex:0 0 auto;width:17px;height:17px;margin-top:2px;accent-color:#17263c}.borrower-consent-field span{font-weight:600}
+
+/* Final mobile overrides intentionally live last so legacy responsive blocks
+   cannot hide the primary student action or shrink form controls. */
+@media (max-width: 700px) {
+    .borrowing-page,
+    .borrow-page {
+        min-width: 0;
+        overflow-x: clip;
+    }
+
+    .borrow-header h1 {
+        font-size: clamp(24px, 8vw, 29px);
+        line-height: 1.15;
+    }
+
+    .borrow-subtitle,
+    .table-heading p,
+    .information-heading p {
+        font-size: 13px;
+        line-height: 1.55;
+    }
+
+    .borrow-panel {
+        padding: 16px;
+        border-radius: 12px;
+    }
+
+    .details-grid input,
+    .details-grid select,
+    .details-grid textarea,
+    .professor-combobox input,
+    .table-modal-search input,
+    .qty-input,
+    .item-details-quantity input {
+        min-height: 44px;
+        font-size: 16px !important;
+    }
+
+    .inventory-view-btn,
+    .expand-table-btn,
+    .borrow-action-btn,
+    .item-details-footer button {
+        min-height: 44px;
+    }
+
+    .inventory-card-grid {
+        gap: 12px;
+    }
+
+    .inventory-card-image-wrap {
+        aspect-ratio: 16 / 8;
+    }
+
+    .borrow-footer {
+        position: sticky;
+        z-index: 15;
+        bottom: 0;
+        width: calc(100% + 32px);
+        margin: 18px -16px -16px;
+        padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+        border-top: 1px solid var(--borrow-border);
+        background: rgba(255, 255, 255, 0.98);
+        box-shadow: 0 -8px 24px rgba(23, 38, 60, 0.09);
+    }
+
+    .selection-summary {
+        width: 100%;
+        flex-wrap: wrap;
+        row-gap: 5px;
+        font-size: 12px;
+    }
+
+    .borrower-consent-field {
+        width: 100%;
+        margin: 4px 0 0;
+        padding: 12px;
+        font-size: 12px;
+    }
+
+    .borrower-consent-field input {
+        width: 20px;
+        height: 20px;
+    }
+
+    .borrow-footer-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+        gap: 9px;
+    }
+
+    .borrow-footer-actions .borrow-action-btn {
+        width: 100%;
+        min-width: 0;
+        height: 46px;
+    }
+
+    .table-modal,
+    .item-details-modal,
+    .borrower-preview-modal,
+    .print-preview-modal {
+        max-height: calc(100dvh - 16px) !important;
+    }
+}

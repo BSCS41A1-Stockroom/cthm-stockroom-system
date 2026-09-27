@@ -1244,3 +1244,103 @@
 .student-requests-page .modal-section,
 .student-requests-page .modal-grid,
 .student-requests-page .modal-items { min-width: 0; overflow-wrap: anywhere; }
+
+/* Mobile request cards avoid forcing students to pan across a desktop table. */
+@media (max-width: 700px) {
+  .student-requests-page .table-wrap {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  .student-requests-page .requests-table {
+    min-width: 0;
+  }
+
+  .student-requests-page .requests-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .student-requests-page .requests-table tbody,
+  .student-requests-page .requests-table tr,
+  .student-requests-page .requests-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .student-requests-page .requests-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .student-requests-page .requests-table tbody tr {
+    padding: 7px 15px;
+    border: 1px solid var(--requests-border);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 3px 12px rgba(23, 38, 60, 0.05);
+  }
+
+  .student-requests-page .requests-table tbody td {
+    display: grid;
+    grid-template-columns: minmax(90px, 0.38fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid #edf0f3;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  .student-requests-page .requests-table tbody td::before {
+    content: attr(data-label);
+    color: var(--requests-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .student-requests-page .requests-table tbody td:last-child {
+    border-bottom: 0;
+  }
+
+  .student-requests-page .requests-table .view-btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .student-requests-page .requests-table .empty-cell {
+    display: block;
+    padding: 28px 12px;
+    text-align: center;
+  }
+
+  .student-requests-page .requests-table .empty-cell::before {
+    content: none;
+  }
+
+  .student-requests-page .search-field,
+  .student-requests-page .search-field input,
+  .student-requests-page .withdrawal-content input,
+  .student-requests-page .withdrawal-content textarea {
+    font-size: 16px;
+  }
+
+  .student-requests-page .status-tab,
+  .student-requests-page .modal-close,
+  .student-requests-page .detail-secondary-btn,
+  .student-requests-page .detail-danger-btn,
+  .student-requests-page .receipt-action-btn {
+    min-height: 44px;
+  }
+}

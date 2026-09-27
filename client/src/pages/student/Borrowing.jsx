@@ -77,7 +77,11 @@ export default function BorrowingInterface() {
 
   const [expandedTable, setExpandedTable] = useState(false);
 
-  const [inventoryView, setInventoryView] = useState("table");
+  const [inventoryView, setInventoryView] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia?.("(max-width: 700px)").matches
+      ? "cards"
+      : "table",
+  );
 
   const [selectedItemDetails, setSelectedItemDetails] = useState(null);
 
@@ -884,7 +888,7 @@ function printBorrowerFormPreview() {
               window.print();
             }, 500);
           };
-        <\/script>
+        </script>
       </body>
     </html>
   `);
