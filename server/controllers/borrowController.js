@@ -396,7 +396,12 @@ async function getAssignmentOptions(req, res, next) {
       pool.query(`SELECT id,code,name FROM public.academic_departments WHERE is_active=true ORDER BY name,id`),
       pool.query(`SELECT id,department_id,name FROM public.academic_sections WHERE is_active=true ORDER BY name,id`),
       pool.query(`SELECT profile.user_id,profile.department_id,profile.full_name,
-          array_agg(distinct assignment.section_id order by assignment.section_id) AS section_ids
+          array_agg(distinct assignment.section_id order by assignment.section_id) AS section_ids,
+          jsonb_agg(jsonb_build_object(
+            'sectionId',assignment.section_id,
+            'academicYear',assignment.academic_year,
+            'term',assignment.term
+          ) ORDER BY assignment.section_id,assignment.academic_year,assignment.term) AS assignments
         FROM public.profiles profile
         JOIN public.professor_section_assignments assignment
           ON assignment.professor_user_id=profile.user_id AND assignment.is_active=true
@@ -410,7 +415,13 @@ async function getAssignmentOptions(req, res, next) {
     return res.json({
       departments: departments.rows.map((row) => ({ id: row.id, code: row.code, name: row.name })),
       sections: sections.rows.map((row) => ({ id: row.id, departmentId: row.department_id, name: row.name })),
-      professors: professors.rows.map((row) => ({ id: row.user_id, departmentId: row.department_id, sectionIds: row.section_ids, fullName: row.full_name })),
+      professors: professors.rows.map((row) => ({
+        id: row.user_id,
+        departmentId: row.department_id,
+        sectionIds: row.section_ids,
+        assignments: row.assignments,
+        fullName: row.full_name,
+      })),
       rooms: rooms.rows.map((row) => ({ id: row.id, departmentId: row.department_id, name: row.name, roomType: row.room_type })),
     });
   } catch (error) { return next(error); }
@@ -433,7 +444,10 @@ async function validateAcademicAssignment(client, request) {
       AND assignment.section_id=section.id AND assignment.is_active=true
     WHERE department.id=$1 AND department.is_active=true
     FOR KEY SHARE OF department,section,professor`, [departmentId, sectionId, professorId]);
-  return result.rowCount ? null : { code: "INVALID_ACADEMIC_ASSIGNMENT", message: "The selected section or professor does not belong to the active department." };
+  return result.rowCount ? null : {
+    code: "INVALID_ACADEMIC_ASSIGNMENT",
+    message: "The selected professor does not have an active teaching assignment for this department and section.",
+  };
 }
 
 function validateClaimWindow(returnDate, today) {

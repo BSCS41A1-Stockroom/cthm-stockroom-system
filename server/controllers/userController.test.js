@@ -1,6 +1,6 @@
 "use strict";
 const test = require("node:test"); const assert = require("node:assert/strict");
-const { cleanEnvironmentValue, invitationRedirectUrl, normalizeUser, serviceRoleKey, userErrors } = require("./userController");
+const { cleanEnvironmentValue, invitationRedirectUrl, normalizeUser, serviceRoleKey, syncProfessorSections, userErrors } = require("./userController");
 
 function unsignedKey(role) {
   const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
@@ -23,10 +23,26 @@ test("normalizes managed users and enforces role-specific identity", () => {
   assert.equal(userErrors(normalizeUser({ fullName: "Student", role: "student", studentId: "2026-1", departmentId: 2 })).some((error) => error.includes("section")), true);
   assert.equal(userErrors(normalizeUser({ fullName: "Professor", role: "professor", departmentId: 2, sectionIds: [3, 4], academicYear: "2026-2027", term: "First Semester" })).length, 0);
   assert.equal(userErrors(normalizeUser({ fullName: "Professor", role: "professor", departmentId: 2, academicYear: "2026-2027", term: "First Semester" })).some((error) => error.includes("handled section")), true);
+  assert.equal(userErrors(normalizeUser({ fullName: "Professor", role: "professor", departmentId: 2, sectionIds: [3], academicYear: "2026-2028", term: "First Semester" })).some((error) => error.includes("consecutive years")), true);
+  assert.equal(userErrors(normalizeUser({ fullName: "Professor", role: "professor", departmentId: 2, sectionIds: [3], academicYear: "2026-2027", term: "Third Semester" })).some((error) => error.includes("valid academic term")), true);
   assert.equal(userErrors(normalizeUser({ fullName: "Professor", role: "professor" })).some((error) => error.includes("department")), true);
   assert.equal(userErrors(normalizeUser({ fullName: "Department Head", role: "department_head", departmentId: 2 })).length, 0);
   assert.equal(userErrors(normalizeUser({ fullName: "Department Head", role: "department_head" })).some((error) => error.includes("department")), true);
   assert.equal(userErrors(normalizeUser({ fullName: "Student", role: "student" })).some((error) => error.includes("student ID")), true);
+});
+
+test("deactivating a Professor deactivates teaching assignments without recreating them", async () => {
+  const calls = [];
+  const database = { query: async (sql, params) => { calls.push({ sql, params }); return { rowCount: 1 }; } };
+  await syncProfessorSections(database, "professor-id", {
+    role: "professor",
+    isActive: false,
+    sectionIds: [3],
+    academicYear: "2026-2027",
+    term: "First Semester",
+  });
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].sql, /SET is_active = false/);
 });
 
 test("cleans copied environment formatting and accepts only server admin keys", () => {
