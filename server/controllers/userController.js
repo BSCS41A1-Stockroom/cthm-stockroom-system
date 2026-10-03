@@ -301,21 +301,21 @@ function userErrors(
         );
     }
 
-    if (
-        user.role === "professor" &&
-        (!user.academicYear || user.academicYear.length > 30)
-    ) {
-        errors.push(
-            "Academic year is required and cannot exceed 30 characters."
-        );
+    if (user.role === "professor") {
+        const academicYear = /^(\d{4})-(\d{4})$/.exec(user.academicYear);
+        if (!academicYear || Number(academicYear[2]) !== Number(academicYear[1]) + 1) {
+            errors.push(
+                "Academic year must use consecutive years in YYYY-YYYY format."
+            );
+        }
     }
 
     if (
         user.role === "professor" &&
-        (!user.term || user.term.length > 40)
+        !["First Semester", "Second Semester", "Summer Term"].includes(user.term)
     ) {
         errors.push(
-            "Term is required and cannot exceed 40 characters."
+            "Select a valid academic term."
         );
     }
 
@@ -401,7 +401,7 @@ async function syncProfessorSections(
         [professorId]
     );
 
-    if (user.role !== "professor") {
+    if (user.role !== "professor" || !user.isActive) {
         return;
     }
 
@@ -1031,6 +1031,7 @@ module.exports = {
     listUsers,
     normalizeUser,
     serviceRoleKey,
+    syncProfessorSections,
     updateUser,
     userErrors,
 };

@@ -471,6 +471,16 @@ export default function BorrowingInterface() {
     return "";
   }
 
+  function professorAssignmentLabel(professor) {
+    const assignment = (professor.assignments || []).find(
+      (entry) => String(entry.sectionId) === String(sectionId)
+    );
+
+    return [assignment?.academicYear, assignment?.term]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
   function validateMobileDetails() {
     if (!studentName.trim()) return "Student name is required.";
     if (!studentId.trim()) return "Student ID is required.";
@@ -1666,13 +1676,14 @@ function printBorrowerFormPreview() {
                   aria-controls="professor-suggestions"
                   disabled={
                     !departmentId ||
+                    !sectionId ||
                     assignmentLoading
                   }
                   value={professorQuery}
                   placeholder={
-                    departmentId
+                    sectionId
                       ? "Type the professor's name..."
-                      : "Select a department first"
+                      : "Select a department and section first"
                   }
                   onFocus={() =>
                     setProfessorSuggestionsOpen(
@@ -1823,19 +1834,12 @@ function printBorrowerFormPreview() {
                               </strong>
 
                               <span>
-                                {
+                                {professorAssignmentLabel(professor) ||
                                   assignmentOptions.departments.find(
-                                    (
-                                      department
-                                    ) =>
-                                      String(
-                                        department.id
-                                      ) ===
-                                      String(
-                                        professor.departmentId
-                                      )
-                                  )?.name
-                                }
+                                    (department) =>
+                                      String(department.id) ===
+                                      String(professor.departmentId)
+                                  )?.name}
                               </span>
 
                             </button>
@@ -1846,7 +1850,7 @@ function printBorrowerFormPreview() {
                       ) : (
 
                         <div className="professor-no-results">
-                          No active professor matches that name.
+                          No active Professor is assigned to this section for the current academic period.
                         </div>
 
                       )}

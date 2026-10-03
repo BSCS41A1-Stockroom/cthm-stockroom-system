@@ -6,6 +6,7 @@ const pool = require("../config/db");
 const {
   authenticatedStudentRequest,
   cancelBorrowRequest,
+  getAssignmentOptions,
   getBorrowingPolicy,
   inventoryDeltas,
   loadValidationContext,
@@ -52,11 +53,49 @@ test("exposes the authoritative borrowing limits to the student form", () => {
 
 test("accepts only an active professor and section from the selected department", async () => {
   const professorId = "00000000-0000-4000-8000-000000000004";
-  const validClient = { query: async (sql, params) => { assert.match(sql, /professor\.role='professor'/); assert.deepEqual(params, ["2", "3", professorId]); return { rowCount: 1 }; } };
+  const validClient = { query: async (sql, params) => {
+    assert.match(sql, /professor\.role='professor'/);
+    assert.match(sql, /assignment\.section_id=section\.id AND assignment\.is_active=true/);
+    assert.deepEqual(params, ["2", "3", professorId]);
+    return { rowCount: 1 };
+  } };
   assert.equal(await validateAcademicAssignment(validClient, { departmentId: 2, sectionId: 3, assignedProfessorId: professorId }), null);
   const invalidClient = { query: async () => ({ rowCount: 0 }) };
-  assert.equal((await validateAcademicAssignment(invalidClient, { departmentId: 2, sectionId: 99, assignedProfessorId: professorId })).code, "INVALID_ACADEMIC_ASSIGNMENT");
+  const inactiveOrCrossDepartment = await validateAcademicAssignment(invalidClient, { departmentId: 2, sectionId: 99, assignedProfessorId: professorId });
+  assert.equal(inactiveOrCrossDepartment.code, "INVALID_ACADEMIC_ASSIGNMENT");
+  assert.match(inactiveOrCrossDepartment.message, /active teaching assignment/i);
   assert.equal((await validateAcademicAssignment(invalidClient, { departmentId: 2, sectionId: 3, assignedProfessorId: "typed name" })).code, "ACADEMIC_ASSIGNMENT_REQUIRED");
+});
+
+test("assignment options expose only active teaching assignments with their academic period", async () => {
+  const originalQuery = pool.query;
+  const professorId = "00000000-0000-4000-8000-000000000004";
+  const seen = [];
+  pool.query = async (sql) => {
+    seen.push(sql);
+    if (sql.includes("academic_departments")) return { rows: [{ id: 2, code: "CTHM", name: "CTHM" }] };
+    if (sql.includes("academic_sections")) return { rows: [{ id: 3, department_id: 2, name: "HM-1A" }] };
+    if (sql.includes("professor_section_assignments")) return { rows: [{
+      user_id: professorId,
+      department_id: 2,
+      full_name: "Prof. Santos",
+      section_ids: [3],
+      assignments: [{ sectionId: 3, academicYear: "2026-2027", term: "First Semester" }],
+    }] };
+    if (sql.includes("laboratory_rooms")) return { rows: [] };
+    throw new Error(`Unexpected query: ${sql}`);
+  };
+  const response = { json(body) { this.body = body; return this; } };
+  try {
+    await getAssignmentOptions({ user: { role: "student", department_id: 2 } }, response, (error) => { throw error; });
+  } finally {
+    pool.query = originalQuery;
+  }
+  assert.deepEqual(response.body.professors[0].assignments, [
+    { sectionId: 3, academicYear: "2026-2027", term: "First Semester" },
+  ]);
+  assert.ok(seen.some((sql) => sql.includes("assignment.is_active=true")));
+  assert.ok(seen.some((sql) => sql.includes("profile.is_active=true")));
 });
 
 test("normalizes return quantities and rejects invalid return batches", () => {
