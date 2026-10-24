@@ -1,0 +1,293 @@
+{
+  "baselineDate": "2026-10-23",
+  "capturedAt": "2026-10-23T12:11:46.664Z",
+  "commit": "74512ded5812f0558d4f72828a46c94bc71981d2",
+  "scope": "loadValidationContext: seven original parameterized SQL statements; not every application query",
+  "databaseExecuted": false,
+  "schemaNote": "Migration source snapshot only; not proof of deployed schema, indexes, or PostgreSQL settings.",
+  "queries": [
+    {
+      "id": "01-borrower-lock",
+      "file": "01-borrower-lock.sql",
+      "source": "server/controllers/borrowController.js",
+      "line": 554,
+      "sha256": "751f836dc8f78c330387456dd68a8803972c7b3e2b6a2b95c27f15068bed2ca5"
+    },
+    {
+      "id": "02-accountability",
+      "file": "02-accountability.sql",
+      "source": "server/controllers/borrowController.js",
+      "line": 559,
+      "sha256": "8c98d06f7a45c257fa4fcf91b50aa7e900d62566e7d2bd9af2ba892302b57ae4"
+    },
+    {
+      "id": "03-usable-inventory",
+      "file": "03-usable-inventory.sql",
+      "source": "server/controllers/borrowController.js",
+      "line": 565,
+      "sha256": "06df2deb884992d0ea50ba482323ce55916473c4f7643086b3e253553cd6235d"
+    },
+    {
+      "id": "04-inventory-commitments",
+      "file": "04-inventory-commitments.sql",
+      "source": "server/controllers/borrowController.js",
+      "line": 579,
+      "sha256": "8fe622968ef1c99bbb6fa2e88537779799ac3153c6cee2d5489504f4f7b27722"
+    },
+    {
+      "id": "05-outstanding-borrowing",
+      "file": "05-outstanding-borrowing.sql",
+      "source": "server/controllers/borrowController.js",
+      "line": 609,
+      "sha256": "8414ee757b018f45510800f6b2687bcd2dc0a9ad515db7abe288b76b1d58a397"
+    },
+    {
+      "id": "06-borrower-conflicts",
+      "file": "06-borrower-conflicts.sql",
+      "source": "server/controllers/borrowController.js",
+      "line": 621,
+      "sha256": "5ab82241285204d0952a75971b073c98f581d87bf4a5c19f9c3b57266e47a4e8"
+    },
+    {
+      "id": "07-item-unavailability",
+      "file": "07-item-unavailability.sql",
+      "source": "server/controllers/borrowController.js",
+      "line": 634,
+      "sha256": "ed9f7d39ddbf4f8c8faf0d80c5d996d791e740b700bf946cdf58a976c4a06bd4"
+    }
+  ],
+  "files": [
+    {
+      "file": "source/borrowController.js",
+      "sha256": "e89f9931b1a5ef4bc951701e2439df16353a191aef4d3ebd2e17682cba665a8a"
+    },
+    {
+      "file": "source/conflictDetection.js",
+      "sha256": "c840bb398a9baa9bc53c9fcf3e44f95715842181faec08bc120d0b4b2c7c1bd8"
+    },
+    {
+      "file": "01-borrower-lock.sql",
+      "sha256": "751f836dc8f78c330387456dd68a8803972c7b3e2b6a2b95c27f15068bed2ca5"
+    },
+    {
+      "file": "02-accountability.sql",
+      "sha256": "8c98d06f7a45c257fa4fcf91b50aa7e900d62566e7d2bd9af2ba892302b57ae4"
+    },
+    {
+      "file": "03-usable-inventory.sql",
+      "sha256": "06df2deb884992d0ea50ba482323ce55916473c4f7643086b3e253553cd6235d"
+    },
+    {
+      "file": "04-inventory-commitments.sql",
+      "sha256": "8fe622968ef1c99bbb6fa2e88537779799ac3153c6cee2d5489504f4f7b27722"
+    },
+    {
+      "file": "05-outstanding-borrowing.sql",
+      "sha256": "8414ee757b018f45510800f6b2687bcd2dc0a9ad515db7abe288b76b1d58a397"
+    },
+    {
+      "file": "06-borrower-conflicts.sql",
+      "sha256": "5ab82241285204d0952a75971b073c98f581d87bf4a5c19f9c3b57266e47a4e8"
+    },
+    {
+      "file": "07-item-unavailability.sql",
+      "sha256": "ed9f7d39ddbf4f8c8faf0d80c5d996d791e740b700bf946cdf58a976c4a06bd4"
+    },
+    {
+      "file": "migrations/001_csp_database_integration.sql",
+      "sha256": "243629b17490146e5a5bcf8ecc1e624b647155b5089c2f053416610e216c636b"
+    },
+    {
+      "file": "migrations/002_borrowing_conflict_detection.sql",
+      "sha256": "cf85f8366f8e1e9cfd27651ab9c6140591799784666da7ea5e4788b881d6959c"
+    },
+    {
+      "file": "migrations/003_authentication_and_rbac.sql",
+      "sha256": "5f11d40dde1a7c667ac0ee9978f5ddfaf3c3258dd2e852cc2662735987253ff9"
+    },
+    {
+      "file": "migrations/004_low_stock_threshold.sql",
+      "sha256": "d4e0a9b25f351d911640a213b94b2c4fcca46d8d05060114ca77206326791b28"
+    },
+    {
+      "file": "migrations/005_inventory_unavailability.sql",
+      "sha256": "ad80266bdb441b436de1ed47e2e312f64c72b61a075d89aa556e67ba1962e433"
+    },
+    {
+      "file": "migrations/006_audit_trail.sql",
+      "sha256": "703141bb40ba017eba76df5a1891476baa4138f29372dfead12aeb5dc734942e"
+    },
+    {
+      "file": "migrations/007_notifications.sql",
+      "sha256": "197d0bf27d3309c146901624b2fee782a0070a3a1e3cf507e9f2743f7450c3d1"
+    },
+    {
+      "file": "migrations/008_return_condition_tracking.sql",
+      "sha256": "130f496eb07bb8a83f29521e9da62481408e1f1b4e6373bf6bee64ad54a7bed9"
+    },
+    {
+      "file": "migrations/009_user_role_management.sql",
+      "sha256": "5e9c53ce4a59f7139fc05d1ce6493f959649c48985c2d1d106958025a1e15abc"
+    },
+    {
+      "file": "migrations/010_overdue_monitoring.sql",
+      "sha256": "8a7b0a1ee63eaa861ea55a0b0ba47cdbb5ba95dcceaa25d944372aa064fb07b3"
+    },
+    {
+      "file": "migrations/011_authoritative_inventory_accounting.sql",
+      "sha256": "ab782060e60d1d3f3bf62ff9d95ae7d8d0579f697b32cebc13de38429403ff8f"
+    },
+    {
+      "file": "migrations/012_announcements.sql",
+      "sha256": "fe81fc5464581b3c8948bba8d25acbdc5e7aaaaaa3c3d7964dd363656f87dac1"
+    },
+    {
+      "file": "migrations/013_borrowing_calendar_deadlines.sql",
+      "sha256": "28b7b91b931c15ce2521e92005f65e55b4db33f3b0eb91af8d973897b32405c9"
+    },
+    {
+      "file": "migrations/014_account_qr_claim_flow.sql",
+      "sha256": "175c7d8da82d723237b8dccdfdfada3ddd6f41c56936f6865f7107a01e96e76c"
+    },
+    {
+      "file": "migrations/015_phone_scanner_pairing.sql",
+      "sha256": "804194bc116c040710bbe67563d29119e0c2d54535763e78c2393c6a483e3484"
+    },
+    {
+      "file": "migrations/016_qr_return_processing.sql",
+      "sha256": "d96b629436aae260d7bbfc2749226cb25335ffcd402f1ceef676b1d1b469ed33"
+    },
+    {
+      "file": "migrations/017_physical_qr_issuance.sql",
+      "sha256": "20b12a39671e4b7af2cba19ec14aa079ab29efae0dc0df090a444b993a564602"
+    },
+    {
+      "file": "migrations/018_serialized_asset_tracking.sql",
+      "sha256": "77aee26054ec88ff24ed76fc9db077f28e89f02aea6d462774cb63f05e9acc48"
+    },
+    {
+      "file": "migrations/019_serialized_asset_incidents.sql",
+      "sha256": "e01b8077825d5db466c58d983cf426e40e2578116906eb8a8154fc95b6d5e7aa"
+    },
+    {
+      "file": "migrations/020_inventory_reconciliation.sql",
+      "sha256": "6685c6531e48db416c65e73b3acd50461981c3e7a4de81045c0383e85bc34f73"
+    },
+    {
+      "file": "migrations/021_asset_maintenance_tracking.sql",
+      "sha256": "13a13f0890508a1df1558edbadf4eedf22f12393f8bf36b8988a4d3f0e03ecf7"
+    },
+    {
+      "file": "migrations/022_preventive_maintenance.sql",
+      "sha256": "d5a5655a11440d2dd834f9ad994a180e36d3cd6729a5590e411e32c7226f5c86"
+    },
+    {
+      "file": "migrations/023_global_qr_uniqueness.sql",
+      "sha256": "182c0f6735cd797e5f07958b397a146dbb575288711b21ddf0c48b23af626ccf"
+    },
+    {
+      "file": "migrations/024_transaction_receipts.sql",
+      "sha256": "cefdf6a78866b75e400000a3591ae3bb4c9109becfe2d061445639790e1a475e"
+    },
+    {
+      "file": "migrations/025_accountability_cases.sql",
+      "sha256": "1f0867f35f31c3557efbdb29a86a05a16c22943faccff42a092e3bd5dbc913b0"
+    },
+    {
+      "file": "migrations/026_professor_request_authorization.sql",
+      "sha256": "d499b02a56412a0ad0068c5a520068fe02b77fc06bda1c91385d9ef9dac7776b"
+    },
+    {
+      "file": "migrations/027_academic_request_assignment.sql",
+      "sha256": "4665653febaf6fe919ded8b39ffb6b699f876d73d0bac82a8b1e6d319487f4a5"
+    },
+    {
+      "file": "migrations/028_assigned_professor_authorization.sql",
+      "sha256": "e27428c1bc2c778bafbbd6d1f1d77a9b13e3038fb59b89f2dbeb6f4494d336a5"
+    },
+    {
+      "file": "migrations/029_department_stockroom_rbac.sql",
+      "sha256": "9bab981bf486387bc3a53b45c008be3189d3953be9c9518b60288ea0da01a6b4"
+    },
+    {
+      "file": "migrations/030_department_scope_hardening.sql",
+      "sha256": "6a77970a80d727f983d87ccbe0b7221f51c992b8c1d6de85809c7af1c0beba4b"
+    },
+    {
+      "file": "migrations/031_custodian_signature_profiles.sql",
+      "sha256": "a1af1bc142ec76a5c0390e906f40de20960ea5d22ae710e5df292c2a5aef5917"
+    },
+    {
+      "file": "migrations/032_custodian_request_authorization.sql",
+      "sha256": "ec46504b76a652ece60ec4443139e1594aed0b0999e395feecf8d75bc213b8db"
+    },
+    {
+      "file": "migrations/033_repair_request_department_assignments.sql",
+      "sha256": "222473787ae90deae5208afdf718fad4879fe35cd18fd67deecd36fdc805c9f9"
+    },
+    {
+      "file": "migrations/034_admin_and_transaction_signatures.sql",
+      "sha256": "39f0788e0b4395104d6c9638a68d35944e3574efcf37f65ebeef9bc9a2745de8"
+    },
+    {
+      "file": "migrations/035_department_head_approval_rbac.sql",
+      "sha256": "11bdd0c56afa0d04ca4b5aa5a7667e947473303dd9c98601d27ec9d8cceed596"
+    },
+    {
+      "file": "migrations/036_finalized_borrowing_records.sql",
+      "sha256": "1af2392cc81604267a98470c598979c11c7d9504355066eaaa124595df93db78"
+    },
+    {
+      "file": "migrations/037_student_borrower_signatures.sql",
+      "sha256": "fe4ec0e4232e03038c668fa56fb57120b3e2b2adf21f2c8648b1c53a29271322"
+    },
+    {
+      "file": "migrations/038_admin_custodian_head_approval.sql",
+      "sha256": "ccd91dfaca8b486d6f39078f356288e709ae2677bd9d649861f34230742f1eaa"
+    },
+    {
+      "file": "migrations/039_borrowing_document_archive.sql",
+      "sha256": "df8840228954ee0697c1cc744a2d58820083cdaaddab633177ce9965bdd08642"
+    },
+    {
+      "file": "migrations/040_borrowing_request_cancellation.sql",
+      "sha256": "4077d87f1debe701350fc02c45bc0832fdc4daeeda4b1a36d2584e7f6f60c2de"
+    },
+    {
+      "file": "migrations/041_profile_academic_section.sql",
+      "sha256": "3bf73472e5b49b042f96d88a38c87e5c09433d707af7fdeb5bd2d348f9bec880"
+    },
+    {
+      "file": "migrations/042_staff_admin_transaction_processing.sql",
+      "sha256": "25a7387cb70e6bb2e45c52cf0ffb173afa7c5524fd093cb868321791b696edb2"
+    },
+    {
+      "file": "migrations/043_calendar_closures.sql",
+      "sha256": "492b222c55b2646ad1fa1e9a2b371b23d292227fb1b2850d1bfd5f5e42c8a021"
+    },
+    {
+      "file": "migrations/044_borrowing_reschedules.sql",
+      "sha256": "80bebd8ffb64657ca97ab09af8e565963e5cda98fe32ed626e44133f53c23c08"
+    },
+    {
+      "file": "migrations/045_announcement_review_queue.sql",
+      "sha256": "34c4eada17159e319482070b0bb94ec22b9827dd6f5d97a63ff640d1c040b212"
+    },
+    {
+      "file": "migrations/046_announcement_review_evidence.sql",
+      "sha256": "326f3e902ed642a8821381bd59d67aed9941ae1e8bb6b35a88b76c2823a270f4"
+    },
+    {
+      "file": "migrations/047_time_aware_borrowing_closures.sql",
+      "sha256": "da3d495216f3285d13a5a95e4d70e705a5d9436cee9a35d02963c33ec2249981"
+    },
+    {
+      "file": "migrations/048_professor_multi_section_assignments.sql",
+      "sha256": "996ca218f09f9c58054daf5f4d58c991b06573c06932ef1a947004366f9a09f7"
+    },
+    {
+      "file": "migrations/049_enforce_professor_section_assignments.sql",
+      "sha256": "e6783a2e053dc23a05dc1ab40ec85a0a696a65e9c19b8f0d079ac2ab62b4f336"
+    }
+  ]
+}
